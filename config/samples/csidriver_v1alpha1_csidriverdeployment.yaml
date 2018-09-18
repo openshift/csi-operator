@@ -1,0 +1,9 @@
+apiVersion: csidriver.storage.okd.io/v1alpha1
+kind: CSIDriverDeployment
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: csidriverdeployment-sample
+spec:
+  # Add fields here
+  foo: bar
