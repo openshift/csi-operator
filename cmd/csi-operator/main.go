@@ -18,12 +18,19 @@ package main
 import (
 	"log"
 
+	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
+
 	"github.com/openshift/csi-operator/pkg/apis"
 	"github.com/openshift/csi-operator/pkg/controller"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+)
+
+const (
+	// Nr. of replicas of Deployment with controller components.
+	controllerDeploymentReplicaCount = 2
 )
 
 func main() {
@@ -47,7 +54,8 @@ func main() {
 	}
 
 	// Setup all Controllers
-	if err := controller.Add(mgr); err != nil {
+	controllerCfg := getConfig()
+	if err := controller.Add(mgr, controllerCfg); err != nil {
 		log.Fatal(err)
 	}
 
@@ -55,4 +63,26 @@ func main() {
 
 	// Start the Cmd
 	log.Fatal(mgr.Start(signals.SetupSignalHandler()))
+}
+
+func getConfig() controller.Config {
+	str2ptr := func(str string) *string {
+		return &str
+	}
+
+	return controller.Config{
+		// TODO: get the real image names from somewhere (config file or cmdline args?)
+		DefaultImages: v1alpha1.CSIDeploymentContainerImages{
+			AttacherImage:        str2ptr("quay.io/k8scsi/csi-attacher:v0.3.0"),
+			ProvisionerImage:     str2ptr("quay.io/k8scsi/csi-provisioner:v0.3.1"),
+			DriverRegistrarImage: str2ptr("quay.io/k8scsi/driver-registrar:v0.3.0"),
+			LivenessProbeImage:   str2ptr("quay.io/k8scsi/livenessprobe:latest"),
+		},
+		// TODO: get the selector from somewhere
+		InfrastructureNodeSelector: nil,
+		// Not configurable at all
+		DeploymentReplicas:            controllerDeploymentReplicaCount,
+		ClusterRoleName:               "csi-driver",
+		LeaderElectionClusterRoleName: "csi-driver-leader-election",
+	}
 }

@@ -44,13 +44,17 @@ import (
 // Add creates a new CSIDriverDeployment Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 // USER ACTION REQUIRED: update cmd/manager/main.go to call this csidriver.Add(mgr) to install this Controller
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+func Add(mgr manager.Manager, cfg Config) error {
+	return add(mgr, newReconciler(mgr, cfg))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileCSIDriverDeployment{Client: mgr.GetClient(), scheme: mgr.GetScheme()}
+func newReconciler(mgr manager.Manager, cfg Config) reconcile.Reconciler {
+	return &ReconcileCSIDriverDeployment{
+		Client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		config: cfg,
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -86,6 +90,7 @@ var _ reconcile.Reconciler = &ReconcileCSIDriverDeployment{}
 type ReconcileCSIDriverDeployment struct {
 	client.Client
 	scheme *runtime.Scheme
+	config Config
 }
 
 // Reconcile reads that state of the cluster for a CSIDriverDeployment object and makes changes based on the state read

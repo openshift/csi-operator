@@ -48,7 +48,7 @@ func TestReconcile(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	c = mgr.GetClient()
 
-	recFn, requests := SetupTestReconcile(newReconciler(mgr))
+	recFn, requests := SetupTestReconcile(newReconciler(mgr, getConfig()))
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 	defer close(StartTestManager(mgr, g))
 
@@ -77,4 +77,21 @@ func TestReconcile(t *testing.T) {
 	// Manually delete Deployment since GC isn't enabled in the test control plane
 	g.Expect(c.Delete(context.TODO(), deploy)).To(gomega.Succeed())
 
+}
+
+func getConfig() Config {
+	str2ptr := func(str string) *string {
+		return &str
+	}
+
+	return Config{
+		DefaultImages: csidriverv1alpha1.CSIDeploymentContainerImages{
+			AttacherImage:        str2ptr("csi-attacher"),
+			ProvisionerImage:     str2ptr("csi-provisioner"),
+			DriverRegistrarImage: str2ptr("driver-registrar"),
+			LivenessProbeImage:   str2ptr("livenessprobe"),
+		},
+		InfrastructureNodeSelector: nil,
+		DeploymentReplicas:         1,
+	}
 }
