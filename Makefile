@@ -1,20 +1,20 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= csi-operator:latest
 
-all: manager
+all: build
 
 # Run tests
 test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
-# Build manager binary
-manager: generate
-	go build -o bin/manager github.com/openshift/csi-operator/cmd/manager
+# Build the binary
+build: generate
+	go build -o bin/csi-operator github.com/openshift/csi-operator/cmd/csi-operator
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate
-	go run ./cmd/manager/main.go
+	go run ./cmd/csi-operator/main.go
 
 # Install CRDs into a cluster
 install: manifests
