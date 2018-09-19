@@ -47,7 +47,7 @@ func main() {
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
+	if err := controller.Add(mgr); err != nil {
 		log.Fatal(err)
 	}
 
