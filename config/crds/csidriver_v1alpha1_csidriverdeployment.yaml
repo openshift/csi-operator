@@ -11,6 +11,8 @@ spec:
     kind: CSIDriverDeployment
     plural: csidriverdeployments
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       properties:
@@ -21,8 +23,93 @@ spec:
         metadata:
           type: object
         spec:
+          properties:
+            containerImages:
+              properties:
+                attacherImage:
+                  type: string
+                driverRegistrarImage:
+                  type: string
+                livenessProbeImage:
+                  type: string
+                provisionerImage:
+                  type: string
+              type: object
+            driverControllerTemplate:
+              type: object
+            driverName:
+              type: string
+            driverPerNodeTemplate:
+              type: object
+            driverSocket:
+              type: string
+            nodeUpdateStrategy:
+              type: string
+            storageClassTemplates:
+              items:
+                properties:
+                  allowVolumeExpansion:
+                    type: boolean
+                  allowedTopologies:
+                    items:
+                      type: object
+                    type: array
+                  default:
+                    type: boolean
+                  metadata:
+                    type: object
+                  mountOptions:
+                    items:
+                      type: string
+                    type: array
+                  parameters:
+                    type: object
+                  reclaimPolicy:
+                    enum:
+                    - Recycle
+                    - Delete
+                    - Retain
+                    type: string
+                  volumeBindingMode:
+                    enum:
+                    - Rolling
+                    - OnDelete
+                    type: string
+                type: object
+              type: array
+          required:
+          - driverName
+          - driverPerNodeTemplate
+          - driverSocket
+          - nodeUpdateStrategy
           type: object
         status:
+          properties:
+            children:
+              items:
+                properties:
+                  group:
+                    type: string
+                  lastGeneration:
+                    format: int64
+                    type: integer
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                  resource:
+                    type: string
+                required:
+                - group
+                - resource
+                - namespace
+                - name
+                - lastGeneration
+                type: object
+              type: array
+            observedGeneration:
+              format: int64
+              type: integer
           type: object
   version: v1alpha1
 status:
