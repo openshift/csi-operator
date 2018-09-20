@@ -17,7 +17,6 @@ package controller
 
 import (
 	csi "github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
-	"k8s.io/api/core/v1"
 )
 
 // Configuration of the CSI Driver operator.
@@ -27,10 +26,10 @@ type Config struct {
 
 	// Selector of nodes where Deployment with controller components (provisioner, attacher) can run.
 	// When nil, no selector will be set in the Deployment.
-	InfrastructureNodeSelector *v1.NodeSelector
+	InfrastructureNodeSelector map[string]string
 
 	// Number of replicas of Deployment with controller components.
-	DeploymentReplicas int
+	DeploymentReplicas int32
 
 	// Name of cluster role to bind to ServiceAccount that runs all pods with drivers. This role allows to run
 	// provisioner, attacher and driver registrar, i.e. read/modify PV, PVC, Node, VolumeAttachment and whatnot in
@@ -44,4 +43,7 @@ type Config struct {
 	// provisioner to run leader election. It will be bound to the ServiceAccount using RoleBind, i.e. leader election
 	// will be possible only in the namespace where the drivers run.
 	LeaderElectionClusterRoleName string
+
+	// Path to /var/lib/kubelet.
+	KubeletRootDir string
 }

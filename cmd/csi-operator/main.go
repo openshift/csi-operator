@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"log"
 
 	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
@@ -30,10 +31,13 @@ import (
 
 const (
 	// Nr. of replicas of Deployment with controller components.
-	controllerDeploymentReplicaCount = 2
+	// TODO: increase when we pass leader election parameters to pods.
+	controllerDeploymentReplicaCount = 1
 )
 
 func main() {
+	flag.Parse()
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -82,7 +86,8 @@ func getConfig() controller.Config {
 		InfrastructureNodeSelector: nil,
 		// Not configurable at all
 		DeploymentReplicas:            controllerDeploymentReplicaCount,
-		ClusterRoleName:               "csi-driver",
-		LeaderElectionClusterRoleName: "csi-driver-leader-election",
+		ClusterRoleName:               "csidriver",
+		LeaderElectionClusterRoleName: "csidriver-controller-leader-election",
+		KubeletRootDir:                "/var/lib/kubelet",
 	}
 }

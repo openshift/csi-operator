@@ -38,7 +38,7 @@ type CSIDriverDeploymentSpec struct {
 	// If the CSI driver should run only on specific nodes, this
 	// template must have the right node selector.
 	// Required.
-	DriverPerNodeTemplate corev1.PodTemplate `json:"driverPerNodeTemplate"`
+	DriverPerNodeTemplate corev1.PodTemplateSpec `json:"driverPerNodeTemplate"`
 
 	// Template of pods that will run the controller parts (attacher, provisioner). Nil when
 	// the driver does not require any attacher or provisioner. Sidecar container
@@ -48,7 +48,7 @@ type CSIDriverDeploymentSpec struct {
 	// container with a directory for the CSI driver socket. See
 	// DriverSocket.
 	// Optional.
-	DriverControllerTemplate *corev1.PodTemplate `json:"driverControllerTemplate,omitempty"`
+	DriverControllerTemplate *corev1.PodTemplateSpec `json:"driverControllerTemplate,omitempty"`
 
 	// Path to CSI socket in the containers with CSI driver. In case
 	// perNodeTemplate or controllerTemplate have more containers, this
@@ -106,7 +106,7 @@ type StorageClassTemplate struct {
 	// provisioned and bound.  When unset, VolumeBindingImmediate is used.
 	// This field is only honored by servers that enable the VolumeScheduling feature.
 	// Optional.
-	// +kubebuilder:validation:Enum=Rolling,OnDelete
+	// +kubebuilder:validation:Enum=Immediate,WaitForFirstConsumer
 	VolumeBindingMode *storagev1.VolumeBindingMode `json:"volumeBindingMode,omitempty"`
 
 	// Restrict the node topologies where volumes can be dynamically provisioned.
@@ -170,7 +170,7 @@ type ChildGeneration struct {
 	// group is the group of the thing you're tracking
 	Group string `json:"group"`
 	// resource is the resource type of the thing you're tracking
-	Resource string `json:"resource"`
+	Kind string `json:"kind"`
 	// namespace is where the thing you're tracking is
 	Namespace string `json:"namespace"`
 	// name is the name of the thing you're tracking

@@ -1,8 +1,8 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= csi-operator:latest
+IMG ?= csi-operator:canary
 
-all: build
+all: manifests build
 
 # Run tests
 test: generate fmt vet manifests

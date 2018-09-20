@@ -8,6 +8,45 @@ rules:
   - apps
   resources:
   - deployments
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  - rolebindings
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
   verbs:
   - get
   - list
@@ -24,7 +63,5 @@ rules:
   - get
   - list
   - watch
-  - create
   - update
   - patch
-  - delete

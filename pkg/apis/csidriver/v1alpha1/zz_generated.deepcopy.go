@@ -127,7 +127,7 @@ func (in *CSIDriverDeploymentSpec) DeepCopyInto(out *CSIDriverDeploymentSpec) {
 	in.DriverPerNodeTemplate.DeepCopyInto(&out.DriverPerNodeTemplate)
 	if in.DriverControllerTemplate != nil {
 		in, out := &in.DriverControllerTemplate, &out.DriverControllerTemplate
-		*out = new(v1.PodTemplate)
+		*out = new(v1.PodTemplateSpec)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.StorageClassTemplates != nil {
