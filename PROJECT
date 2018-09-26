@@ -1,0 +1,3 @@
+version: "1"
+domain: storage.okd.io
+repo: github.com/openshift/csi-operator
