@@ -15,9 +15,11 @@ This operator deploys a CSI driver into Kubernetes cluster.
     ```
 
 3. Run the operator:
-    ```bash
-    $ 
-    ```
+
+    * Outside of OpenShift (for debugging)
+      ```bash
+      $ bin/csi-operator -v 5 -alsologtostderr -kubeconfig=/etc/origin/master/admin.kubeconfig
+      ```
 
 ## Details
 
