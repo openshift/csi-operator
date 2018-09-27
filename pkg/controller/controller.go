@@ -409,10 +409,12 @@ func (r *ReconcileCSIDriverDeployment) syncDaemonSet(cr *csidriverv1alpha1.CSIDr
 
 		if r.childModified(cr, appsv1.GroupName, "DaemonSet", existingDS.ObjectMeta) {
 			// DaemonSet.Spec has changed from the value set by the controller
+			existingDS.Spec = expectedDS.Spec
 			changed = true
 		}
 
 		if specHasChanged(cr) {
+			existingDS.Spec = expectedDS.Spec
 			changed = true
 		}
 
@@ -439,11 +441,14 @@ func (r *ReconcileCSIDriverDeployment) syncDeployment(cr *csidriverv1alpha1.CSID
 
 		if r.childModified(cr, appsv1.GroupName, "Deployment", existingDeployment.ObjectMeta) {
 			// Deployment.Spec has changed from the value set by the controller
+			existingDeployment.Spec = expectedDeployment.Spec
 			changed = true
 		}
 
 		if specHasChanged(cr) {
+			existingDeployment.Spec = expectedDeployment.Spec
 			changed = true
+
 		}
 
 		return nil, changed, existingDeployment
