@@ -1,72 +1,51 @@
-/*
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package main
 
 import (
+	"context"
 	"flag"
-	"log"
+	"runtime"
+	"time"
 
-	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
+	"github.com/openshift/csi-operator2/pkg/apis/csidriver/v1alpha1"
 
-	"github.com/openshift/csi-operator/pkg/apis"
-	"github.com/openshift/csi-operator/pkg/controller"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"github.com/openshift/csi-operator2/pkg/controller"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	"k8s.io/api/core/v1"
+
+	"github.com/sirupsen/logrus"
 )
 
-const (
-	// Nr. of replicas of Deployment with controller components.
-	// TODO: increase when we pass leader election parameters to pods.
-	controllerDeploymentReplicaCount = 1
-)
+func printVersion() {
+	logrus.Infof("Go Version: %s", runtime.Version())
+	logrus.Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
+	logrus.Infof("operator-sdk Version: %v", sdkVersion.Version)
+}
 
 func main() {
+	// for glog
 	flag.Parse()
 
-	// Get a config to talk to the apiserver
-	cfg, err := config.GetConfig()
+	printVersion()
+
+	//sdk.ExposeMetricsPort()
+
+	resyncPeriod := time.Duration(30) * time.Second
+	namespace := v1.NamespaceAll
+	sdk.Watch("csidriver.storage.okd.io/v1alpha1", "CSIDriverDeployment", namespace, resyncPeriod)
+	sdk.Watch("apps/v1", "Deployment", namespace, resyncPeriod)
+	sdk.Watch("apps/v1", "DaemonSet", namespace, resyncPeriod)
+	sdk.Watch("v1", "ServiceAccount", namespace, resyncPeriod)
+	sdk.Watch("rbac.authorization.k8s.io/v1", "RoleBinding", namespace, resyncPeriod)
+	sdk.Watch("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", namespace, resyncPeriod)
+	sdk.Watch("storage.k8s.io/v1", "StorageClass", namespace, resyncPeriod)
+
+	handler, err := controller.NewHandler(getConfig())
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatalf("Failed to start handler: %s", err)
 	}
-
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Registering Components.")
-
-	// Setup Scheme for all resources
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Fatal(err)
-	}
-
-	// Setup all Controllers
-	controllerCfg := getConfig()
-	if err := controller.Add(mgr, controllerCfg); err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Starting the Cmd.")
-
-	// Start the Cmd
-	log.Fatal(mgr.Start(signals.SetupSignalHandler()))
+	sdk.Handle(handler)
+	sdk.Run(context.TODO())
 }
 
 func getConfig() controller.Config {
@@ -85,7 +64,7 @@ func getConfig() controller.Config {
 		// TODO: get the selector from somewhere
 		InfrastructureNodeSelector: nil,
 		// Not configurable at all
-		DeploymentReplicas:            controllerDeploymentReplicaCount,
+		DeploymentReplicas:            1,
 		ClusterRoleName:               "csidriver",
 		LeaderElectionClusterRoleName: "csidriver-controller-leader-election",
 		KubeletRootDir:                "/var/lib/kubelet",

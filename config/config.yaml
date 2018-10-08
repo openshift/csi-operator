@@ -1,0 +1,3 @@
+apiVersion: csidriver.storage.okd.io/v1alpha1
+kind: CSIDriverDeployment
+projectName: csi-operator2

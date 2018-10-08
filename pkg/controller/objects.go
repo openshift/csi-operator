@@ -1,25 +1,10 @@
-/*
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
 	"path"
 	"regexp"
 
-	csidriverv1alpha1 "github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
+	csidriverv1alpha1 "github.com/openshift/csi-operator2/pkg/apis/csidriver/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -29,7 +14,7 @@ import (
 
 // generateServiceAccount prepares a ServiceAccount that will be used by all pods (controller + daemon set) with
 // CSI drivers and its sidecar containers.
-func (r *ReconcileCSIDriverDeployment) generateServiceAccount(cr *csidriverv1alpha1.CSIDriverDeployment) *v1.ServiceAccount {
+func (h *Handler) generateServiceAccount(cr *csidriverv1alpha1.CSIDriverDeployment) *v1.ServiceAccount {
 	scName := cr.Name
 
 	sc := &v1.ServiceAccount{
@@ -38,16 +23,16 @@ func (r *ReconcileCSIDriverDeployment) generateServiceAccount(cr *csidriverv1alp
 			Name:      scName,
 		},
 	}
-	r.addOwnerLabels(&sc.ObjectMeta, cr)
-	r.addOwner(&sc.ObjectMeta, cr)
+	h.addOwnerLabels(&sc.ObjectMeta, cr)
+	h.addOwner(&sc.ObjectMeta, cr)
 
 	return sc
 }
 
 // generateClusterRoleBinding prepares a ClusterRoleBinding that gives a ServiceAccount privileges needed by
 // sidecar containers.
-func (r *ReconcileCSIDriverDeployment) generateClusterRoleBinding(cr *csidriverv1alpha1.CSIDriverDeployment, serviceAccount *v1.ServiceAccount) *rbacv1.ClusterRoleBinding {
-	crbName := r.uniqueGlobalName(cr)
+func (h *Handler) generateClusterRoleBinding(cr *csidriverv1alpha1.CSIDriverDeployment, serviceAccount *v1.ServiceAccount) *rbacv1.ClusterRoleBinding {
+	crbName := h.uniqueGlobalName(cr)
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crbName,
@@ -62,17 +47,17 @@ func (r *ReconcileCSIDriverDeployment) generateClusterRoleBinding(cr *csidriverv
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     r.config.ClusterRoleName,
+			Name:     h.config.ClusterRoleName,
 		},
 	}
-	r.addOwnerLabels(&crb.ObjectMeta, cr)
-	r.addOwner(&crb.ObjectMeta, cr)
+	h.addOwnerLabels(&crb.ObjectMeta, cr)
+	h.addOwner(&crb.ObjectMeta, cr)
 	return crb
 }
 
 // generateLeaderElectionRoleBinding prepares a RoleBinding that gives a ServiceAccount privileges needed by
 // attacher and provisioner leader election.
-func (r *ReconcileCSIDriverDeployment) generateLeaderElectionRoleBinding(cr *csidriverv1alpha1.CSIDriverDeployment, serviceAccount *v1.ServiceAccount) *rbacv1.RoleBinding {
+func (h *Handler) generateLeaderElectionRoleBinding(cr *csidriverv1alpha1.CSIDriverDeployment, serviceAccount *v1.ServiceAccount) *rbacv1.RoleBinding {
 	rbName := "leader-election-" + cr.Name
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -89,16 +74,16 @@ func (r *ReconcileCSIDriverDeployment) generateLeaderElectionRoleBinding(cr *csi
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     r.config.LeaderElectionClusterRoleName,
+			Name:     h.config.LeaderElectionClusterRoleName,
 		},
 	}
-	r.addOwnerLabels(&rb.ObjectMeta, cr)
-	r.addOwner(&rb.ObjectMeta, cr)
+	h.addOwnerLabels(&rb.ObjectMeta, cr)
+	h.addOwner(&rb.ObjectMeta, cr)
 	return rb
 }
 
 // generateDaemonSet prepares a DaemonSet with CSI driver and driver registrar sidecar containers.
-func (r *ReconcileCSIDriverDeployment) generateDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, serviceAccount *v1.ServiceAccount) *appsv1.DaemonSet {
+func (h *Handler) generateDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, serviceAccount *v1.ServiceAccount) *appsv1.DaemonSet {
 	dsName := cr.Name + "-node"
 
 	labels := map[string]string{
@@ -130,15 +115,15 @@ func (r *ReconcileCSIDriverDeployment) generateDaemonSet(cr *csidriverv1alpha1.C
 	registrarSocketPath := path.Join(registrarSocketDirectory, csiDriverSocketFileName)
 
 	// Path to the CSI driver socket from kubelet point of view
-	kubeletSocketDirectory := path.Join(r.config.KubeletRootDir, "plugins", sanitizeDriverName(cr.Spec.DriverName))
+	kubeletSocketDirectory := path.Join(h.config.KubeletRootDir, "plugins", sanitizeDriverName(cr.Spec.DriverName))
 	kubeletSocketPath := path.Join(registrarSocketDirectory, csiDriverSocketFileName)
 
 	// Path to the kubelet dynamic registration directory
-	kubeletRegistrationDirectory := path.Join(r.config.KubeletRootDir, "plugins")
+	kubeletRegistrationDirectory := path.Join(h.config.KubeletRootDir, "plugins")
 
 	bTrue := true
 	// Add CSI Registrar sidecar
-	registrarImage := *r.config.DefaultImages.DriverRegistrarImage
+	registrarImage := *h.config.DefaultImages.DriverRegistrarImage
 	if cr.Spec.ContainerImages != nil && cr.Spec.ContainerImages.DriverRegistrarImage != nil {
 		registrarImage = *cr.Spec.ContainerImages.DriverRegistrarImage
 	}
@@ -238,14 +223,14 @@ func (r *ReconcileCSIDriverDeployment) generateDaemonSet(cr *csidriverv1alpha1.C
 			},
 		},
 	}
-	r.addOwnerLabels(&ds.ObjectMeta, cr)
-	r.addOwner(&ds.ObjectMeta, cr)
+	h.addOwnerLabels(&ds.ObjectMeta, cr)
+	h.addOwner(&ds.ObjectMeta, cr)
 
 	return ds
 }
 
 // generateDeployment prepares a Deployment with CSI driver and attacher and provisioner sidecar containers.
-func (r *ReconcileCSIDriverDeployment) generateDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, serviceAccount *v1.ServiceAccount) *appsv1.Deployment {
+func (h *Handler) generateDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, serviceAccount *v1.ServiceAccount) *appsv1.Deployment {
 	dName := cr.Name + "-controller"
 
 	labels := map[string]string{
@@ -277,7 +262,7 @@ func (r *ReconcileCSIDriverDeployment) generateDeployment(cr *csidriverv1alpha1.
 	sidecarSocketDirectory := "/csi"
 	sidecarSocketPath := path.Join(sidecarSocketDirectory, csiDriverSocketFileName)
 
-	provisionerImage := *r.config.DefaultImages.ProvisionerImage
+	provisionerImage := *h.config.DefaultImages.ProvisionerImage
 	if cr.Spec.ContainerImages != nil && cr.Spec.ContainerImages.ProvisionerImage != nil {
 		provisionerImage = *cr.Spec.ContainerImages.ProvisionerImage
 	}
@@ -305,7 +290,7 @@ func (r *ReconcileCSIDriverDeployment) generateDeployment(cr *csidriverv1alpha1.
 	}
 	podSpec.Spec.Containers = append(podSpec.Spec.Containers, provisioner)
 
-	attacherImage := *r.config.DefaultImages.AttacherImage
+	attacherImage := *h.config.DefaultImages.AttacherImage
 	if cr.Spec.ContainerImages != nil && cr.Spec.ContainerImages.AttacherImage != nil {
 		attacherImage = *cr.Spec.ContainerImages.AttacherImage
 	}
@@ -345,7 +330,7 @@ func (r *ReconcileCSIDriverDeployment) generateDeployment(cr *csidriverv1alpha1.
 
 	// Set selector to infra nodes only
 	if podSpec.Spec.NodeSelector == nil {
-		podSpec.Spec.NodeSelector = r.config.InfrastructureNodeSelector
+		podSpec.Spec.NodeSelector = h.config.InfrastructureNodeSelector
 	}
 
 	// Patch the driver container with the volume for CSI driver socket
@@ -366,20 +351,20 @@ func (r *ReconcileCSIDriverDeployment) generateDeployment(cr *csidriverv1alpha1.
 				MatchLabels: labels,
 			},
 			Template: *podSpec,
-			Replicas: &r.config.DeploymentReplicas,
+			Replicas: &h.config.DeploymentReplicas,
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 			},
 		},
 	}
-	r.addOwnerLabels(&deployment.ObjectMeta, cr)
-	r.addOwner(&deployment.ObjectMeta, cr)
+	h.addOwnerLabels(&deployment.ObjectMeta, cr)
+	h.addOwner(&deployment.ObjectMeta, cr)
 
 	return deployment
 }
 
 // generateStorageClass prepares a StorageClass from given template
-func (r *ReconcileCSIDriverDeployment) generateStorageClass(cr *csidriverv1alpha1.CSIDriverDeployment, template *csidriverv1alpha1.StorageClassTemplate) *storagev1.StorageClass {
+func (h *Handler) generateStorageClass(cr *csidriverv1alpha1.CSIDriverDeployment, template *csidriverv1alpha1.StorageClassTemplate) *storagev1.StorageClass {
 	expectedSC := &storagev1.StorageClass{
 		// ObjectMeta will be filled below
 		Provisioner:          cr.Spec.DriverName,
@@ -391,8 +376,8 @@ func (r *ReconcileCSIDriverDeployment) generateStorageClass(cr *csidriverv1alpha
 		AllowedTopologies:    template.AllowedTopologies,
 	}
 	template.ObjectMeta.DeepCopyInto(&expectedSC.ObjectMeta)
-	r.addOwnerLabels(&expectedSC.ObjectMeta, cr)
-	r.addOwner(&expectedSC.ObjectMeta, cr)
+	h.addOwnerLabels(&expectedSC.ObjectMeta, cr)
+	h.addOwner(&expectedSC.ObjectMeta, cr)
 	if template.Default != nil && *template.Default == true {
 		expectedSC.Annotations = map[string]string{
 			"storageclass.kubernetes.io/is-default-class": "true",
@@ -407,4 +392,40 @@ func sanitizeDriverName(driver string) string {
 	re := regexp.MustCompile("[^a-zA-Z0-9-.]")
 	name := re.ReplaceAllString(driver, "-")
 	return name
+}
+
+// a CSIDriverDeployment (as OwnerReference does not work there) and may be used to limit Watch() in future.
+func (h *Handler) addOwnerLabels(meta *metav1.ObjectMeta, cr *csidriverv1alpha1.CSIDriverDeployment) bool {
+	changed := false
+	if meta.Labels == nil {
+		meta.Labels = map[string]string{}
+		changed = true
+	}
+	if v, exists := meta.Labels["csidriver.storage.okd.io/owner-namespace"]; !exists || v != cr.Namespace {
+		meta.Labels["csidriver.storage.okd.io/owner-namespace"] = cr.Namespace
+		changed = true
+	}
+	if v, exists := meta.Labels["csidriver.storage.okd.io/owner-name"]; !exists || v != cr.Name {
+		meta.Labels["csidriver.storage.okd.io/owner-name"] = cr.Name
+		changed = true
+	}
+
+	return changed
+}
+
+func (h *Handler) addOwner(meta *metav1.ObjectMeta, cr *csidriverv1alpha1.CSIDriverDeployment) {
+	bTrue := true
+	meta.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: "csidriver.storage.okd.io/v1alpha1",
+			Kind:       "CSIDriverDeployment",
+			Name:       cr.Name,
+			UID:        cr.UID,
+			Controller: &bTrue,
+		},
+	}
+}
+
+func (h *Handler) uniqueGlobalName(i *csidriverv1alpha1.CSIDriverDeployment) string {
+	return "csidriverdeployment-" + string(i.UID)
 }
