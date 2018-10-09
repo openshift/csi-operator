@@ -11,8 +11,8 @@ spec:
     kind: CSIDriverDeployment
     plural: csidriverdeployments
   scope: Namespaced
-  subresources:
-    status: {}
+#  subresources:
+#    status: {}
   validation:
     openAPIV3Schema:
       properties:
