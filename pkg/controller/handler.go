@@ -167,6 +167,7 @@ func (h *Handler) handleCSIDriverDeployment(instance *v1alpha1.CSIDriverDeployme
 
 	var errs []error
 	newInstance := instance.DeepCopy()
+	h.applyDefaults(newInstance)
 
 	if instance.Spec.ManagementState == openshiftapi.Unmanaged {
 		glog.V(2).Infof("CSIDriverDeployment %s/%s is Unmanaged, skipping", instance.Namespace, instance.Name)

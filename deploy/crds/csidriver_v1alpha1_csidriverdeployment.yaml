@@ -77,6 +77,9 @@ spec:
                     type: string
                 type: object
               type: array
+            managementState:
+              type: string
+              enum: ["Managed", "Unmanaged"]
           required:
           - driverName
           - driverPerNodeTemplate
@@ -110,6 +113,9 @@ spec:
             observedGeneration:
               format: int64
               type: integer
+            managementState:
+              type: string
+              enum: ["Managed", "Unmanaged", "Removed"]
           type: object
   version: v1alpha1
 status:
