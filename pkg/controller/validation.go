@@ -5,12 +5,11 @@ import (
 	"regexp"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
-	"k8s.io/apimachinery/pkg/util/validation"
-
+	openshiftapi "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -35,6 +34,7 @@ func (h *Handler) validateCSIDriverDeployment(instance *v1alpha1.CSIDriverDeploy
 	errs = append(errs, h.validateStorageClassTemplates(instance.Spec.StorageClassTemplates, fldPath.Child("storageClassTemplates"))...)
 	errs = append(errs, h.validateNodeUpdateStrategy(instance.Spec.NodeUpdateStrategy, fldPath.Child("nodeUpdateStrategy"))...)
 	errs = append(errs, h.validateContainerImages(instance.Spec.ContainerImages, fldPath.Child("containerImages"))...)
+	errs = append(errs, h.validateManagementState(instance.Spec.ManagementState, fldPath.Child("managementState"))...)
 
 	return errs
 }
@@ -130,5 +130,18 @@ func (h *Handler) validateNodeUpdateStrategy(strategy v1alpha1.CSIDeploymentUpda
 
 func (h *Handler) validateContainerImages(images *v1alpha1.CSIDeploymentContainerImages, fldPath *field.Path) field.ErrorList {
 	errs := field.ErrorList{}
+	return errs
+}
+
+func (h *Handler) validateManagementState(state openshiftapi.ManagementState, fldPath *field.Path) field.ErrorList {
+	errs := field.ErrorList{}
+
+	allowedStates := sets.NewString(
+		string(openshiftapi.Managed),
+		string(openshiftapi.Unmanaged))
+
+	if !allowedStates.Has(string(state)) {
+		errs = append(errs, field.NotSupported(fldPath, state, allowedStates.List()))
+	}
 	return errs
 }

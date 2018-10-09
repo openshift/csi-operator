@@ -166,31 +166,48 @@ func (h *Handler) handleCSIDriverDeployment(instance *v1alpha1.CSIDriverDeployme
 	defer h.lock.Unlock()
 
 	var errs []error
-	if instance.DeletionTimestamp != nil {
+	newInstance := instance.DeepCopy()
+
+	if instance.Spec.ManagementState == openshiftapi.Unmanaged {
+		glog.V(2).Infof("CSIDriverDeployment %s/%s is Unmanaged, skipping", instance.Namespace, instance.Name)
+		return nil
+	}
+
+	if newInstance.DeletionTimestamp != nil {
 		// The deployment is being deleted, clean up.
 		// Allow deletion without validation.
-		errs, instance = h.cleanupCSIDriverDeployment(instance)
+		newInstance.Status.State = openshiftapi.Removed
+		errs, newInstance = h.cleanupCSIDriverDeployment(newInstance)
+
 	} else {
 		// The deployment was created / updated
-		validationErrs := h.validateCSIDriverDeployment(instance)
+		newInstance.Status.State = openshiftapi.Managed
+		validationErrs := h.validateCSIDriverDeployment(newInstance)
 		if len(validationErrs) > 0 {
 			for _, err := range validationErrs {
 				errs = append(errs, err)
 			}
 		} else {
 			// Sync the CSIDriverDeployment only when validation passed.
-			errs, instance = h.syncCSIDriverDeployment(instance)
+			errs, newInstance = h.syncCSIDriverDeployment(newInstance)
 		}
 	}
 	if errs != nil {
 		// Send errors as events
 		for _, e := range errs {
 			glog.V(2).Info(e.Error())
-			h.recorder.Event(instance, corev1.EventTypeWarning, "SyncError", e.Error())
+			h.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", e.Error())
 		}
-		return utilerrors.NewAggregate(errs)
-
 	}
+
+	err := h.syncStatus(instance, newInstance)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return utilerrors.NewAggregate(errs)
+	}
+
 	return nil
 }
 
@@ -271,12 +288,10 @@ func (h *Handler) syncCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) ([]e
 		})
 	}
 
-	err = h.syncStatus(cr, children)
-	if err != nil {
-		err := fmt.Errorf("error syncing CSIDriverDeployment.Status for %s/%s: %s", cr.Namespace, cr.Name, err)
-		errs = append(errs, err)
+	cr.Status.Children = children
+	if errs != nil {
+		cr.Status.ObservedGeneration = &cr.Generation
 	}
-
 	return errs, cr
 }
 
@@ -396,21 +411,10 @@ func (h *Handler) removeUnexpectedStorageClasses(cr *v1alpha1.CSIDriverDeploymen
 	return errs
 }
 
-func (h *Handler) syncStatus(cr *v1alpha1.CSIDriverDeployment, children []openshiftapi.GenerationHistory) error {
-	newInstance := cr.DeepCopy()
-
+func (h *Handler) syncStatus(oldInstance, newInstance *v1alpha1.CSIDriverDeployment) error {
 	glog.V(4).Info("Syncing CSIDriverDeployment.Status")
-	changed := false
 
-	if !equality.Semantic.DeepEqual(cr.Status.Children, children) {
-		newInstance.Status.Children = children
-		changed = true
-	}
-	if cr.Status.ObservedGeneration == nil || *cr.Status.ObservedGeneration != cr.Generation {
-		changed = true
-		newInstance.Status.ObservedGeneration = &cr.Generation
-	}
-	if changed {
+	if !equality.Semantic.DeepEqual(oldInstance.Status, newInstance.Status) {
 		err := sdk.Update(newInstance)
 		if err != nil && errors.IsConflict(err) {
 			err = nil

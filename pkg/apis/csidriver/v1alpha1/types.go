@@ -28,6 +28,9 @@ type CSIDriverDeployment struct {
 
 // CSIDriverDeploymentSpec defines the desired state of a CSI driver deployment.
 type CSIDriverDeploymentSpec struct {
+	// managementState indicates whether and how the operator should manage the component
+	ManagementState openshiftapi.ManagementState `json:"managementState"`
+
 	// Name of the CSI driver.
 	// Required.
 	DriverName string `json:"driverName"`
@@ -169,4 +172,7 @@ type CSIDriverDeploymentStatus struct {
 	// Generation of API objects that the operator has created / updated.
 	// For internal operator bookkeeping purposes.
 	Children []openshiftapi.GenerationHistory `json:"children,omitempty"`
+
+	// state indicates what the operator has observed to be its current operational status.
+	State openshiftapi.ManagementState `json:"state,omitempty"`
 }
