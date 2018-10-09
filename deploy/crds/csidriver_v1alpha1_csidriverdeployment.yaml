@@ -93,7 +93,7 @@ spec:
                 properties:
                   group:
                     type: string
-                  kind:
+                  resource:
                     type: string
                   lastGeneration:
                     format: int64
@@ -104,7 +104,7 @@ spec:
                     type: string
                 required:
                 - group
-                - kind
+                - resource
                 - namespace
                 - name
                 - lastGeneration
