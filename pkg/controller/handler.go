@@ -167,11 +167,20 @@ func (h *Handler) handleCSIDriverDeployment(instance *v1alpha1.CSIDriverDeployme
 
 	var errs []error
 	if instance.DeletionTimestamp != nil {
-		// The deployment is being deleted, clean up
+		// The deployment is being deleted, clean up.
+		// Allow deletion without validation.
 		errs, instance = h.cleanupCSIDriverDeployment(instance)
 	} else {
 		// The deployment was created / updated
-		errs, instance = h.syncCSIDriverDeployment(instance)
+		validationErrs := h.validateCSIDriverDeployment(instance)
+		if len(validationErrs) > 0 {
+			for _, err := range validationErrs {
+				errs = append(errs, err)
+			}
+		} else {
+			// Sync the CSIDriverDeployment only when validation passed.
+			errs, instance = h.syncCSIDriverDeployment(instance)
+		}
 	}
 	if errs != nil {
 		// Send errors as events
@@ -296,43 +305,6 @@ func (h *Handler) syncFinalizer(cr *v1alpha1.CSIDriverDeployment) (error, *v1alp
 }
 
 type mergeFunc func(existingObject runtime.Object) (error, bool, runtime.Object)
-
-/*
-func (h *Handler) syncObject(expectedObject runtime.Object, merge mergeFunc) (error, runtime.Object) {
-	existingObject := expectedObject.DeepCopyObject()
-	accessor, err := meta.Accessor(expectedObject)
-	if err != nil {
-		return err, existingObject
-	}
-
-	key := types.NamespacedName{Namespace: accessor.GetNamespace(), Name: accessor.GetName()}
-	err = h.Get(context.TODO(), key, existingObject)
-	if err != nil {
-		// Object does not exist, create it
-		glog.V(2).Infof("Creating %T %s/%s", expectedObject, key.Namespace, key.Name)
-		err := h.Create(context.TODO(), existingObject)
-		if err != nil && errors.IsAlreadyExists(err) {
-			err = nil
-		}
-		return err, expectedObject
-	}
-
-	err, changed, newObject := merge(existingObject)
-	if err != nil {
-		return err, existingObject
-	}
-	if changed {
-		glog.V(2).Infof("Updating %T %s/%s", expectedObject, key.Namespace, key.Name)
-		err := h.Update(context.TODO(), newObject)
-		if err != nil && errors.IsConflict(err) {
-			err = nil
-		}
-		return err, newObject
-	}
-
-	return err, existingObject
-}
-*/
 
 func (h *Handler) syncServiceAccount(cr *v1alpha1.CSIDriverDeployment) (*corev1.ServiceAccount, error) {
 	glog.V(4).Infof("Syncing ServiceAccount")
