@@ -4,9 +4,9 @@ metadata:
   creationTimestamp: null
   labels:
     controller-tools.k8s.io: "1.0"
-  name: csidriverdeployments.csidriver.storage.okd.io
+  name: csidriverdeployments.csidriver.storage.openshift.io
 spec:
-  group: csidriver.storage.okd.io
+  group: csidriver.storage.openshift.io
   names:
     kind: CSIDriverDeployment
     plural: csidriverdeployments

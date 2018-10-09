@@ -1,7 +1,7 @@
 package controller
 
 import (
-	csi "github.com/openshift/csi-operator2/pkg/apis/csidriver/v1alpha1"
+	csi "github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
 )
 
 // Configuration of the CSI Driver operator.

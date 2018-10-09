@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang/glog"
 	openshiftapi "github.com/openshift/api/operator/v1alpha1"
-	"github.com/openshift/csi-operator2/pkg/apis/csidriver/v1alpha1"
+	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/operator-framework/operator-sdk/pkg/k8sclient"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
@@ -31,10 +31,10 @@ import (
 )
 
 const (
-	ownerLabelNamespace = "csidriver.storage.okd.io/owner-namespace"
-	ownerLabelName      = "csidriver.storage.okd.io/owner-name"
+	ownerLabelNamespace = "csidriver.storage.openshift.io/owner-namespace"
+	ownerLabelName      = "csidriver.storage.openshift.io/owner-name"
 
-	finalizerName = "csidriver.storage.okd.io"
+	finalizerName = "csidriver.storage.openshift.io"
 )
 
 func NewHandler(cfg Config) (sdk.Handler, error) {

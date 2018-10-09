@@ -6,14 +6,12 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/openshift/csi-operator2/pkg/apis/csidriver/v1alpha1"
-
-	"github.com/openshift/csi-operator2/pkg/controller"
+	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
+	"github.com/openshift/csi-operator/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	"k8s.io/api/core/v1"
-
 	"github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
 )
 
 func printVersion() {
@@ -32,7 +30,8 @@ func main() {
 
 	resyncPeriod := time.Duration(30) * time.Second
 	namespace := v1.NamespaceAll
-	sdk.Watch("csidriver.storage.okd.io/v1alpha1", "CSIDriverDeployment", namespace, resyncPeriod)
+
+	sdk.Watch("csidriver.storage.openshift.io/v1alpha1", "CSIDriverDeployment", namespace, resyncPeriod)
 	sdk.Watch("apps/v1", "Deployment", namespace, resyncPeriod)
 	sdk.Watch("apps/v1", "DaemonSet", namespace, resyncPeriod)
 	sdk.Watch("v1", "ServiceAccount", namespace, resyncPeriod)

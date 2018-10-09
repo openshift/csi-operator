@@ -56,7 +56,7 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - csidriver.storage.okd.io
+  - csidriver.storage.openshift.io
   resources:
   - csidriverdeployments
   verbs:

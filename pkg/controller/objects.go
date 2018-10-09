@@ -4,7 +4,7 @@ import (
 	"path"
 	"regexp"
 
-	csidriverv1alpha1 "github.com/openshift/csi-operator2/pkg/apis/csidriver/v1alpha1"
+	csidriverv1alpha1 "github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -87,7 +87,7 @@ func (h *Handler) generateDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, s
 	dsName := cr.Name + "-node"
 
 	labels := map[string]string{
-		"csidriver.storage.okd.io/daemonset": dsName,
+		"csidriver.storage.openshift.io/daemonset": dsName,
 	}
 
 	// Prepare DS.Spec.PodSpec
@@ -234,7 +234,7 @@ func (h *Handler) generateDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, 
 	dName := cr.Name + "-controller"
 
 	labels := map[string]string{
-		"csidriver.storage.okd.io/deployment": dName,
+		"csidriver.storage.openshift.io/deployment": dName,
 	}
 
 	// Prepare the pod template
@@ -401,12 +401,12 @@ func (h *Handler) addOwnerLabels(meta *metav1.ObjectMeta, cr *csidriverv1alpha1.
 		meta.Labels = map[string]string{}
 		changed = true
 	}
-	if v, exists := meta.Labels["csidriver.storage.okd.io/owner-namespace"]; !exists || v != cr.Namespace {
-		meta.Labels["csidriver.storage.okd.io/owner-namespace"] = cr.Namespace
+	if v, exists := meta.Labels["csidriver.storage.openshift.io/owner-namespace"]; !exists || v != cr.Namespace {
+		meta.Labels["csidriver.storage.openshift.io/owner-namespace"] = cr.Namespace
 		changed = true
 	}
-	if v, exists := meta.Labels["csidriver.storage.okd.io/owner-name"]; !exists || v != cr.Name {
-		meta.Labels["csidriver.storage.okd.io/owner-name"] = cr.Name
+	if v, exists := meta.Labels["csidriver.storage.openshift.io/owner-name"]; !exists || v != cr.Name {
+		meta.Labels["csidriver.storage.openshift.io/owner-name"] = cr.Name
 		changed = true
 	}
 
@@ -417,7 +417,7 @@ func (h *Handler) addOwner(meta *metav1.ObjectMeta, cr *csidriverv1alpha1.CSIDri
 	bTrue := true
 	meta.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: "csidriver.storage.okd.io/v1alpha1",
+			APIVersion: "csidriver.storage.openshift.io/v1alpha1",
 			Kind:       "CSIDriverDeployment",
 			Name:       cr.Name,
 			UID:        cr.UID,

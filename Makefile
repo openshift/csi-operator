@@ -10,7 +10,7 @@ test: fmt vet
 
 # Build the binary
 build:
-	go build -o bin/csi-operator github.com/openshift/csi-operator2/cmd/csi-operator
+	go build -o bin/csi-operator github.com/openshift/csi-operator/cmd/csi-operator
 
 # Run go fmt against code
 fmt:

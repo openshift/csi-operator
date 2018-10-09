@@ -10,7 +10,7 @@ import (
 
 const (
 	version   = "v1alpha1"
-	groupName = "csidriver.storage.okd.io"
+	groupName = "csidriver.storage.openshift.io"
 )
 
 var (

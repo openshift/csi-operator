@@ -20,7 +20,7 @@ spec:
           - containerPort: 60000
             name: metrics
           command:
-          - csi-operator2
+          - csi-operator
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE

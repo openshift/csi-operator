@@ -1,4 +1,4 @@
-apiVersion: csidriver.storage.okd.io/v1alpha1
+apiVersion: csidriver.storage.openshift.io/v1alpha1
 kind: CSIDriverDeployment
 metadata:
   name: csidriverdeployment-sample

@@ -1,3 +1,3 @@
 // +k8s:deepcopy-gen=package
-// +groupName=csidriver.storage.okd.io
+// +groupName=csidriver.storage.openshift.io
 package v1alpha1
