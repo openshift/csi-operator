@@ -171,33 +171,36 @@ func (h *Handler) handleCSIDriverDeployment(instance *v1alpha1.CSIDriverDeployme
 
 	if instance.Spec.ManagementState == openshiftapi.Unmanaged {
 		glog.V(2).Infof("CSIDriverDeployment %s/%s is Unmanaged, skipping", instance.Namespace, instance.Name)
-		return nil
-	}
-
-	if newInstance.DeletionTimestamp != nil {
-		// The deployment is being deleted, clean up.
-		// Allow deletion without validation.
-		newInstance.Status.State = openshiftapi.Removed
-		errs, newInstance = h.cleanupCSIDriverDeployment(newInstance)
-
+		newInstance.Status.State = instance.Spec.ManagementState
 	} else {
-		// The deployment was created / updated
-		newInstance.Status.State = openshiftapi.Managed
-		validationErrs := h.validateCSIDriverDeployment(newInstance)
-		if len(validationErrs) > 0 {
-			for _, err := range validationErrs {
-				errs = append(errs, err)
-			}
+
+		// Instance is Managed, do something about it
+
+		if newInstance.DeletionTimestamp != nil {
+			// The deployment is being deleted, clean up.
+			// Allow deletion without validation.
+			newInstance.Status.State = openshiftapi.Removed
+			errs, newInstance = h.cleanupCSIDriverDeployment(newInstance)
+
 		} else {
-			// Sync the CSIDriverDeployment only when validation passed.
-			errs, newInstance = h.syncCSIDriverDeployment(newInstance)
+			// The deployment was created / updated
+			newInstance.Status.State = openshiftapi.Managed
+			validationErrs := h.validateCSIDriverDeployment(newInstance)
+			if len(validationErrs) > 0 {
+				for _, err := range validationErrs {
+					errs = append(errs, err)
+				}
+			} else {
+				// Sync the CSIDriverDeployment only when validation passed.
+				errs, newInstance = h.syncCSIDriverDeployment(newInstance)
+			}
 		}
-	}
-	if errs != nil {
-		// Send errors as events
-		for _, e := range errs {
-			glog.V(2).Info(e.Error())
-			h.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", e.Error())
+		if errs != nil {
+			// Send errors as events
+			for _, e := range errs {
+				glog.V(2).Info(e.Error())
+				h.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", e.Error())
+			}
 		}
 	}
 
@@ -290,7 +293,7 @@ func (h *Handler) syncCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) ([]e
 	}
 
 	cr.Status.Children = children
-	if errs != nil {
+	if len(errs) == 0 {
 		cr.Status.ObservedGeneration = &cr.Generation
 	}
 	return errs, cr
@@ -416,6 +419,7 @@ func (h *Handler) syncStatus(oldInstance, newInstance *v1alpha1.CSIDriverDeploym
 	glog.V(4).Info("Syncing CSIDriverDeployment.Status")
 
 	if !equality.Semantic.DeepEqual(oldInstance.Status, newInstance.Status) {
+		glog.V(4).Info("Updating CSIDriverDeployment.Status")
 		err := sdk.Update(newInstance)
 		if err != nil && errors.IsConflict(err) {
 			err = nil
