@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: csi-operator
+  namespace: csi-operator
 spec:
   replicas: 1
   selector:
@@ -12,20 +13,16 @@ spec:
       labels:
         name: csi-operator
     spec:
-      serviceAccountName: csi-operator
+      serviceAccount: csi-operator
       containers:
         - name: csi-operator
-          image: REPLACE_IMAGE
+          image: csi-operator:canary
           ports:
           - containerPort: 60000
             name: metrics
-          command:
-          - csi-operator
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+              value: ""
             - name: OPERATOR_NAME
               value: "csi-operator"
