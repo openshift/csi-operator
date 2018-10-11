@@ -116,7 +116,7 @@ func (h *Handler) generateDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, s
 
 	// Path to the CSI driver socket from kubelet point of view
 	kubeletSocketDirectory := path.Join(h.config.KubeletRootDir, "plugins", sanitizeDriverName(cr.Spec.DriverName))
-	kubeletSocketPath := path.Join(registrarSocketDirectory, csiDriverSocketFileName)
+	kubeletSocketPath := path.Join(kubeletSocketDirectory, csiDriverSocketFileName)
 
 	// Path to the kubelet dynamic registration directory
 	kubeletRegistrationDirectory := path.Join(h.config.KubeletRootDir, "plugins")

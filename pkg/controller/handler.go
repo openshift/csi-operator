@@ -224,7 +224,7 @@ func (h *Handler) syncCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) ([]e
 	err, cr := h.syncFinalizer(cr)
 	if err != nil {
 		// Return now, we can't create subsequent objects without the finalizer because could miss event
-		// with CSIDriverDeployment deleletion and we could not delete non-namespaced objects.
+		// with CSIDriverDeployment deletion and we could not delete non-namespaced objects.
 		return []error{err}, cr
 	}
 
@@ -322,8 +322,6 @@ func (h *Handler) syncFinalizer(cr *v1alpha1.CSIDriverDeployment) (error, *v1alp
 
 	return nil, newCR
 }
-
-type mergeFunc func(existingObject runtime.Object) (error, bool, runtime.Object)
 
 func (h *Handler) syncServiceAccount(cr *v1alpha1.CSIDriverDeployment) (*corev1.ServiceAccount, error) {
 	glog.V(4).Infof("Syncing ServiceAccount")
