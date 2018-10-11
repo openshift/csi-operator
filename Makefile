@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= csi-operator:canary
+IMG ?= csi-operator:latest
 
 all: build
 
@@ -9,7 +9,7 @@ test: fmt vet
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build the binary
-build:
+build: fmt
 	go build -o bin/csi-operator github.com/openshift/csi-operator/cmd/csi-operator
 
 # Run go fmt against code
@@ -21,11 +21,5 @@ vet:
 	go vet ./pkg/... ./cmd/...
 
 # Build the docker image
-docker-build: test
+container: test
 	docker build . -t ${IMG}
-	@echo "updating kustomize image patch file for manager resource"
-	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
-
-# Push the docker image
-docker-push:
-	docker push ${IMG}
