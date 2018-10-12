@@ -16,7 +16,7 @@ spec:
       serviceAccount: csi-operator
       containers:
         - name: csi-operator
-          image: csi-operator:canary
+          image: csi-operator:latest
           ports:
           - containerPort: 60000
             name: metrics
