@@ -1,6 +1,6 @@
 # CSI driver deployment operator
 
-This operator deploys and updates a CSI driver in Kubernetes cluster.
+This operator deploys and updates a CSI driver in OpenShift or Kubernetes cluster.
 
 ## Usage
 
@@ -11,12 +11,12 @@ This operator deploys and updates a CSI driver in Kubernetes cluster.
 
 2. Run the operator:
 
-    * Outside of OpenShift (for debugging)
+    * Outside of the cluster (for debugging)
       ```bash
       $ bin/csi-operator -v 5 -alsologtostderr -kubeconfig=/etc/origin/master/admin.kubeconfig
       ```
      
-    * Inside OpenShift (with image created by "make container"):
+    * As deployment (with image created by "make container"):
       ```bash
       $ kubectl apply -f deploy/operator.yaml
       ```
@@ -26,7 +26,7 @@ This operator deploys and updates a CSI driver in Kubernetes cluster.
     $ kubectl apply -f deploy/samples/hostpath.yaml
     ```
     Using `default` namespace here, but CSIDriverDeployment can be installed to any namespace.
-   
+
 4. Watch the driver installed:
     ```bash
     $ kubectl get all
@@ -53,13 +53,13 @@ This operator deploys and updates a CSI driver in Kubernetes cluster.
 For each CSIDriverDeployment, the operator creates in the same namespace:
 
 * Deployment with controller-level components: external provisioner and external attacher.
-* DaemonSet with non-level components that run on every node in the cluster and mount/unmount volumes to nodes.
+* DaemonSet with node-level components that run on every node in the cluster and mount/unmount volumes on nodes.
 * StorageClasses.
 * ServiceAccount to run all the components.
 * RoleBindings and ClusterRuleBindings for the created ServiceAccount.
 
 ## Limitations
 
-* It's limited to OpenShift 3.11 / Kubernetes 1.11 functionality for now. In future it will create CSIDriver instances, however it must be possible to run the operator in Kubernetes 1.11 environment.
-* The operato has very limited support for CSI drivers that run long-running daemons in their containers. Such drivers can't be updated using `Rolling` update strategy, as it would kill the long running daemons. **In case a driver uses fuse, killing fuse daemons kills all mounts it created on the node, possibly corrupting application data!**
-    * Note that we're open to new update strategies, especially we'd welcome some `Draining` strategy that would drain a node (using a taint?) and update a driver on the node afterwards.
+* It's limited to OpenShift 3.11 / Kubernetes 1.11 functionality for now. In future it will create CSIDriver instances, however 1.11 / 1.12 without alpha features is the current target.
+* The operator has very limited support for CSI drivers that run long-running daemons in their containers. Such drivers can't be updated using `Rolling` update strategy, as it would kill the long running daemons. **In case a driver uses fuse, killing fuse daemons kills all mounts it created on the node, possibly corrupting application data!**
+    * Note that we're open to new update strategies, especially we'd welcome some `Draining` strategy that would drain a node (using a taint?) and update a driver on the node after all pods that use the CSI driver are safely evicted.
