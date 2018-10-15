@@ -195,6 +195,8 @@ func (h *Handler) handleCSIDriverDeployment(instance *v1alpha1.CSIDriverDeployme
 				for _, err := range validationErrs {
 					errs = append(errs, err)
 				}
+				// Store errors in status.conditions.
+				h.syncConditions(newInstance, nil, nil, errs)
 			} else {
 				// Sync the CSIDriverDeployment only when validation passed.
 				newInstance, errs = h.syncCSIDriverDeployment(newInstance)
@@ -426,19 +428,30 @@ func (h *Handler) syncConditions(instance *v1alpha1.CSIDriverDeployment, deploym
 		Type: openshiftapi.OperatorStatusTypeAvailable,
 	}
 	available := true
+	unknown := false
 	msgs := []string{}
-	if deployment.Status.UnavailableReplicas > 0 {
-		available = false
-		msgs = append(msgs, fmt.Sprintf("Deployment %q with CSI driver has still %d not ready pod(s).", deployment.Name, deployment.Status.UnavailableReplicas))
+	if deployment != nil {
+		if deployment.Status.UnavailableReplicas > 0 {
+			available = false
+			msgs = append(msgs, fmt.Sprintf("Deployment %q with CSI driver has still %d not ready pod(s).", deployment.Name, deployment.Status.UnavailableReplicas))
+		}
+	} else {
+		unknown = true
 	}
-	if ds.Status.NumberUnavailable > 0 {
-		available = false
-		msgs = append(msgs, fmt.Sprintf("DaemonSet %q with CSI driver has still %d not ready pod(s).", ds.Name, ds.Status.NumberUnavailable))
+	if ds != nil {
+		if ds.Status.NumberUnavailable > 0 {
+			available = false
+		}
+	} else {
+		unknown = true
 	}
 
-	if available {
+	switch {
+	case unknown:
+		availableCondition.Status = openshiftapi.ConditionUnknown
+	case available:
 		availableCondition.Status = openshiftapi.ConditionTrue
-	} else {
+	default:
 		availableCondition.Status = openshiftapi.ConditionFalse
 	}
 	availableCondition.Message = strings.Join(msgs, "\n")
