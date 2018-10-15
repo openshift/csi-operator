@@ -3,12 +3,14 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/golang/glog"
 	openshiftapi "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 	"github.com/operator-framework/operator-sdk/pkg/k8sclient"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	appsv1 "k8s.io/api/apps/v1"
@@ -299,6 +301,8 @@ func (h *Handler) syncCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) (*v1
 	if len(errs) == 0 {
 		cr.Status.ObservedGeneration = &cr.Generation
 	}
+	h.syncConditions(cr, deployment, ds, errs)
+
 	return cr, errs
 }
 
@@ -358,12 +362,12 @@ func (h *Handler) syncLeaderElectionRoleBinding(cr *v1alpha1.CSIDriverDeployment
 
 func (h *Handler) syncDaemonSet(cr *v1alpha1.CSIDriverDeployment, sa *corev1.ServiceAccount) (*appsv1.DaemonSet, error) {
 	glog.V(4).Infof("Syncing DaemonSet")
-	ds := h.generateDaemonSet(cr, sa)
-	generation := h.getExpectedGeneration(cr, ds)
+	requiredDS := h.generateDaemonSet(cr, sa)
+	generation := h.getExpectedGeneration(cr, requiredDS)
 
-	ds, _, err := resourceapply.ApplyDaemonSet(k8sclient.GetKubeClient().AppsV1(), ds, generation, false)
+	ds, _, err := resourceapply.ApplyDaemonSet(k8sclient.GetKubeClient().AppsV1(), requiredDS, generation, false)
 	if err != nil {
-		return nil, err
+		return requiredDS, err
 	}
 	return ds, nil
 }
@@ -375,12 +379,12 @@ func (h *Handler) syncDeployment(cr *v1alpha1.CSIDriverDeployment, sa *corev1.Se
 		return nil, nil
 	}
 
-	deployment := h.generateDeployment(cr, sa)
-	generation := h.getExpectedGeneration(cr, deployment)
+	requiredDeployment := h.generateDeployment(cr, sa)
+	generation := h.getExpectedGeneration(cr, requiredDeployment)
 
-	deployment, _, err := resourceapply.ApplyDeployment(k8sclient.GetKubeClient().AppsV1(), deployment, generation, false)
+	deployment, _, err := resourceapply.ApplyDeployment(k8sclient.GetKubeClient().AppsV1(), requiredDeployment, generation, false)
 	if err != nil {
-		return nil, err
+		return requiredDeployment, err
 	}
 	return deployment, nil
 }
@@ -414,6 +418,47 @@ func (h *Handler) removeUnexpectedStorageClasses(cr *v1alpha1.CSIDriverDeploymen
 		}
 	}
 	return errs
+}
+
+func (h *Handler) syncConditions(instance *v1alpha1.CSIDriverDeployment, deployment *appsv1.Deployment, ds *appsv1.DaemonSet, errs []error) {
+	// OperatorStatusTypeAvailable condition: true if both Deployment and DaemonSet are fully deployed.
+	availableCondition := openshiftapi.OperatorCondition{
+		Type: openshiftapi.OperatorStatusTypeAvailable,
+	}
+	available := true
+	msgs := []string{}
+	if deployment.Status.UnavailableReplicas > 0 {
+		available = false
+		msgs = append(msgs, fmt.Sprintf("Deployment %q with CSI driver has still %d not ready pod(s).", deployment.Name, deployment.Status.UnavailableReplicas))
+	}
+	if ds.Status.NumberUnavailable > 0 {
+		available = false
+		msgs = append(msgs, fmt.Sprintf("DaemonSet %q with CSI driver has still %d not ready pod(s).", ds.Name, ds.Status.NumberUnavailable))
+	}
+
+	if available {
+		availableCondition.Status = openshiftapi.ConditionTrue
+	} else {
+		availableCondition.Status = openshiftapi.ConditionFalse
+	}
+	availableCondition.Message = strings.Join(msgs, "\n")
+	v1alpha1helpers.SetOperatorCondition(&instance.Status.Conditions, availableCondition)
+
+	// OperatorStatusTypeSyncSuccessful condition: true if no error happened during sync.
+	syncSuccessfulCondition := openshiftapi.OperatorCondition{
+		Type:    openshiftapi.OperatorStatusTypeSyncSuccessful,
+		Status:  openshiftapi.ConditionTrue,
+		Message: "",
+	}
+	if len(errs) > 0 {
+		syncSuccessfulCondition.Status = openshiftapi.ConditionFalse
+		errStrings := make([]string, len(errs))
+		for i := range errs {
+			errStrings[i] = errs[i].Error()
+		}
+		syncSuccessfulCondition.Message = strings.Join(errStrings, "\n")
+	}
+	v1alpha1helpers.SetOperatorCondition(&instance.Status.Conditions, syncSuccessfulCondition)
 }
 
 func (h *Handler) syncStatus(oldInstance, newInstance *v1alpha1.CSIDriverDeployment) error {
