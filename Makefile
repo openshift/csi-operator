@@ -5,20 +5,15 @@ IMG ?= csi-operator:latest
 all: build
 
 # Run tests
-test: fmt vet
+test:
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build the binary
-build: fmt
+build:
 	go build -o bin/csi-operator github.com/openshift/csi-operator/cmd/csi-operator
 
-# Run go fmt against code
-fmt:
-	go fmt ./pkg/... ./cmd/...
-
-# Run go vet against code
-vet:
-	go vet ./pkg/... ./cmd/...
+verify:
+	hack/verify-all.sh
 
 # Build the docker image
 container: test
