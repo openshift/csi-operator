@@ -37,6 +37,7 @@ const (
 	finalizerName = "csidriver.storage.openshift.io"
 )
 
+// NewHandler constructs a new CSIDriverDeployment handler.
 func NewHandler(cfg Config) (sdk.Handler, error) {
 	kubeClient := k8sclient.GetKubeClient()
 	csiClient, err := csiclientset.NewForConfig(k8sclient.GetKubeConfig())
@@ -58,6 +59,7 @@ func NewHandler(cfg Config) (sdk.Handler, error) {
 	return handler, nil
 }
 
+// Handler is SDK handler for CSIDriverDeployment objects.
 type Handler struct {
 	kubeClient kubernetes.Interface
 	csiClient  csiclientset.Interface
@@ -67,6 +69,7 @@ type Handler struct {
 	lock sync.Mutex
 }
 
+// Handle processes an event on an API object. It translates every event to CSIDriverDeployment event.
 func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 	var instance *v1alpha1.CSIDriverDeployment
 	var err error
@@ -180,7 +183,7 @@ func (h *Handler) handleCSIDriverDeployment(instance *v1alpha1.CSIDriverDeployme
 			// The deployment is being deleted, clean up.
 			// Allow deletion without validation.
 			newInstance.Status.State = openshiftapi.Removed
-			errs, newInstance = h.cleanupCSIDriverDeployment(newInstance)
+			newInstance, errs = h.cleanupCSIDriverDeployment(newInstance)
 
 		} else {
 			// The deployment was created / updated
@@ -192,7 +195,7 @@ func (h *Handler) handleCSIDriverDeployment(instance *v1alpha1.CSIDriverDeployme
 				}
 			} else {
 				// Sync the CSIDriverDeployment only when validation passed.
-				errs, newInstance = h.syncCSIDriverDeployment(newInstance)
+				newInstance, errs = h.syncCSIDriverDeployment(newInstance)
 			}
 		}
 		if errs != nil {
@@ -217,15 +220,15 @@ func (h *Handler) handleCSIDriverDeployment(instance *v1alpha1.CSIDriverDeployme
 
 // syncCSIDriverDeployment checks one CSIDriverDeployment and ensures that all "children" objects are either
 // created or updated.
-func (h *Handler) syncCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) ([]error, *v1alpha1.CSIDriverDeployment) {
+func (h *Handler) syncCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) (*v1alpha1.CSIDriverDeployment, []error) {
 	glog.V(4).Infof("=== Syncing CSIDriverDeployment %s/%s", cr.Namespace, cr.Name)
 	var errs []error
 
-	err, cr := h.syncFinalizer(cr)
+	cr, err := h.syncFinalizer(cr)
 	if err != nil {
 		// Return now, we can't create subsequent objects without the finalizer because could miss event
 		// with CSIDriverDeployment deletion and we could not delete non-namespaced objects.
-		return []error{err}, cr
+		return cr, []error{err}
 	}
 
 	serviceAccount, err := h.syncServiceAccount(cr)
@@ -296,14 +299,14 @@ func (h *Handler) syncCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) ([]e
 	if len(errs) == 0 {
 		cr.Status.ObservedGeneration = &cr.Generation
 	}
-	return errs, cr
+	return cr, errs
 }
 
-func (h *Handler) syncFinalizer(cr *v1alpha1.CSIDriverDeployment) (error, *v1alpha1.CSIDriverDeployment) {
+func (h *Handler) syncFinalizer(cr *v1alpha1.CSIDriverDeployment) (*v1alpha1.CSIDriverDeployment, error) {
 	glog.V(4).Infof("Syncing CSIDriverDeployment.Finalizers")
 
 	if hasFinalizer(cr.Finalizers, finalizerName) {
-		return nil, cr
+		return cr, nil
 	}
 
 	newCR := cr.DeepCopy()
@@ -317,10 +320,10 @@ func (h *Handler) syncFinalizer(cr *v1alpha1.CSIDriverDeployment) (error, *v1alp
 		if errors.IsConflict(err) {
 			err = nil
 		}
-		return err, cr
+		return cr, err
 	}
 
-	return nil, newCR
+	return newCR, nil
 }
 
 func (h *Handler) syncServiceAccount(cr *v1alpha1.CSIDriverDeployment) (*corev1.ServiceAccount, error) {
@@ -429,7 +432,7 @@ func (h *Handler) syncStatus(oldInstance, newInstance *v1alpha1.CSIDriverDeploym
 
 // cleanupCSIDriverDeployment removes non-namespaced objects owned by the CSIDriverDeployment.
 // ObjectMeta.OwnerReference does not work for them.
-func (h *Handler) cleanupCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) ([]error, *v1alpha1.CSIDriverDeployment) {
+func (h *Handler) cleanupCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) (*v1alpha1.CSIDriverDeployment, []error) {
 	glog.V(4).Infof("=== Cleaning up CSIDriverDeployment %s/%s", cr.Namespace, cr.Name)
 
 	errs := h.cleanupStorageClasses(cr)
@@ -439,18 +442,18 @@ func (h *Handler) cleanupCSIDriverDeployment(cr *v1alpha1.CSIDriverDeployment) (
 
 	if len(errs) != 0 {
 		// Don't remove the finalizer yet, there is still stuff to clean up
-		return errs, cr
+		return cr, errs
 	}
 
 	// Remove the finalizer as the last step
-	err, newCR := h.cleanupFinalizer(cr)
+	newCR, err := h.cleanupFinalizer(cr)
 	if err != nil {
-		return []error{err}, cr
+		return cr, []error{err}
 	}
-	return nil, newCR
+	return newCR, nil
 }
 
-func (h *Handler) cleanupFinalizer(cr *v1alpha1.CSIDriverDeployment) (error, *v1alpha1.CSIDriverDeployment) {
+func (h *Handler) cleanupFinalizer(cr *v1alpha1.CSIDriverDeployment) (*v1alpha1.CSIDriverDeployment, error) {
 	newCR := cr.DeepCopy()
 	newCR.Finalizers = []string{}
 	for _, f := range cr.Finalizers {
@@ -466,9 +469,9 @@ func (h *Handler) cleanupFinalizer(cr *v1alpha1.CSIDriverDeployment) (error, *v1
 		if errors.IsConflict(err) {
 			err = nil
 		}
-		return err, cr
+		return cr, err
 	}
-	return nil, newCR
+	return newCR, nil
 }
 
 func (h *Handler) cleanupClusterRoleBinding(cr *v1alpha1.CSIDriverDeployment) error {

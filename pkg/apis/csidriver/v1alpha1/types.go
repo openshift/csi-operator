@@ -9,6 +9,7 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// CSIDriverDeploymentList is list of CSIDriverDeployments.
 type CSIDriverDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
@@ -81,7 +82,7 @@ type CSIDriverDeploymentSpec struct {
 	ContainerImages *CSIDeploymentContainerImages `json:"containerImages,omitempty"`
 }
 
-// Template of a storage class.
+// StorageClassTemplate is a template of a storage class.
 type StorageClassTemplate struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -125,17 +126,17 @@ type StorageClassTemplate struct {
 	AllowedTopologies []corev1.TopologySelectorTerm `json:"allowedTopologies,omitempty"`
 }
 
-// CSI driver deployment strategy.
+// CSIDeploymentUpdateStrategy is deployment strategy applied to DaemonSet with CSI drivers on nodes when CSIDriverDeployment changes.
 type CSIDeploymentUpdateStrategy string
 
 const (
-	// Pods with CSI drivers running on a node will be stopped and new version will be started.
+	// CSIDeploymentUpdateStrategyRolling indicates that pods with CSI drivers running on nodes will be stopped and new version will be started.
 	// This is equivalent to "Rolling" DaemonSet update strategy.
 	// BEWARE: This strategy should not be used for CSI drivers that use fuse, as any fuse daemons
 	// will be killed during the update!
 	CSIDeploymentUpdateStrategyRolling CSIDeploymentUpdateStrategy = "Rolling"
 
-	// Pod with CSI drivers will be updated only when something stops the pod
+	// CSIDeploymentUpdateStrategyOnDelete indicates that pods with CSI drivers will be updated only when something stops the pod
 	// (e.g. node restart or external process). This is equivalent to "OnDelete" DaemonSet update strategy.
 	// This strategy should be used for CSI drivers that need to run any long-running processes in their pods,
 	// such as fuse daemons.
@@ -144,7 +145,7 @@ const (
 	// TODO: add RollingDrain that drains nodes before performing update of a driver?
 )
 
-// Custom sidecar container image names. This should be used only to override the default operator image names.
+// CSIDeploymentContainerImages specifies custom sidecar container image names. This should be used only to override the default operator image names.
 type CSIDeploymentContainerImages struct {
 	// Name of CSI Attacher sidecar container image.
 	// Optional.

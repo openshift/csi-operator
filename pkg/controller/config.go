@@ -4,7 +4,7 @@ import (
 	csi "github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
 )
 
-// Configuration of the CSI Driver operator.
+// Config is configuration of the CSI Driver operator.
 type Config struct {
 	// Default sidecar container images used when CR does not specify anything special.
 	DefaultImages csi.CSIDeploymentContainerImages

@@ -17,12 +17,14 @@ set -o nounset
 set -o pipefail
 
 PROJECT_ROOT=$(dirname "${BASH_SOURCE}")/..
+source "${PROJECT_ROOT}/hack/util.sh"
 
-echo "Running verify-gofmt.sh"
-"${PROJECT_ROOT}/hack/verify-gofmt.sh"
+cd "${PROJECT_ROOT}"
 
-echo "Running verify-govet.sh"
-"${PROJECT_ROOT}/hack/verify-govet.sh"
 
-echo "Running verify-golint.sh"
-"${PROJECT_ROOT}/hack/verify-golint.sh"
+bad_files=$(find_files | xargs -n1 golint)
+if [[ -n "${bad_files}" ]]; then
+  echo "!!! golint detected the following problems:"
+  echo "${bad_files}"
+  exit 1
+fi
