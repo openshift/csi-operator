@@ -24,4 +24,4 @@ verify:
 
 # Build the docker image
 container: test
-	docker build . -t ${IMG}
+	podman build . -t ${IMG}
