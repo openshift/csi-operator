@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
+	"github.com/openshift/csi-operator/pkg/config"
 	"github.com/openshift/csi-operator/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -20,6 +20,10 @@ func printVersion() {
 	logrus.Infof("operator-sdk Version: %v", sdkVersion.Version)
 }
 
+var (
+	configFile = flag.String("config", "", "Path to configuration yaml file")
+)
+
 func main() {
 	// for glog
 	flag.Parse()
@@ -27,6 +31,14 @@ func main() {
 	printVersion()
 
 	//sdk.ExposeMetricsPort()
+	cfg := config.DefaultConfig()
+	if configFile != nil && *configFile != "" {
+		var err error
+		cfg, err = config.LoadConfig(*configFile)
+		if err != nil {
+			logrus.Fatalf("Failed to load config file %q: %s", *configFile, err)
+		}
+	}
 
 	resyncPeriod := time.Duration(30) * time.Second
 	namespace := v1.NamespaceAll
@@ -39,33 +51,10 @@ func main() {
 	sdk.Watch("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", namespace, resyncPeriod)
 	sdk.Watch("storage.k8s.io/v1", "StorageClass", namespace, resyncPeriod)
 
-	handler, err := controller.NewHandler(getConfig())
+	handler, err := controller.NewHandler(cfg)
 	if err != nil {
 		logrus.Fatalf("Failed to start handler: %s", err)
 	}
 	sdk.Handle(handler)
 	sdk.Run(context.TODO())
-}
-
-func getConfig() controller.Config {
-	str2ptr := func(str string) *string {
-		return &str
-	}
-
-	return controller.Config{
-		// TODO: get the real image names from somewhere (config file or cmdline args?)
-		DefaultImages: v1alpha1.CSIDeploymentContainerImages{
-			AttacherImage:        str2ptr("quay.io/k8scsi/csi-attacher:v0.3.0"),
-			ProvisionerImage:     str2ptr("quay.io/k8scsi/csi-provisioner:v0.3.1"),
-			DriverRegistrarImage: str2ptr("quay.io/k8scsi/driver-registrar:v0.3.0"),
-			LivenessProbeImage:   str2ptr("quay.io/k8scsi/livenessprobe:latest"),
-		},
-		// TODO: get the selector from somewhere
-		InfrastructureNodeSelector: nil,
-		// Not configurable at all
-		DeploymentReplicas:            1,
-		ClusterRoleName:               "csidriver",
-		LeaderElectionClusterRoleName: "csidriver-controller-leader-election",
-		KubeletRootDir:                "/var/lib/kubelet",
-	}
 }

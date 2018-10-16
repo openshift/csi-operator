@@ -149,19 +149,19 @@ const (
 type CSIDeploymentContainerImages struct {
 	// Name of CSI Attacher sidecar container image.
 	// Optional.
-	AttacherImage *string `json:"attacherImage,omitempty"`
+	AttacherImage *string `json:"attacherImage,omitempty" yaml:"attacherImage"` // Use yaml tags for reading config from a file.
 
 	// Name of CSI Provisioner sidecar container image.
 	// Optional.
-	ProvisionerImage *string `json:"provisionerImage,omitempty"`
+	ProvisionerImage *string `json:"provisionerImage,omitempty" yaml:"provisionerImage"`
 
 	// Name of CSI Driver Registrar sidecar container image.
 	// Optional.
-	DriverRegistrarImage *string `json:"driverRegistrarImage,omitempty"`
+	DriverRegistrarImage *string `json:"driverRegistrarImage,omitempty" yaml:"driverRegistrarImage"`
 
 	// Name of CSI Liveness Probe sidecar container image.
 	// Optional.
-	LivenessProbeImage *string `json:"livenessProbeImage,omitempty"`
+	LivenessProbeImage *string `json:"livenessProbeImage,omitempty" yaml:"livenessProbeImage"`
 }
 
 // CSIDriverDeploymentStatus defines the observed state of a CSI driver deployment.

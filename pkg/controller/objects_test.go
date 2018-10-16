@@ -3,6 +3,8 @@ package controller
 import (
 	"testing"
 
+	"github.com/openshift/csi-operator/pkg/config"
+
 	"k8s.io/apimachinery/pkg/util/diff"
 
 	openshiftapi "github.com/openshift/api/operator/v1alpha1"
@@ -72,7 +74,7 @@ var (
 		return &str
 	}
 
-	testConfig = Config{
+	testConfig = &config.Config{
 		DefaultImages: v1alpha1.CSIDeploymentContainerImages{
 			AttacherImage:        str2ptr("quay.io/k8scsi/csi-attacher:v0.3.0"),
 			ProvisionerImage:     str2ptr("quay.io/k8scsi/csi-provisioner:v0.3.1"),

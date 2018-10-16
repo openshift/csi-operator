@@ -9,6 +9,7 @@ import (
 	"github.com/golang/glog"
 	openshiftapi "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
+	"github.com/openshift/csi-operator/pkg/config"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 	"github.com/operator-framework/operator-sdk/pkg/k8sclient"
@@ -40,7 +41,7 @@ const (
 )
 
 // NewHandler constructs a new CSIDriverDeployment handler.
-func NewHandler(cfg Config) (sdk.Handler, error) {
+func NewHandler(cfg *config.Config) (sdk.Handler, error) {
 	kubeClient := k8sclient.GetKubeClient()
 	csiClient, err := csiclientset.NewForConfig(k8sclient.GetKubeConfig())
 	if err != nil {
@@ -66,7 +67,7 @@ type Handler struct {
 	kubeClient kubernetes.Interface
 	csiClient  csiclientset.Interface
 	recorder   record.EventRecorder
-	config     Config
+	config     *config.Config
 
 	lock sync.Mutex
 }
