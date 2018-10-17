@@ -12,6 +12,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	daemonSetLabel  = "csidriver.storage.openshift.io/daemonset"
+	deploymentLabel = "csidriver.storage.openshift.io/deployment"
+)
+
 // generateServiceAccount prepares a ServiceAccount that will be used by all pods (controller + daemon set) with
 // CSI drivers and its sidecar containers.
 func (h *Handler) generateServiceAccount(cr *csidriverv1alpha1.CSIDriverDeployment) *v1.ServiceAccount {
@@ -87,7 +92,7 @@ func (h *Handler) generateDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, s
 	dsName := cr.Name + "-node"
 
 	labels := map[string]string{
-		"csidriver.storage.openshift.io/daemonset": dsName,
+		daemonSetLabel: dsName,
 	}
 
 	// Prepare DS.Spec.PodSpec
@@ -234,7 +239,7 @@ func (h *Handler) generateDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, 
 	dName := cr.Name + "-controller"
 
 	labels := map[string]string{
-		"csidriver.storage.openshift.io/deployment": dName,
+		deploymentLabel: dName,
 	}
 
 	// Prepare the pod template
