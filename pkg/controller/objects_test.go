@@ -161,7 +161,7 @@ var (
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"defaultLabel": "defaultValue",
+						"defaultLabel":                              "defaultValue",
 						"csidriver.storage.openshift.io/deployment": "default-controller",
 					},
 				},
@@ -255,7 +255,7 @@ var (
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"defaultLabel": "defaultValue",
+						"defaultLabel":                             "defaultValue",
 						"csidriver.storage.openshift.io/daemonset": "default-node",
 					},
 				},
