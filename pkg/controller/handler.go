@@ -34,8 +34,10 @@ import (
 )
 
 const (
-	ownerLabelNamespace = "csidriver.storage.openshift.io/owner-namespace"
-	ownerLabelName      = "csidriver.storage.openshift.io/owner-name"
+	// OwnerLabelNamespace is name of label with namespace of owner CSIDriverDeployment.
+	OwnerLabelNamespace = "csidriver.storage.openshift.io/owner-namespace"
+	// OwnerLabelName is name of label with name of owner CSIDriverDeployment.
+	OwnerLabelName = "csidriver.storage.openshift.io/owner-name"
 
 	finalizerName = "csidriver.storage.openshift.io"
 )
@@ -127,6 +129,7 @@ func (h *Handler) getCSIDriverDeploymentFromOwner(obj runtime.Object) (*v1alpha1
 			return h.getCSIDriverDeployment(accessor.GetNamespace(), owner.Name)
 		}
 	}
+	glog.V(4).Infof("Ignoring event on %s %s/%s: not owned by any CSIDriverDeployment", obj.GetObjectKind().GroupVersionKind().Kind, accessor.GetNamespace(), accessor.GetName())
 	return nil, nil
 }
 
@@ -136,12 +139,13 @@ func (h *Handler) getCSIDriverDeploymentFromLabels(obj runtime.Object) (*v1alpha
 		return nil, fmt.Errorf("cannot get accessor for object: %s", err)
 	}
 	labels := accessor.GetLabels()
-	ownerNamespace, ok := labels[ownerLabelNamespace]
+	ownerNamespace, ok := labels[OwnerLabelNamespace]
 	if !ok {
 		return nil, nil
 	}
-	ownerName, ok := labels[ownerLabelName]
+	ownerName, ok := labels[OwnerLabelName]
 	if !ok {
+		glog.V(4).Infof("Ignoring event on %s %s/%s: not labelled by any CSIDriverDeployment", obj.GetObjectKind().GroupVersionKind().Kind, accessor.GetNamespace(), accessor.GetName())
 		return nil, nil
 	}
 
@@ -580,8 +584,8 @@ func (h *Handler) getExpectedGeneration(cr *v1alpha1.CSIDriverDeployment, obj ru
 
 func (h *Handler) getOwnerLabelSelector(i *v1alpha1.CSIDriverDeployment) labels.Selector {
 	ls := labels.Set{
-		ownerLabelNamespace: i.Namespace,
-		ownerLabelName:      i.Name,
+		OwnerLabelNamespace: i.Namespace,
+		OwnerLabelName:      i.Name,
 	}
 	return labels.SelectorFromSet(ls)
 }
