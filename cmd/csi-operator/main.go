@@ -42,14 +42,16 @@ func main() {
 
 	resyncPeriod := time.Duration(30) * time.Second
 	namespace := v1.NamespaceAll
+	// Watch only things with OwnerLabelName label
+	ownedSelectorString := controller.OwnerLabelName
 
 	sdk.Watch("csidriver.storage.openshift.io/v1alpha1", "CSIDriverDeployment", namespace, resyncPeriod)
-	sdk.Watch("apps/v1", "Deployment", namespace, resyncPeriod)
-	sdk.Watch("apps/v1", "DaemonSet", namespace, resyncPeriod)
-	sdk.Watch("v1", "ServiceAccount", namespace, resyncPeriod)
-	sdk.Watch("rbac.authorization.k8s.io/v1", "RoleBinding", namespace, resyncPeriod)
-	sdk.Watch("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", namespace, resyncPeriod)
-	sdk.Watch("storage.k8s.io/v1", "StorageClass", namespace, resyncPeriod)
+	sdk.Watch("apps/v1", "Deployment", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
+	sdk.Watch("apps/v1", "DaemonSet", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
+	sdk.Watch("v1", "ServiceAccount", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
+	sdk.Watch("rbac.authorization.k8s.io/v1", "RoleBinding", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
+	sdk.Watch("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
+	sdk.Watch("storage.k8s.io/v1", "StorageClass", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
 
 	handler, err := controller.NewHandler(cfg)
 	if err != nil {

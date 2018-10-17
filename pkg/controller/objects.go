@@ -408,12 +408,12 @@ func (h *Handler) addOwnerLabels(meta *metav1.ObjectMeta, cr *csidriverv1alpha1.
 		meta.Labels = map[string]string{}
 		changed = true
 	}
-	if v, exists := meta.Labels[ownerLabelNamespace]; !exists || v != cr.Namespace {
-		meta.Labels[ownerLabelNamespace] = cr.Namespace
+	if v, exists := meta.Labels[OwnerLabelNamespace]; !exists || v != cr.Namespace {
+		meta.Labels[OwnerLabelNamespace] = cr.Namespace
 		changed = true
 	}
-	if v, exists := meta.Labels[ownerLabelName]; !exists || v != cr.Name {
-		meta.Labels[ownerLabelName] = cr.Name
+	if v, exists := meta.Labels[OwnerLabelName]; !exists || v != cr.Name {
+		meta.Labels[OwnerLabelName] = cr.Name
 		changed = true
 	}
 
