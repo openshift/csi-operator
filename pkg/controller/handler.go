@@ -123,7 +123,7 @@ func (h *Handler) getCSIDriverDeploymentFromOwner(obj runtime.Object) (*v1alpha1
 	}
 	owners := accessor.GetOwnerReferences()
 	for _, owner := range owners {
-		if owner.Kind == "CSIDriverDeployment" {
+		if owner.Kind == v1alpha1.CSIDriverDeploymentKind {
 			return h.getCSIDriverDeployment(accessor.GetNamespace(), owner.Name)
 		}
 	}
@@ -151,7 +151,7 @@ func (h *Handler) getCSIDriverDeploymentFromLabels(obj runtime.Object) (*v1alpha
 func (h *Handler) getCSIDriverDeployment(namespace, name string) (*v1alpha1.CSIDriverDeployment, error) {
 	instance := &v1alpha1.CSIDriverDeployment{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "CSIDriverDeployment",
+			Kind:       v1alpha1.CSIDriverDeploymentKind,
 			APIVersion: v1alpha1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{

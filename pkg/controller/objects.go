@@ -417,8 +417,8 @@ func (h *Handler) addOwner(meta *metav1.ObjectMeta, cr *csidriverv1alpha1.CSIDri
 	bTrue := true
 	meta.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: "csidriver.storage.openshift.io/v1alpha1",
-			Kind:       "CSIDriverDeployment",
+			APIVersion: csidriverv1alpha1.SchemeGroupVersion.String(),
+			Kind:       csidriverv1alpha1.CSIDriverDeploymentKind,
 			Name:       cr.Name,
 			UID:        cr.UID,
 			Controller: &bTrue,
