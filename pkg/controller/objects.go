@@ -15,6 +15,8 @@ import (
 const (
 	daemonSetLabel  = "csidriver.storage.openshift.io/daemonset"
 	deploymentLabel = "csidriver.storage.openshift.io/deployment"
+
+	defaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
 )
 
 // generateServiceAccount prepares a ServiceAccount that will be used by all pods (controller + daemon set) with
@@ -385,7 +387,7 @@ func (h *Handler) generateStorageClass(cr *csidriverv1alpha1.CSIDriverDeployment
 	h.addOwner(&expectedSC.ObjectMeta, cr)
 	if template.Default != nil && *template.Default == true {
 		expectedSC.Annotations = map[string]string{
-			"storageclass.kubernetes.io/is-default-class": "true",
+			defaultStorageClassAnnotation: "true",
 		}
 	}
 	return expectedSC
