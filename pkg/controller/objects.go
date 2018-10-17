@@ -12,6 +12,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	daemonSetLabel  = "csidriver.storage.openshift.io/daemonset"
+	deploymentLabel = "csidriver.storage.openshift.io/deployment"
+
+	defaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
+)
+
 // generateServiceAccount prepares a ServiceAccount that will be used by all pods (controller + daemon set) with
 // CSI drivers and its sidecar containers.
 func (h *Handler) generateServiceAccount(cr *csidriverv1alpha1.CSIDriverDeployment) *v1.ServiceAccount {
@@ -87,7 +94,7 @@ func (h *Handler) generateDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, s
 	dsName := cr.Name + "-node"
 
 	labels := map[string]string{
-		"csidriver.storage.openshift.io/daemonset": dsName,
+		daemonSetLabel: dsName,
 	}
 
 	// Prepare DS.Spec.PodSpec
@@ -234,7 +241,7 @@ func (h *Handler) generateDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, 
 	dName := cr.Name + "-controller"
 
 	labels := map[string]string{
-		"csidriver.storage.openshift.io/deployment": dName,
+		deploymentLabel: dName,
 	}
 
 	// Prepare the pod template
@@ -380,7 +387,7 @@ func (h *Handler) generateStorageClass(cr *csidriverv1alpha1.CSIDriverDeployment
 	h.addOwner(&expectedSC.ObjectMeta, cr)
 	if template.Default != nil && *template.Default == true {
 		expectedSC.Annotations = map[string]string{
-			"storageclass.kubernetes.io/is-default-class": "true",
+			defaultStorageClassAnnotation: "true",
 		}
 	}
 	return expectedSC
@@ -401,12 +408,12 @@ func (h *Handler) addOwnerLabels(meta *metav1.ObjectMeta, cr *csidriverv1alpha1.
 		meta.Labels = map[string]string{}
 		changed = true
 	}
-	if v, exists := meta.Labels["csidriver.storage.openshift.io/owner-namespace"]; !exists || v != cr.Namespace {
-		meta.Labels["csidriver.storage.openshift.io/owner-namespace"] = cr.Namespace
+	if v, exists := meta.Labels[ownerLabelNamespace]; !exists || v != cr.Namespace {
+		meta.Labels[ownerLabelNamespace] = cr.Namespace
 		changed = true
 	}
-	if v, exists := meta.Labels["csidriver.storage.openshift.io/owner-name"]; !exists || v != cr.Name {
-		meta.Labels["csidriver.storage.openshift.io/owner-name"] = cr.Name
+	if v, exists := meta.Labels[ownerLabelName]; !exists || v != cr.Name {
+		meta.Labels[ownerLabelName] = cr.Name
 		changed = true
 	}
 
@@ -417,8 +424,8 @@ func (h *Handler) addOwner(meta *metav1.ObjectMeta, cr *csidriverv1alpha1.CSIDri
 	bTrue := true
 	meta.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: "csidriver.storage.openshift.io/v1alpha1",
-			Kind:       "CSIDriverDeployment",
+			APIVersion: csidriverv1alpha1.SchemeGroupVersion.String(),
+			Kind:       csidriverv1alpha1.CSIDriverDeploymentKind,
 			Name:       cr.Name,
 			UID:        cr.UID,
 			Controller: &bTrue,

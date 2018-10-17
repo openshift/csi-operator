@@ -11,6 +11,9 @@ import (
 const (
 	version   = "v1alpha1"
 	groupName = "csidriver.storage.openshift.io"
+
+	// CSIDriverDeploymentKind is string of CSIDriverDeployment.Kind
+	CSIDriverDeploymentKind = "CSIDriverDeployment"
 )
 
 var (
