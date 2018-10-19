@@ -1,0 +1,12 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: csi-operator-config
+  namespace: csi-operator
+data:
+  config.yaml: |
+    defaultImages:
+      attacherImage: "quay.io/k8scsi/csi-attacher:v0.3.0"
+      provisionerImage: "quay.io/k8scsi/csi-provisioner:v0.3.1"
+      driverRegistrarImage: "quay.io/k8scsi/driver-registrar:v0.3.0"
+      livenessProbeImage: "quay.io/k8scsi/livenessprobe:latest"

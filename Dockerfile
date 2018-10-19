@@ -14,5 +14,4 @@ COPY --from=0 /go/src/github.com/openshift/csi-operator /usr/bin/
 RUN useradd csi-operator
 USER csi-operator
 
-ENTRYPOINT []
-CMD ["/usr/bin/csi-operator"]
+ENTRYPOINT ["/usr/bin/csi-operator"]
