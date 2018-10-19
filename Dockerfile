@@ -8,8 +8,8 @@ LABEL io.openshift.release.operator true
 
 COPY --from=0 /go/src/github.com/openshift/csi-operator /usr/bin/
 
-# TODO: add manifests:
-# COPY deploy/image-references deploy/00-crd.yaml deploy/01-namespace.yaml deploy/03-openshift-rbac.yaml deploy/02-rbac.yaml deploy/04-operator.yaml /manifests/
+COPY deploy/openshift/image-references deploy/prerequisites/*.yaml /manifests/
+COPY deploy/operator.yaml /manifests/99_operator.yaml
 
 RUN useradd csi-operator
 USER csi-operator
