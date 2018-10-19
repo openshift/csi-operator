@@ -1,0 +1,24 @@
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+spec:
+  tags:
+  - name: csi-operator
+    from:
+      kind: DockerImage
+      name: csi-operator
+  - name: csi-external-attacher
+    from:
+      kind: DockerImage
+      name: quay.io/k8scsi/csi-attacher
+  - name: csi-external-provisioner
+    from:
+      kind: DockerImage
+      name: quay.io/k8scsi/csi-provisioner
+  - name: csi-driver-registrar
+    from:
+      kind: DockerImage
+      name: quay.io/k8scsi/driver-registrar
+  - name: csi-livenessprobe
+    from:
+      kind: DockerImage
+      name: quay.io/k8scsi/livenessprobe

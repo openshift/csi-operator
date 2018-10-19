@@ -3,6 +3,8 @@ package config
 import (
 	"io/ioutil"
 
+	"github.com/golang/glog"
+
 	csi "github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
 	"github.com/openshift/csi-operator/pkg/generated"
 	"gopkg.in/yaml.v2"
@@ -50,6 +52,8 @@ func DefaultConfig() *Config {
 
 // LoadConfig loads operator config from a file. It fills all omitted fields with default values.
 func LoadConfig(path string) (*Config, error) {
+	glog.V(2).Infof("Loading config file %s", path)
+
 	cfgBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
