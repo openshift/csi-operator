@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: csi-operator
-  namespace: csi-operator
+  namespace: openshift-csi-operator
 spec:
   replicas: 1
   selector:
