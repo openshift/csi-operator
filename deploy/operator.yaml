@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: csi-operator
-  namespace: csi-operator
+  namespace: openshift-csi-operator
 spec:
   replicas: 1
   selector:
@@ -16,7 +16,7 @@ spec:
       serviceAccount: csi-operator
       containers:
         - name: csi-operator
-          image: csi-operator:latest
+          image: registry.svc.ci.openshift.org/openshift/origin-v4.0:csi-operator
           ports:
           - containerPort: 60000
             name: metrics

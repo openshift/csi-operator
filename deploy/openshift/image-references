@@ -5,7 +5,7 @@ spec:
   - name: csi-operator
     from:
       kind: DockerImage
-      name: csi-operator
+      name: registry.svc.ci.openshift.org/openshift/origin-v4.0:csi-operator
   - name: csi-external-attacher
     from:
       kind: DockerImage
