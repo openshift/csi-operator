@@ -3,6 +3,8 @@ package controller
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/openshift/csi-operator/pkg/config"
 
 	"k8s.io/apimachinery/pkg/util/diff"
@@ -177,6 +179,25 @@ var (
 									MountPath: "/my/csi/path",
 								},
 							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "csi-probe",
+									Protocol:      corev1.ProtocolTCP,
+									ContainerPort: livenessprobePort,
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								FailureThreshold:    3,
+								InitialDelaySeconds: 30,
+								TimeoutSeconds:      60,
+								PeriodSeconds:       60,
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/healthz",
+										Port: intstr.FromString("csi-probe"),
+									},
+								},
+							},
 						},
 						{
 							Name:  "csi-provisioner",
@@ -206,6 +227,27 @@ var (
 								"--v=5",
 								"--csi-address=$(ADDRESS)",
 							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "ADDRESS",
+									Value: "/csi/csi.sock",
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "csi-driver",
+									MountPath: "/csi",
+								},
+							},
+						},
+						{
+							Name:  "csi-probe",
+							Image: *testConfig.DefaultImages.LivenessProbeImage,
+							Args: []string{
+								"--v=5",
+								"--csi-address=$(ADDRESS)",
+							},
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
 								{
 									Name:  "ADDRESS",
@@ -271,6 +313,25 @@ var (
 									MountPath: "/my/csi/path",
 								},
 							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "csi-probe",
+									Protocol:      corev1.ProtocolTCP,
+									ContainerPort: livenessprobePort,
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								FailureThreshold:    3,
+								InitialDelaySeconds: 30,
+								TimeoutSeconds:      60,
+								PeriodSeconds:       60,
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/healthz",
+										Port: intstr.FromString("csi-probe"),
+									},
+								},
+							},
 						},
 						{
 							Name:  "csi-driver-registrar",
@@ -308,6 +369,27 @@ var (
 								{
 									Name:      "registration-dir",
 									MountPath: "/registration",
+								},
+							},
+						},
+						{
+							Name:  "csi-probe",
+							Image: *testConfig.DefaultImages.LivenessProbeImage,
+							Args: []string{
+								"--v=5",
+								"--csi-address=$(ADDRESS)",
+							},
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env: []corev1.EnvVar{
+								{
+									Name:  "ADDRESS",
+									Value: "/csi/csi.sock",
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "csi-driver",
+									MountPath: "/csi",
 								},
 							},
 						},
