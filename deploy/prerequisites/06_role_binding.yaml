@@ -5,7 +5,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: csi-operator-role
+  name: system:openshift:operator:csi-operator
 subjects:
 - kind: ServiceAccount
   name: csi-operator
