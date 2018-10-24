@@ -3,7 +3,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: csidriver
+  name: system:openshift:csi-driver
 rules:
   - apiGroups: [""]
     resources: ["persistentvolumes"]
@@ -35,7 +35,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: csidriver-controller-leader-election
+  name: system:openshift:csi-driver-controller-leader-election
 rules:
   - apiGroups: [""]
     resources: ["configmaps", "endpoints"]

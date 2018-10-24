@@ -86,8 +86,8 @@ var (
 		InfrastructureNodeSelector: nil,
 		// Not configurable at all
 		DeploymentReplicas:            1,
-		ClusterRoleName:               "csidriver",
-		LeaderElectionClusterRoleName: "csidriver-controller-leader-election",
+		ClusterRoleName:               "system:openshift:csi-driver",
+		LeaderElectionClusterRoleName: "system:openshift:csi-driver-controller-leader-election",
 		KubeletRootDir:                "/var/lib/kubelet",
 	}
 
@@ -117,7 +117,7 @@ var (
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "csidriver",
+			Name:     "system:openshift:csi-driver",
 		},
 	}
 
@@ -138,7 +138,7 @@ var (
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "csidriver-controller-leader-election",
+			Name:     "system:openshift:csi-driver-controller-leader-election",
 		},
 	}
 

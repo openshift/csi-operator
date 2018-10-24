@@ -24,8 +24,8 @@ func TestDefaultConfig(t *testing.T) {
 		},
 		InfrastructureNodeSelector:    nil,
 		DeploymentReplicas:            1,
-		ClusterRoleName:               "csidriver",
-		LeaderElectionClusterRoleName: "csidriver-controller-leader-election",
+		ClusterRoleName:               "system:openshift:csi-driver",
+		LeaderElectionClusterRoleName: "system:openshift:csi-driver-controller-leader-election",
 		KubeletRootDir:                "/var/lib/kubelet",
 	}
 
@@ -95,8 +95,8 @@ kubeletRootDir: /var/lib/my-kubelet
 				},
 				InfrastructureNodeSelector:    nil,
 				DeploymentReplicas:            999,
-				ClusterRoleName:               "csidriver",
-				LeaderElectionClusterRoleName: "csidriver-controller-leader-election",
+				ClusterRoleName:               "system:openshift:csi-driver",
+				LeaderElectionClusterRoleName: "system:openshift:csi-driver-controller-leader-election",
 				KubeletRootDir:                "/var/lib/my-kubelet",
 			},
 		},
