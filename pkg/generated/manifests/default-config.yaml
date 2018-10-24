@@ -1,3 +1,6 @@
+# This is the default configuration file, compiled in the operator.
+# All supported items are listed below, together with their description.
+
 # Default images to use for various external Kubernetes components.
 defaultImages:
   attacherImage: "quay.io/k8scsi/csi-attacher:v0.3.0"
