@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: csi-operator-rolebinding
+  name: system:openshift:operator:csi-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -18,11 +18,11 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: csi-operator-self-rolebinding
+  name: system:openshift:operator:csi-operator-csi-driver
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: csidriver
+  name: system:openshift:csi-driver
 subjects:
 - kind: ServiceAccount
   name: csi-operator
@@ -33,11 +33,11 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: csi-operator-self-leader-election-rolebinding
+  name: system:openshift:csi-operator-self-leader-election
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: csidriver-controller-leader-election
+  name: system:openshift:csi-driver-controller-leader-election
 subjects:
 - kind: ServiceAccount
   name: csi-operator

@@ -20,11 +20,11 @@ deploymentReplicas: 1
 
 # Name of ClusterRole that gives CSI driver pods and Kubernetes sidecar
 # container enough permissions to run.
-clusterRoleName: csidriver
+clusterRoleName: system:openshift:csi-driver
 
 # Name of ClusterRole that gives CSI external attacher and provisioner
 # permissions to do leader election in its namespace.
-leaderElectionClusterRoleName: csidriver-controller-leader-election
+leaderElectionClusterRoleName: system:openshift:csi-driver-controller-leader-election
 
 # Root of kubelet data directory on all nodes.
 kubeletRootDir: /var/lib/kubelet
