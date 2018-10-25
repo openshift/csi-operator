@@ -277,6 +277,7 @@ var (
 
 	typeDir         = corev1.HostPathDirectory
 	typeDirOrCreate = corev1.HostPathDirectoryOrCreate
+	bidirectional   = corev1.MountPropagationBidirectional
 
 	defaultDaemonSet = &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -311,6 +312,11 @@ var (
 								{
 									Name:      "csi-driver",
 									MountPath: "/my/csi/path",
+								},
+								{
+									Name:             "kubelet-root",
+									MountPath:        "/var/lib/kubelet",
+									MountPropagation: &bidirectional,
 								},
 							},
 							Ports: []corev1.ContainerPort{
@@ -411,6 +417,15 @@ var (
 								HostPath: &corev1.HostPathVolumeSource{
 									Path: "/var/lib/kubelet/plugins/default",
 									Type: &typeDirOrCreate,
+								},
+							},
+						},
+						{
+							Name: "kubelet-root",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/kubelet",
+									Type: &typeDir,
 								},
 							},
 						},

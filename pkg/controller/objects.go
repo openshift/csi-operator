@@ -24,6 +24,9 @@ const (
 
 	// Name of volume with CSI driver socket
 	driverSocketVolume = "csi-driver"
+
+	// Name of volume with /var/lib/kubelet
+	kubeletRootVolumeName = "kubelet-root"
 )
 
 // generateServiceAccount prepares a ServiceAccount that will be used by all pods (controller + daemon set) with
@@ -212,16 +215,33 @@ func (h *Handler) generateDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, s
 				},
 			},
 		},
+		{
+			Name: kubeletRootVolumeName,
+			VolumeSource: v1.VolumeSource{
+				HostPath: &v1.HostPathVolumeSource{
+					Path: h.config.KubeletRootDir,
+					Type: &typeDir,
+				},
+			},
+		},
 	}
 	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes, volumes...)
 
 	// Patch the driver container with the volume for CSI driver socket
-	volumeMount := v1.VolumeMount{
-		Name:      driverSocketVolume,
-		MountPath: csiDriverSocketDirectory,
+	bidirectional := v1.MountPropagationBidirectional
+	volumeMounts := []v1.VolumeMount{
+		{
+			Name:      driverSocketVolume,
+			MountPath: csiDriverSocketDirectory,
+		},
+		{
+			Name:             kubeletRootVolumeName,
+			MountPath:        h.config.KubeletRootDir,
+			MountPropagation: &bidirectional,
+		},
 	}
 	driverContainer := &podSpec.Spec.Containers[0]
-	driverContainer.VolumeMounts = append(driverContainer.VolumeMounts, volumeMount)
+	driverContainer.VolumeMounts = append(driverContainer.VolumeMounts, volumeMounts...)
 
 	// Create the DaemonSet
 	updateStrategy := appsv1.OnDeleteDaemonSetStrategyType

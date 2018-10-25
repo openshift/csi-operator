@@ -55,25 +55,12 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
-        - mountPath: /var/lib/origin/openshift.local.volumes/pods/
-          mountPropagation: Bidirectional
-          name: mountpoint-dir
-        - name: device-dir
-          mountPath: /host/dev
         - name: hostpath-root
           mountPath: /tmp
       volumes:
-      - hostPath:
-          path: /var/lib/origin/openshift.local.volumes/pods/
-        type: DirectoryOrCreate
-        name: mountpoint-dir
       - name: hostpath-root
         hostPath:
           path: /tmp
-          type: Directory
-      - name: device-dir
-        hostPath:
-          path: /dev
           type: Directory
 
   driverSocket: /csi/csi.sock
@@ -86,7 +73,7 @@ spec:
       reclaimPolicy: Delete
       allowVolumeExpansion: true
       volumeBindingMode: Immediate
-      
+
     - metadata:
         name: sc2
       parameters:
