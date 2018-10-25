@@ -6,9 +6,6 @@ spec:
   driverName: com.google.csi.gcepd
 
   driverControllerTemplate:
-    metadata:
-      labels:
-        foo: bar
     spec:
       containers:
       - args:
@@ -48,16 +45,9 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
-        - mountPath: /var/lib/origin/openshift.local.volumes/pods/
-          mountPropagation: Bidirectional
-          name: mountpoint-dir
         - name: device-dir
           mountPath: /host/dev
       volumes:
-      - hostPath:
-          path: /var/lib/origin/openshift.local.volumes/pods/
-        type: DirectoryOrCreate
-        name: mountpoint-dir
       - name: device-dir
         hostPath:
           path: /dev
@@ -73,7 +63,7 @@ spec:
       reclaimPolicy: Delete
       allowVolumeExpansion: true
       volumeBindingMode: Immediate
-      
+
     - metadata:
         name: sc2
       parameters:
