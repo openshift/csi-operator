@@ -13,6 +13,23 @@ spec:
   scope: Namespaced
 #  subresources:
 #    status: {}
+  additionalPrinterColumns:
+  - name: Driver
+    type: string
+    description: Name of the CSI driver
+    JSONPath: .spec.driverName
+  - name: State
+    type: string
+    description: Management state of the driver deployment
+    JSONPath: .status.state
+  - name: Available
+    type: string
+    description: Result of the last controller sync of the driver deployment
+    JSONPath: ".status.conditions[?(@.type==\"Available\")].status"
+  - name: SyncSuccessful
+    type: string
+    description: Result of the last controller sync of the driver deployment
+    JSONPath: ".status.conditions[?(@.type==\"SyncSuccessful\")].status"
   validation:
     openAPIV3Schema:
       properties:
