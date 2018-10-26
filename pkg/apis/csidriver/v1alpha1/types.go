@@ -193,5 +193,5 @@ type CSIDriverDeploymentStatus struct {
 	State openshiftapi.ManagementState `json:"state,omitempty"`
 
 	// Conditions is a list of conditions and their status.
-	Conditions []openshiftapi.OperatorCondition
+	Conditions []openshiftapi.OperatorCondition `json:"conditions,omitempty"`
 }
