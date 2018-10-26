@@ -18,6 +18,10 @@ import (
 	"k8s.io/api/core/v1"
 )
 
+const (
+	resyncPeriod = time.Hour
+)
+
 func printVersion() {
 	glog.V(2).Infof("csi-operator: %s", version.Version)
 	glog.V(4).Infof("Go Version: %s", runtime.Version())
@@ -50,7 +54,6 @@ func main() {
 		glog.V(4).Infof("Using config:\n%s", cfgText)
 	}
 
-	resyncPeriod := time.Duration(30) * time.Second
 	namespace := v1.NamespaceAll
 	// Watch only things with OwnerLabelName label
 	ownedSelectorString := controller.OwnerLabelName
