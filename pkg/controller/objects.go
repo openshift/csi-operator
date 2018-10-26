@@ -22,8 +22,17 @@ const (
 	// Port where livenessprobe listens
 	livenessprobePort = 9808
 
+	// How many probe failures lead to driver restart
+	livenessprobeFailureThreshold = 3
+
+	// Default timeout of the probe (in seconds)
+	livenessprobeDefaultTimeout = int32(30)
+
 	// Name of volume with CSI driver socket
 	driverSocketVolume = "csi-driver"
+
+	// Path where driverSocketVolume is mounted into all sidecar container
+	driverSocketVolumeMountPath = "/csi"
 
 	// Name of volume with /var/lib/kubelet
 	kubeletRootVolumeName = "kubelet-root"
@@ -128,7 +137,7 @@ func (h *Handler) generateDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, s
 	csiDriverSocketDirectory := path.Dir(csiDriverSocketPath)
 
 	// Path to the CSI driver socket in the driver registrar container
-	registrarSocketDirectory := "/csi"
+	registrarSocketDirectory := driverSocketVolumeMountPath
 	registrarSocketPath := path.Join(registrarSocketDirectory, csiDriverSocketFileName)
 
 	// Path to the CSI driver socket from kubelet point of view
@@ -187,11 +196,8 @@ func (h *Handler) generateDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, s
 	}
 	podSpec.Spec.Containers = append(podSpec.Spec.Containers, registrar)
 
-	// Add liveness probe
-	livenessprobe := h.livenessProbeContainer(cr, &podSpec.Spec.Containers[0], registrarSocketPath)
-	if livenessprobe != nil {
-		podSpec.Spec.Containers = append(podSpec.Spec.Containers, *livenessprobe)
-	}
+	probeSocketPath := path.Join(driverSocketVolumeMountPath, csiDriverSocketFileName)
+	h.addLivenessProbe(cr, podSpec, probeSocketPath)
 
 	// Add volumes
 	typeDir := v1.HostPathDirectory
@@ -299,7 +305,7 @@ func (h *Handler) generateDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, 
 	csiDriverSocketDirectory := path.Dir(csiDriverSocketPath)
 
 	// Path to the CSI driver socket in the sidecar containers
-	sidecarSocketDirectory := "/csi"
+	sidecarSocketDirectory := driverSocketVolumeMountPath
 	sidecarSocketPath := path.Join(sidecarSocketDirectory, csiDriverSocketFileName)
 
 	provisionerImage := *h.config.DefaultImages.ProvisionerImage
@@ -324,7 +330,7 @@ func (h *Handler) generateDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, 
 		VolumeMounts: []v1.VolumeMount{
 			{
 				Name:      driverSocketVolume,
-				MountPath: "/csi",
+				MountPath: driverSocketVolumeMountPath,
 			},
 		},
 	}
@@ -351,16 +357,13 @@ func (h *Handler) generateDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, 
 		VolumeMounts: []v1.VolumeMount{
 			{
 				Name:      driverSocketVolume,
-				MountPath: "/csi",
+				MountPath: driverSocketVolumeMountPath,
 			},
 		},
 	}
 	podSpec.Spec.Containers = append(podSpec.Spec.Containers, attacher)
 
-	livenessprobe := h.livenessProbeContainer(cr, &podSpec.Spec.Containers[0], sidecarSocketPath)
-	if livenessprobe != nil {
-		podSpec.Spec.Containers = append(podSpec.Spec.Containers, *livenessprobe)
-	}
+	h.addLivenessProbe(cr, podSpec, sidecarSocketPath)
 
 	// Add volumes
 	volumes := []v1.Volume{
@@ -475,13 +478,18 @@ func (h *Handler) uniqueGlobalName(i *csidriverv1alpha1.CSIDriverDeployment) str
 	return "csidriverdeployment-" + string(i.UID)
 }
 
-func (h *Handler) livenessProbeContainer(cr *csidriverv1alpha1.CSIDriverDeployment, driverContainer *v1.Container, sidecarSocketPath string) *v1.Container {
-	if driverContainer.LivenessProbe != nil {
-		// Driver already has its own probe
-		return nil
+func (h *Handler) addLivenessProbe(cr *csidriverv1alpha1.CSIDriverDeployment, podSpec *v1.PodTemplateSpec, sidecarSocketVolumePath string) {
+	if cr.Spec.ProbePeriodSeconds == nil {
+		return
 	}
 
-	// Add the probe to driverContainer, so the driver is restarted when the probe fails.
+	probeTimeout := livenessprobeDefaultTimeout
+	if cr.Spec.ProbeTimeoutSeconds != nil {
+		probeTimeout = *cr.Spec.ProbeTimeoutSeconds
+	}
+
+	// Add the probe to driverContainer, so the *driver* is restarted when the probe fails.
+	driverContainer := &podSpec.Spec.Containers[0]
 	if driverContainer.Ports == nil {
 		driverContainer.Ports = []v1.ContainerPort{}
 	}
@@ -491,10 +499,10 @@ func (h *Handler) livenessProbeContainer(cr *csidriverv1alpha1.CSIDriverDeployme
 		ContainerPort: livenessprobePort,
 	})
 	driverContainer.LivenessProbe = &v1.Probe{
-		FailureThreshold:    3,
-		InitialDelaySeconds: 30,
-		TimeoutSeconds:      60,
-		PeriodSeconds:       60,
+		FailureThreshold:    livenessprobeFailureThreshold,
+		InitialDelaySeconds: *cr.Spec.ProbePeriodSeconds,
+		TimeoutSeconds:      probeTimeout,
+		PeriodSeconds:       *cr.Spec.ProbePeriodSeconds,
 		Handler: v1.Handler{
 			HTTPGet: &v1.HTTPGetAction{
 				Path: "/healthz",
@@ -503,6 +511,7 @@ func (h *Handler) livenessProbeContainer(cr *csidriverv1alpha1.CSIDriverDeployme
 		},
 	}
 
+	// Add liveness probe container that provides /healthz endpoint for the liveness probe.
 	livenessprobeImage := *h.config.DefaultImages.LivenessProbeImage
 	if cr.Spec.ContainerImages != nil && cr.Spec.ContainerImages.LivenessProbeImage != nil {
 		livenessprobeImage = *cr.Spec.ContainerImages.LivenessProbeImage
@@ -518,16 +527,16 @@ func (h *Handler) livenessProbeContainer(cr *csidriverv1alpha1.CSIDriverDeployme
 		Env: []v1.EnvVar{
 			{
 				Name:  "ADDRESS",
-				Value: sidecarSocketPath,
+				Value: sidecarSocketVolumePath,
 			},
 		},
 		VolumeMounts: []v1.VolumeMount{
 			{
 				Name:      driverSocketVolume,
-				MountPath: "/csi",
+				MountPath: driverSocketVolumeMountPath,
 			},
 		},
 	}
 
-	return &probeContainer
+	podSpec.Spec.Containers = append(podSpec.Spec.Containers, probeContainer)
 }

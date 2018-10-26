@@ -35,7 +35,8 @@ func (h *Handler) validateCSIDriverDeployment(instance *v1alpha1.CSIDriverDeploy
 	errs = append(errs, h.validateNodeUpdateStrategy(instance.Spec.NodeUpdateStrategy, fldPath.Child("nodeUpdateStrategy"))...)
 	errs = append(errs, h.validateContainerImages(instance.Spec.ContainerImages, fldPath.Child("containerImages"))...)
 	errs = append(errs, h.validateManagementState(instance.Spec.ManagementState, fldPath.Child("managementState"))...)
-
+	errs = append(errs, h.validatePositiveInteger(instance.Spec.ProbePeriodSeconds, fldPath.Child("probePeriodSeconds"))...)
+	errs = append(errs, h.validatePositiveInteger(instance.Spec.ProbeTimeoutSeconds, fldPath.Child("probeTimeoutSeconds"))...)
 	return errs
 }
 
@@ -142,6 +143,17 @@ func (h *Handler) validateManagementState(state openshiftapi.ManagementState, fl
 
 	if !allowedStates.Has(string(state)) {
 		errs = append(errs, field.NotSupported(fldPath, state, allowedStates.List()))
+	}
+	return errs
+}
+
+func (h *Handler) validatePositiveInteger(value *int32, fldPath *field.Path) field.ErrorList {
+	errs := field.ErrorList{}
+	if value == nil {
+		return errs
+	}
+	if *value <= 0 {
+		errs = append(errs, field.Invalid(fldPath, *value, "must be positive integer number"))
 	}
 	return errs
 }

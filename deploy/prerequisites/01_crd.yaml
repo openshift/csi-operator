@@ -80,6 +80,14 @@ spec:
             managementState:
               type: string
               enum: ["Managed", "Unmanaged"]
+            probePeriodSeconds:
+              type: integer
+              format: int32
+              minimum: 1
+            probeTimeoutSeconds:
+              type: integer
+              format: int32
+              minimum: 1
           required:
           - driverName
           - driverPerNodeTemplate

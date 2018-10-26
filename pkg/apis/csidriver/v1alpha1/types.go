@@ -67,6 +67,21 @@ type CSIDriverDeploymentSpec struct {
 	// Required.
 	DriverSocket string `json:"driverSocket"`
 
+	// Period of CSI driver liveness probe. The probe will issue Probe() call every
+	// probePeriodSeconds and it will wait for probeTimeoutSeconds for successful response.
+	// If the probe fails 3x in a row, the first container in driverPerNodeTemplate or
+	// driverControllerTemplate is restarted.
+	// When set, the probe is installed both to Deployment with the controller parts and
+	// DaemonSet that runs the driver on every node.
+	// Note that restarting a CSI driver container may be dangerous if the container
+	// runs fuse daemons!
+	// No probe is started when the field is not set.
+	ProbePeriodSeconds *int32 `json:"probePeriodSeconds,omitempty"`
+
+	// Timeout of CSI driver liveness probe. 30 seconds is used when it's not set and
+	// probePeriodSeconds is set.
+	ProbeTimeoutSeconds *int32 `json:"probeTimeoutSeconds,omitempty"`
+
 	// Template of storage classes to create. "Provisioner" field will
 	// be overwritten with DriverName by the operator.
 	// Optional
