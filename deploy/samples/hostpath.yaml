@@ -65,6 +65,7 @@ spec:
 
   driverSocket: /csi/csi.sock
   nodeUpdateStrategy: Rolling
+  probePeriodSeconds: 60
 
   storageClassTemplates:
     - metadata:

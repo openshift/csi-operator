@@ -23,6 +23,9 @@ var (
 		Name:  "defaultDriverContainer",
 		Image: "defaultDriverImage",
 	}
+
+	sixty = int32(60)
+
 	defaultCR v1alpha1.CSIDriverDeployment = v1alpha1.CSIDriverDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
@@ -54,6 +57,7 @@ var (
 			},
 			DriverSocket:       "/my/csi/path/csi.sock",
 			NodeUpdateStrategy: v1alpha1.CSIDeploymentUpdateStrategyRolling,
+			ProbePeriodSeconds: &sixty,
 		},
 	}
 
@@ -188,8 +192,8 @@ var (
 							},
 							LivenessProbe: &corev1.Probe{
 								FailureThreshold:    3,
-								InitialDelaySeconds: 30,
-								TimeoutSeconds:      60,
+								InitialDelaySeconds: 60,
+								TimeoutSeconds:      30,
 								PeriodSeconds:       60,
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -328,8 +332,8 @@ var (
 							},
 							LivenessProbe: &corev1.Probe{
 								FailureThreshold:    3,
-								InitialDelaySeconds: 30,
-								TimeoutSeconds:      60,
+								InitialDelaySeconds: 60,
+								TimeoutSeconds:      30,
 								PeriodSeconds:       60,
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -517,6 +521,26 @@ func TestGenerateLeaderElectionRoleBinding(t *testing.T) {
 }
 
 func TestGenerateDeployment(t *testing.T) {
+	deploymentWithCustomProbe := defaultDeployment.DeepCopy()
+	deploymentWithCustomProbe.Spec.Template.Spec.Containers[0].LivenessProbe.PeriodSeconds = 6
+	deploymentWithCustomProbe.Spec.Template.Spec.Containers[0].LivenessProbe.TimeoutSeconds = 3
+	deploymentWithCustomProbe.Spec.Template.Spec.Containers[0].LivenessProbe.InitialDelaySeconds = 6
+
+	crWithCustomProbe := defaultCR.DeepCopy()
+	var six int32 = 6
+	var three int32 = 3
+	crWithCustomProbe.Spec.ProbePeriodSeconds = &six
+	crWithCustomProbe.Spec.ProbeTimeoutSeconds = &three
+
+	deploymentWithNoProbe := defaultDeployment.DeepCopy()
+	deploymentWithNoProbe.Spec.Template.Spec.Containers[0].LivenessProbe = nil
+	deploymentWithNoProbe.Spec.Template.Spec.Containers = deploymentWithNoProbe.Spec.Template.Spec.Containers[:3]
+	deploymentWithNoProbe.Spec.Template.Spec.Containers[0].Ports = nil
+
+	crWithNoProbe := defaultCR.DeepCopy()
+	crWithNoProbe.Spec.ProbePeriodSeconds = nil
+	crWithNoProbe.Spec.ProbeTimeoutSeconds = nil
+
 	tests := []struct {
 		name               string
 		cdd                *v1alpha1.CSIDriverDeployment
@@ -526,6 +550,16 @@ func TestGenerateDeployment(t *testing.T) {
 			"pass",
 			&defaultCR,
 			defaultDeployment,
+		},
+		{
+			"custom probe",
+			crWithCustomProbe,
+			deploymentWithCustomProbe,
+		},
+		{
+			"no probe",
+			crWithNoProbe,
+			deploymentWithNoProbe,
 		},
 	}
 
@@ -545,6 +579,26 @@ func TestGenerateDeployment(t *testing.T) {
 }
 
 func TestGenerateDaemonSet(t *testing.T) {
+	daemonSetWithCustomProbe := defaultDaemonSet.DeepCopy()
+	daemonSetWithCustomProbe.Spec.Template.Spec.Containers[0].LivenessProbe.PeriodSeconds = 6
+	daemonSetWithCustomProbe.Spec.Template.Spec.Containers[0].LivenessProbe.TimeoutSeconds = 3
+	daemonSetWithCustomProbe.Spec.Template.Spec.Containers[0].LivenessProbe.InitialDelaySeconds = 6
+
+	crWithCustomProbe := defaultCR.DeepCopy()
+	var six int32 = 6
+	var three int32 = 3
+	crWithCustomProbe.Spec.ProbePeriodSeconds = &six
+	crWithCustomProbe.Spec.ProbeTimeoutSeconds = &three
+
+	daemonSetWithNoProbe := defaultDaemonSet.DeepCopy()
+	daemonSetWithNoProbe.Spec.Template.Spec.Containers[0].LivenessProbe = nil
+	daemonSetWithNoProbe.Spec.Template.Spec.Containers = daemonSetWithNoProbe.Spec.Template.Spec.Containers[:2]
+	daemonSetWithNoProbe.Spec.Template.Spec.Containers[0].Ports = nil
+
+	crWithNoProbe := defaultCR.DeepCopy()
+	crWithNoProbe.Spec.ProbePeriodSeconds = nil
+	crWithNoProbe.Spec.ProbeTimeoutSeconds = nil
+
 	tests := []struct {
 		name              string
 		cdd               *v1alpha1.CSIDriverDeployment
@@ -554,6 +608,16 @@ func TestGenerateDaemonSet(t *testing.T) {
 			"pass",
 			&defaultCR,
 			defaultDaemonSet,
+		},
+		{
+			"custom probe",
+			crWithCustomProbe,
+			daemonSetWithCustomProbe,
+		},
+		{
+			"no probe",
+			crWithNoProbe,
+			daemonSetWithNoProbe,
 		},
 	}
 
