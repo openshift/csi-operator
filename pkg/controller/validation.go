@@ -54,7 +54,7 @@ func (h *Handler) validateDriverName(driverName string, fldPath *field.Path) fie
 			validation.RegexError(
 				"must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character",
 				csiDriverNameRexpFmt,
-				"csi-hostpath")))
+				"org.acme.csi-hostpath")))
 	}
 	return errs
 }
