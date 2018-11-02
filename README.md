@@ -4,7 +4,7 @@ This operator deploys and updates a CSI driver in OpenShift or Kubernetes cluste
 
 ## Usage
 
-1. Create namespace csi-operator for the operator, necessary RBAC rules and service account:
+1. Create namespace openshift-csi-operator for the operator, necessary RBAC rules and service account:
     ```bash
     $ kubectl apply -f deploy/prerequisites
     ```
@@ -13,13 +13,15 @@ This operator deploys and updates a CSI driver in OpenShift or Kubernetes cluste
 
     * Outside of the cluster (for debugging)
       ```bash
-      $ bin/csi-operator -v 5 -alsologtostderr -kubeconfig=/etc/origin/master/admin.kubeconfig
+      $ KUBERNETES_CONFIG=/var/run/kubernetes/admin.kubeconfig  bin/csi-operator -v 5
       ```
      
     * As deployment (with image created by "make container"):
       ```bash
       $ kubectl apply -f deploy/operator.yaml
       ```
+      
+      See [docs/configuration.md](docs/configuration.md) for details how to start the operator and how to configure it.
 
 3. Create CSIDriverDeployment:
     ```bash
@@ -58,8 +60,13 @@ For each CSIDriverDeployment, the operator creates in the same namespace:
 * ServiceAccount to run all the components.
 * RoleBindings and ClusterRuleBindings for the created ServiceAccount.
 
+See [docs/usage.md](docs/usage.md) for details.
+
 ## Limitations
 
 * It's limited to OpenShift 3.11 / Kubernetes 1.11 functionality for now. In future it will create CSIDriver instances, however 1.11 / 1.12 without alpha features is the current target.
 * The operator has very limited support for CSI drivers that run long-running daemons in their containers. Such drivers can't be updated using `Rolling` update strategy, as it would kill the long running daemons. **In case a driver uses fuse, killing fuse daemons kills all mounts it created on the node, possibly corrupting application data!**
     * Note that we're open to new update strategies, especially we'd welcome some `Draining` strategy that would drain a node (using a taint?) and update a driver on the node after all pods that use the CSI driver are safely evicted.
+
+## OpenShift vs. Kubernetes
+This operator works both in Kubernetes and OpenShift (and any other Kubernetes distribution). There are some OpenShift specific things, e.g. special manifests installed into Dockerfile and objects with "openshift" prefix in various `deploy/` yaml files, however, there is nothing OpenShift-ish in the code itself. It's pure Kubernetes code. We're open for contributions from Kubernetes community or even adding non-OpenShift version of yaml files or Dockerfiles.
