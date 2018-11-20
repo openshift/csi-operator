@@ -1,32 +1,27 @@
 package main
 
 import (
-	"context"
 	"flag"
+	"log"
 	"runtime"
-	"time"
 
-	"github.com/openshift/csi-operator/version"
-
-	"github.com/golang/glog"
-	"github.com/openshift/csi-operator/pkg/config"
+	"github.com/openshift/csi-operator/pkg/apis"
+	opconfig "github.com/openshift/csi-operator/pkg/config"
 	"github.com/openshift/csi-operator/pkg/controller"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
-	"k8s.io/api/core/v1"
-)
-
-const (
-	resyncPeriod = time.Hour
+	yaml "gopkg.in/yaml.v2"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog/glog"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 )
 
 func printVersion() {
-	glog.V(2).Infof("csi-operator: %s", version.Version)
-	glog.V(4).Infof("Go Version: %s", runtime.Version())
-	glog.V(4).Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
-	glog.V(4).Infof("operator-sdk Version: %v", sdkVersion.Version)
+	log.Printf("Go Version: %s", runtime.Version())
+	log.Printf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
+	log.Printf("operator-sdk Version: %v", sdkVersion.Version)
 }
 
 var (
@@ -40,13 +35,12 @@ func main() {
 
 	printVersion()
 
-	//sdk.ExposeMetricsPort()
-	cfg := config.DefaultConfig()
+	cfg := opconfig.DefaultConfig()
 	if configFile != nil && *configFile != "" {
 		var err error
-		cfg, err = config.LoadConfig(*configFile)
+		cfg, err = opconfig.LoadConfig(*configFile)
 		if err != nil {
-			logrus.Fatalf("Failed to load config file %q: %s", *configFile, err)
+			glog.Fatalf("Failed to load config file %q: %s", *configFile, err)
 		}
 	}
 	if glog.V(4) {
@@ -54,22 +48,37 @@ func main() {
 		glog.V(4).Infof("Using config:\n%s", cfgText)
 	}
 
-	namespace := v1.NamespaceAll
-	// Watch only things with OwnerLabelName label
-	ownedSelectorString := controller.OwnerLabelName
-
-	sdk.Watch("csidriver.storage.openshift.io/v1alpha1", "CSIDriverDeployment", namespace, resyncPeriod)
-	sdk.Watch("apps/v1", "Deployment", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("apps/v1", "DaemonSet", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("v1", "ServiceAccount", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("rbac.authorization.k8s.io/v1", "RoleBinding", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("storage.k8s.io/v1", "StorageClass", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-
-	handler, err := controller.NewHandler(cfg)
+	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
-		logrus.Fatalf("Failed to start handler: %s", err)
+		log.Fatalf("failed to get watch namespace: %v", err)
 	}
-	sdk.Handle(handler)
-	sdk.Run(context.TODO())
+
+	// Get a config to talk to the apiserver
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create a new Cmd to provide shared dependencies and start components
+	mgr, err := manager.New(restConfig, manager.Options{Namespace: namespace})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Print("Registering Components.")
+
+	// Setup Scheme for all resources
+	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Fatal(err)
+	}
+
+	// Setup all Controllers
+	if err := controller.AddToManager(mgr, cfg); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Print("Starting the Cmd.")
+
+	// Start the Cmd
+	log.Fatal(mgr.Start(signals.SetupSignalHandler()))
 }

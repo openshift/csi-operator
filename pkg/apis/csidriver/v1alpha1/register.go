@@ -1,38 +1,19 @@
+// NOTE: Boilerplate only.  Ignore this file.
+
+// Package v1alpha1 contains API Schema definitions for the csidriver v1alpha1 API group
+// +k8s:deepcopy-gen=package,register
+// +groupName=csidriver.storage.openshift.io
 package v1alpha1
 
 import (
-	sdkK8sutil "github.com/operator-framework/operator-sdk/pkg/util/k8sutil"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-)
-
-const (
-	version   = "v1alpha1"
-	groupName = "csidriver.storage.openshift.io"
-
-	// CSIDriverDeploymentKind is string of CSIDriverDeployment.Kind
-	CSIDriverDeploymentKind = "CSIDriverDeployment"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/scheme"
 )
 
 var (
-	schemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	addToScheme   = schemeBuilder.AddToScheme
-	// SchemeGroupVersion is the group version used to register these objects.
-	SchemeGroupVersion = schema.GroupVersion{Group: groupName, Version: version}
+	// SchemeGroupVersion is group version used to register these objects
+	SchemeGroupVersion = schema.GroupVersion{Group: "csidriver.storage.openshift.io", Version: "v1alpha1"}
+
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
 )
-
-func init() {
-	sdkK8sutil.AddToSDKScheme(addToScheme)
-}
-
-// addKnownTypes adds the set of types defined in this package to the supplied scheme.
-func addKnownTypes(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(SchemeGroupVersion,
-		&CSIDriverDeployment{},
-		&CSIDriverDeploymentList{},
-	)
-	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
-	return nil
-}
