@@ -5,23 +5,24 @@ import (
 	"log"
 	"runtime"
 
+	"github.com/golang/glog"
 	"github.com/openshift/csi-operator/pkg/apis"
 	opconfig "github.com/openshift/csi-operator/pkg/config"
 	"github.com/openshift/csi-operator/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/klog/glog"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 )
 
 func printVersion() {
-	log.Printf("Go Version: %s", runtime.Version())
-	log.Printf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
-	log.Printf("operator-sdk Version: %v", sdkVersion.Version)
+	glog.Infof("Go Version: %s", runtime.Version())
+	glog.Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
+	glog.Infof("operator-sdk Version: %v", sdkVersion.Version)
 }
 
 var (
@@ -32,6 +33,13 @@ func main() {
 	// for glog
 	flag.Set("logtostderr", "true")
 	flag.Parse()
+
+	// send klog to glog
+	var flags flag.FlagSet
+	klog.InitFlags(&flags)
+	flags.Set("skip_headers", "true")
+	flag.Parse()
+	klog.SetOutput(&glogWriter{})
 
 	printVersion()
 
@@ -81,4 +89,12 @@ func main() {
 
 	// Start the Cmd
 	log.Fatal(mgr.Start(signals.SetupSignalHandler()))
+}
+
+// Send klog to glog
+type glogWriter struct{}
+
+func (file *glogWriter) Write(data []byte) (n int, err error) {
+	glog.InfoDepth(0, string(data))
+	return len(data), nil
 }
