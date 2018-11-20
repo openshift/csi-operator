@@ -3,6 +3,7 @@ package resourceapply
 import (
 	"context"
 
+	"github.com/golang/glog"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,7 +29,8 @@ func ApplyServiceAccount(ctx context.Context, client client.Client, required *co
 		if err != nil {
 			return nil, false, err
 		}
-		return required, true, err
+		glog.V(2).Infof("Created ServiceAccount %s/%s", required.Namespace, required.Name)
+		return required, true, nil
 	}
 	if err != nil {
 		return nil, false, err
@@ -44,7 +46,8 @@ func ApplyServiceAccount(ctx context.Context, client client.Client, required *co
 	if err != nil {
 		return nil, false, err
 	}
-	return existing, true, err
+	glog.V(2).Infof("Updated ServiceAccount %s/%s", required.Namespace, required.Name)
+	return existing, true, nil
 }
 
 // ApplyClusterRoleBinding merges objectmeta, requires subjects and role refs
@@ -56,7 +59,8 @@ func ApplyClusterRoleBinding(ctx context.Context, client client.Client, required
 		if err != nil {
 			return nil, false, err
 		}
-		return required, true, err
+		glog.V(2).Infof("Created ClusterRoleBinding %s", required.Name)
+		return required, true, nil
 	}
 	if err != nil {
 		return nil, false, err
@@ -76,7 +80,8 @@ func ApplyClusterRoleBinding(ctx context.Context, client client.Client, required
 	if err != nil {
 		return nil, false, err
 	}
-	return existing, true, err
+	glog.V(2).Infof("Updated ClusterRoleBinding %s", required.Name)
+	return existing, true, nil
 }
 
 // ApplyRoleBinding merges objectmeta, requires subjects and role refs
@@ -88,7 +93,8 @@ func ApplyRoleBinding(ctx context.Context, client client.Client, required *rbacv
 		if err != nil {
 			return nil, false, err
 		}
-		return required, true, err
+		glog.V(2).Infof("Created RoleBinding %s/%s", required.Namespace, required.Name)
+		return required, true, nil
 	}
 	if err != nil {
 		return nil, false, err
@@ -108,7 +114,8 @@ func ApplyRoleBinding(ctx context.Context, client client.Client, required *rbacv
 	if err != nil {
 		return nil, false, err
 	}
-	return existing, true, err
+	glog.V(2).Infof("Updated RoleBinding %s/%s", required.Namespace, required.Name)
+	return existing, true, nil
 }
 
 // ApplyDeployment merges objectmeta and requires matching generation. It returns the final Object, whether any change as made, and an error
@@ -120,7 +127,8 @@ func ApplyDeployment(ctx context.Context, client client.Client, required *appsv1
 		if err != nil {
 			return nil, false, err
 		}
-		return required, true, err
+		glog.V(2).Infof("Created Deployment %s/%s", required.Namespace, required.Name)
+		return required, true, nil
 	}
 	if err != nil {
 		return nil, false, err
@@ -153,7 +161,8 @@ func ApplyDeployment(ctx context.Context, client client.Client, required *appsv1
 	if err != nil {
 		return nil, false, err
 	}
-	return toWrite, true, err
+	glog.V(2).Infof("Updated Deployment %s/%s", required.Namespace, required.Name)
+	return toWrite, true, nil
 }
 
 // ApplyDaemonSet merges objectmeta and requires matching generation. It returns the final Object, whether any change as made, and an error
@@ -165,7 +174,8 @@ func ApplyDaemonSet(ctx context.Context, client client.Client, required *appsv1.
 		if err != nil {
 			return nil, false, err
 		}
-		return required, true, err
+		glog.V(2).Infof("Created DaemonSet %s/%s", required.Namespace, required.Name)
+		return required, true, nil
 	}
 	if err != nil {
 		return nil, false, err
@@ -198,7 +208,8 @@ func ApplyDaemonSet(ctx context.Context, client client.Client, required *appsv1.
 	if err != nil {
 		return nil, false, err
 	}
-	return toWrite, true, err
+	glog.V(2).Infof("Updated DaemonSet %s/%s", required.Namespace, required.Name)
+	return toWrite, true, nil
 }
 
 // ApplyStorageClass merges objectmeta, tries to write everything else
@@ -210,7 +221,8 @@ func ApplyStorageClass(ctx context.Context, client client.Client, required *stor
 		if err != nil {
 			return nil, false, err
 		}
-		return required, true, err
+		glog.V(2).Infof("Created StorageClass %s", required.Name)
+		return required, true, nil
 	}
 	if err != nil {
 		return nil, false, err
@@ -248,5 +260,9 @@ func ApplyStorageClass(ctx context.Context, client client.Client, required *stor
 		return existing, false, nil
 	}
 	err = client.Update(ctx, existing)
-	return existing, true, err
+	if err != nil {
+		return nil, false, err
+	}
+	glog.V(2).Infof("Updated StorageClass %s", required.Name)
+	return existing, true, nil
 }

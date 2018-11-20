@@ -3,7 +3,6 @@ package csidriverdeployment
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/golang/glog"
@@ -127,13 +126,8 @@ type ReconcileCSIDriverDeployment struct {
 
 // Reconcile reads that state of the cluster for a CSIDriverDeployment object and makes changes based on the state read
 // and what is in the CSIDriverDeployment.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
-// Note:
-// The Controller will requeue the Request to be processed again if the returned error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileCSIDriverDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	log.Printf("Reconciling CSIDriverDeployment %s/%s\n", request.Namespace, request.Name)
+	glog.V(3).Infof("Reconciling CSIDriverDeployment %s/%s\n", request.Namespace, request.Name)
 
 	// Fetch the CSIDriverDeployment instance
 	instance := &csidriverv1alpha1.CSIDriverDeployment{}
@@ -208,7 +202,7 @@ func (r *ReconcileCSIDriverDeployment) handleCSIDriverDeployment(instance *csidr
 // syncCSIDriverDeployment checks one CSIDriverDeployment and ensures that all "children" objects are either
 // created or updated.
 func (r *ReconcileCSIDriverDeployment) syncCSIDriverDeployment(cr *csidriverv1alpha1.CSIDriverDeployment) (*csidriverv1alpha1.CSIDriverDeployment, []error) {
-	glog.V(4).Infof("=== Syncing CSIDriverDeployment %s/%s", cr.Namespace, cr.Name)
+	glog.V(2).Infof("=== Syncing CSIDriverDeployment %s/%s", cr.Namespace, cr.Name)
 	var errs []error
 
 	cr, err := r.syncFinalizer(cr)
@@ -480,7 +474,7 @@ func (r *ReconcileCSIDriverDeployment) syncStatus(oldInstance, newInstance *csid
 // cleanupCSIDriverDeployment removes non-namespaced objects owned by the CSIDriverDeployment.
 // ObjectMeta.OwnerReference does not work for them.
 func (r *ReconcileCSIDriverDeployment) cleanupCSIDriverDeployment(cr *csidriverv1alpha1.CSIDriverDeployment) (*csidriverv1alpha1.CSIDriverDeployment, []error) {
-	glog.V(4).Infof("=== Cleaning up CSIDriverDeployment %s/%s", cr.Namespace, cr.Name)
+	glog.V(2).Infof("=== Cleaning up CSIDriverDeployment %s/%s", cr.Namespace, cr.Name)
 
 	errs := r.cleanupStorageClasses(cr)
 	if err := r.cleanupClusterRoleBinding(cr); err != nil {

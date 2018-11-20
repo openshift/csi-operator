@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"runtime"
 
 	"github.com/golang/glog"
@@ -58,37 +57,38 @@ func main() {
 
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
-		log.Fatalf("failed to get watch namespace: %v", err)
+		glog.V(3).Infof("WATCH_NAMESPACE is not set, watching all namespaces")
+		namespace = ""
 	}
 
 	// Get a config to talk to the apiserver
 	restConfig, err := config.GetConfig()
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(restConfig, manager.Options{Namespace: namespace})
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
-	log.Print("Registering Components.")
+	glog.V(4).Info("Registering Components.")
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr, cfg); err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
-	log.Print("Starting the Cmd.")
+	glog.V(4).Info("Starting the Cmd.")
 
 	// Start the Cmd
-	log.Fatal(mgr.Start(signals.SetupSignalHandler()))
+	glog.Info(mgr.Start(signals.SetupSignalHandler()))
 }
 
 // Send klog to glog
