@@ -468,7 +468,7 @@ func (r *ReconcileCSIDriverDeployment) syncStatus(oldInstance, newInstance *csid
 
 	if !equality.Semantic.DeepEqual(oldInstance.Status, newInstance.Status) {
 		glog.V(4).Info("Updating CSIDriverDeployment.Status")
-		err := r.client.Update(context.TODO(), newInstance)
+		err := r.client.Status().Update(context.TODO(), newInstance)
 		if err != nil && errors.IsConflict(err) {
 			err = nil
 		}
