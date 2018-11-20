@@ -244,7 +244,11 @@ func (r *ReconcileCSIDriverDeployment) syncCSIDriverDeployment(cr *csidriverv1al
 
 	var children []openshiftapi.GenerationHistory
 
-	ds, err := r.syncDaemonSet(cr, serviceAccount)
+	// There is no easy way how to detect change of DriverControllerTemplate or DriverPerNodeTemplate.
+	// Assume that every change of CR generation changed the templates.
+	generationChanged := cr.Status.ObservedGeneration == nil || cr.Generation != *cr.Status.ObservedGeneration
+
+	ds, err := r.syncDaemonSet(cr, serviceAccount, generationChanged)
 	if err != nil {
 		err := fmt.Errorf("error syncing DaemonSet for CSIDriverDeployment %s/%s: %s", cr.Namespace, cr.Name, err)
 		errs = append(errs, err)
@@ -260,7 +264,7 @@ func (r *ReconcileCSIDriverDeployment) syncCSIDriverDeployment(cr *csidriverv1al
 		})
 	}
 
-	deployment, err := r.syncDeployment(cr, serviceAccount)
+	deployment, err := r.syncDeployment(cr, serviceAccount, generationChanged)
 	if err != nil {
 		err := fmt.Errorf("error syncing Deployment for CSIDriverDeployment %s/%s: %s", cr.Namespace, cr.Name, err)
 		errs = append(errs, err)
@@ -339,20 +343,20 @@ func (r *ReconcileCSIDriverDeployment) syncLeaderElectionRoleBinding(cr *csidriv
 	return err
 }
 
-func (r *ReconcileCSIDriverDeployment) syncDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, sa *corev1.ServiceAccount) (*appsv1.DaemonSet, error) {
+func (r *ReconcileCSIDriverDeployment) syncDaemonSet(cr *csidriverv1alpha1.CSIDriverDeployment, sa *corev1.ServiceAccount, templateChanged bool) (*appsv1.DaemonSet, error) {
 	glog.V(4).Infof("Syncing DaemonSet")
 	requiredDS := r.generateDaemonSet(cr, sa)
 	gvk := appsv1.SchemeGroupVersion.WithKind("DaemonSet")
 	generation := r.getExpectedGeneration(cr, requiredDS, gvk)
 
-	ds, _, err := resourceapply.ApplyDaemonSet(context.TODO(), r.client, requiredDS, generation, false)
+	ds, _, err := resourceapply.ApplyDaemonSet(context.TODO(), r.client, requiredDS, generation, templateChanged)
 	if err != nil {
 		return requiredDS, err
 	}
 	return ds, nil
 }
 
-func (r *ReconcileCSIDriverDeployment) syncDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, sa *corev1.ServiceAccount) (*appsv1.Deployment, error) {
+func (r *ReconcileCSIDriverDeployment) syncDeployment(cr *csidriverv1alpha1.CSIDriverDeployment, sa *corev1.ServiceAccount, templateChanged bool) (*appsv1.Deployment, error) {
 	glog.V(4).Infof("Syncing Deployment")
 	if cr.Spec.DriverControllerTemplate == nil {
 		// TODO: delete existing deployment!
@@ -363,7 +367,7 @@ func (r *ReconcileCSIDriverDeployment) syncDeployment(cr *csidriverv1alpha1.CSID
 	gvk := appsv1.SchemeGroupVersion.WithKind("Deployment")
 	generation := r.getExpectedGeneration(cr, requiredDeployment, gvk)
 
-	deployment, _, err := resourceapply.ApplyDeployment(context.TODO(), r.client, requiredDeployment, generation, false)
+	deployment, _, err := resourceapply.ApplyDeployment(context.TODO(), r.client, requiredDeployment, generation, templateChanged)
 	if err != nil {
 		return requiredDeployment, err
 	}

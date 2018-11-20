@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -119,7 +118,7 @@ func ApplyRoleBinding(ctx context.Context, client client.Client, required *rbacv
 }
 
 // ApplyDeployment merges objectmeta and requires matching generation. It returns the final Object, whether any change as made, and an error
-func ApplyDeployment(ctx context.Context, client client.Client, required *appsv1.Deployment, expectedGeneration int64, forceRollout bool) (*appsv1.Deployment, bool, error) {
+func ApplyDeployment(ctx context.Context, client client.Client, required *appsv1.Deployment, expectedGeneration int64, templateChanged bool) (*appsv1.Deployment, bool, error) {
 	existing := &appsv1.Deployment{}
 	err := client.Get(ctx, types.NamespacedName{Name: required.Name, Namespace: required.Namespace}, existing)
 	if err != nil && apierrors.IsNotFound(err) {
@@ -137,26 +136,13 @@ func ApplyDeployment(ctx context.Context, client client.Client, required *appsv1
 	modified := boolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
 	// there was no change to metadata, the generation was right, and we weren't asked for force the deployment
-	if !*modified && existing.ObjectMeta.Generation == expectedGeneration && !forceRollout {
+	if !*modified && existing.ObjectMeta.Generation == expectedGeneration && !templateChanged {
 		return existing, false, nil
 	}
 
 	// at this point we know that we're going to perform a write.  We're just trying to get the object correct
 	toWrite := existing // shallow copy so the code reads easier
 	toWrite.Spec = *required.Spec.DeepCopy()
-	if forceRollout {
-		// forces a deployment
-		forceString := string(uuid.NewUUID())
-		if toWrite.Annotations == nil {
-			toWrite.Annotations = map[string]string{}
-		}
-		if toWrite.Spec.Template.Annotations == nil {
-			toWrite.Spec.Template.Annotations = map[string]string{}
-		}
-		toWrite.Annotations["operator.openshift.io/force"] = forceString
-		toWrite.Spec.Template.Annotations["operator.openshift.io/force"] = forceString
-	}
-
 	err = client.Update(ctx, toWrite)
 	if err != nil {
 		return nil, false, err
@@ -166,7 +152,7 @@ func ApplyDeployment(ctx context.Context, client client.Client, required *appsv1
 }
 
 // ApplyDaemonSet merges objectmeta and requires matching generation. It returns the final Object, whether any change as made, and an error
-func ApplyDaemonSet(ctx context.Context, client client.Client, required *appsv1.DaemonSet, expectedGeneration int64, forceRollout bool) (*appsv1.DaemonSet, bool, error) {
+func ApplyDaemonSet(ctx context.Context, client client.Client, required *appsv1.DaemonSet, expectedGeneration int64, templateChanged bool) (*appsv1.DaemonSet, bool, error) {
 	existing := &appsv1.DaemonSet{}
 	err := client.Get(ctx, types.NamespacedName{Name: required.Name, Namespace: required.Namespace}, existing)
 	if err != nil && apierrors.IsNotFound(err) {
@@ -184,26 +170,13 @@ func ApplyDaemonSet(ctx context.Context, client client.Client, required *appsv1.
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
 	// there was no change to metadata, the generation was right, and we weren't asked for force the deployment
-	if !*modified && existing.ObjectMeta.Generation == expectedGeneration && !forceRollout {
+	if !*modified && existing.ObjectMeta.Generation == expectedGeneration && !templateChanged {
 		return existing, false, nil
 	}
 
 	// at this point we know that we're going to perform a write.  We're just trying to get the object correct
 	toWrite := existing // shallow copy so the code reads easier
 	toWrite.Spec = *required.Spec.DeepCopy()
-	if forceRollout {
-		// forces a deployment
-		forceString := string(uuid.NewUUID())
-		if toWrite.Annotations == nil {
-			toWrite.Annotations = map[string]string{}
-		}
-		if toWrite.Spec.Template.Annotations == nil {
-			toWrite.Spec.Template.Annotations = map[string]string{}
-		}
-		toWrite.Annotations["operator.openshift.io/force"] = forceString
-		toWrite.Spec.Template.Annotations["operator.openshift.io/force"] = forceString
-	}
-
 	err = client.Update(ctx, toWrite)
 	if err != nil {
 		return nil, false, err

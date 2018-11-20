@@ -582,10 +582,7 @@
 
 [[projects]]
   name = "k8s.io/klog"
-  packages = [
-    ".",
-    "glog"
-  ]
+  packages = ["."]
   revision = "a5bc97fbc634d635061f3146511332c7e313a55a"
   version = "v0.1.0"
 
@@ -637,6 +634,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "102cbce190fceeaac9bf12c63ced5a224812adb0a4fb43f382beeef886028ba9"
+  inputs-digest = "3bea9c8723908f626d4421c0176dcf4bca2269b1e3afa21c752b0ec11d2030b8"
   solver-name = "gps-cdcl"
   solver-version = 1
