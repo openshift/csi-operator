@@ -1,32 +1,27 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"runtime"
-	"time"
-
-	"github.com/openshift/csi-operator/version"
 
 	"github.com/golang/glog"
-	"github.com/openshift/csi-operator/pkg/config"
+	"github.com/openshift/csi-operator/pkg/apis"
+	opconfig "github.com/openshift/csi-operator/pkg/config"
 	"github.com/openshift/csi-operator/pkg/controller"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
-	"k8s.io/api/core/v1"
-)
-
-const (
-	resyncPeriod = time.Hour
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 )
 
 func printVersion() {
-	glog.V(2).Infof("csi-operator: %s", version.Version)
-	glog.V(4).Infof("Go Version: %s", runtime.Version())
-	glog.V(4).Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
-	glog.V(4).Infof("operator-sdk Version: %v", sdkVersion.Version)
+	glog.Infof("Go Version: %s", runtime.Version())
+	glog.Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
+	glog.Infof("operator-sdk Version: %v", sdkVersion.Version)
 }
 
 var (
@@ -38,15 +33,21 @@ func main() {
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 
+	// send klog to glog
+	var flags flag.FlagSet
+	klog.InitFlags(&flags)
+	flags.Set("skip_headers", "true")
+	flag.Parse()
+	klog.SetOutput(&glogWriter{})
+
 	printVersion()
 
-	//sdk.ExposeMetricsPort()
-	cfg := config.DefaultConfig()
+	cfg := opconfig.DefaultConfig()
 	if configFile != nil && *configFile != "" {
 		var err error
-		cfg, err = config.LoadConfig(*configFile)
+		cfg, err = opconfig.LoadConfig(*configFile)
 		if err != nil {
-			logrus.Fatalf("Failed to load config file %q: %s", *configFile, err)
+			glog.Fatalf("Failed to load config file %q: %s", *configFile, err)
 		}
 	}
 	if glog.V(4) {
@@ -54,22 +55,46 @@ func main() {
 		glog.V(4).Infof("Using config:\n%s", cfgText)
 	}
 
-	namespace := v1.NamespaceAll
-	// Watch only things with OwnerLabelName label
-	ownedSelectorString := controller.OwnerLabelName
-
-	sdk.Watch("csidriver.storage.openshift.io/v1alpha1", "CSIDriverDeployment", namespace, resyncPeriod)
-	sdk.Watch("apps/v1", "Deployment", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("apps/v1", "DaemonSet", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("v1", "ServiceAccount", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("rbac.authorization.k8s.io/v1", "RoleBinding", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-	sdk.Watch("storage.k8s.io/v1", "StorageClass", namespace, resyncPeriod, sdk.WithLabelSelector(ownedSelectorString))
-
-	handler, err := controller.NewHandler(cfg)
+	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
-		logrus.Fatalf("Failed to start handler: %s", err)
+		glog.V(3).Infof("WATCH_NAMESPACE is not set, watching all namespaces")
+		namespace = ""
 	}
-	sdk.Handle(handler)
-	sdk.Run(context.TODO())
+
+	// Get a config to talk to the apiserver
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		glog.Fatal(err)
+	}
+
+	// Create a new Cmd to provide shared dependencies and start components
+	mgr, err := manager.New(restConfig, manager.Options{Namespace: namespace})
+	if err != nil {
+		glog.Fatal(err)
+	}
+
+	glog.V(4).Info("Registering Components.")
+
+	// Setup Scheme for all resources
+	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+		glog.Fatal(err)
+	}
+
+	// Setup all Controllers
+	if err := controller.AddToManager(mgr, cfg); err != nil {
+		glog.Fatal(err)
+	}
+
+	glog.V(4).Info("Starting the Cmd.")
+
+	// Start the Cmd
+	glog.Info(mgr.Start(signals.SetupSignalHandler()))
+}
+
+// Send klog to glog
+type glogWriter struct{}
+
+func (file *glogWriter) Write(data []byte) (n int, err error) {
+	glog.InfoDepth(0, string(data))
+	return len(data), nil
 }

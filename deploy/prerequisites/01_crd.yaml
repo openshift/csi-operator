@@ -11,8 +11,8 @@ spec:
     kind: CSIDriverDeployment
     plural: csidriverdeployments
   scope: Namespaced
-#  subresources:
-#    status: {}
+  subresources:
+    status: {}
   additionalPrinterColumns:
   - name: Driver
     type: string
