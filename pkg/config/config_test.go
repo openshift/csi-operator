@@ -20,7 +20,7 @@ func TestDefaultConfig(t *testing.T) {
 			AttacherImage:        str2ptr("quay.io/k8scsi/csi-attacher:v0.3.0"),
 			ProvisionerImage:     str2ptr("quay.io/k8scsi/csi-provisioner:v0.3.1"),
 			DriverRegistrarImage: str2ptr("quay.io/k8scsi/driver-registrar:v0.3.0"),
-			LivenessProbeImage:   str2ptr("quay.io/k8scsi/livenessprobe:latest"),
+			LivenessProbeImage:   str2ptr("quay.io/k8scsi/livenessprobe:v0.4.1"),
 		},
 		InfrastructureNodeSelector:    nil,
 		DeploymentReplicas:            1,
