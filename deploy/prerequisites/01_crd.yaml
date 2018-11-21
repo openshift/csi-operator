@@ -96,7 +96,7 @@ spec:
               type: array
             managementState:
               type: string
-              enum: ["Managed", "Unmanaged"]
+              enum: ["Managed", "Unmanaged", ""]
             probePeriodSeconds:
               type: integer
               format: int32
