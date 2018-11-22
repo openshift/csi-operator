@@ -7,7 +7,7 @@ BINDATA_SRC=pkg/generated/manifests
 
 E2EDATA=test/e2e/bindata.go
 E2EDATA_SRC=test/e2e/manifests
-all: build e2e
+all: build
 
 # Run tests
 .PHONY: test
@@ -32,8 +32,8 @@ verify:
 
 .PHONY: test-e2e
 # usage: KUBECONFIG=/var/run/kubernetes/admin.kubeconfig make test-e2e
-test-e2e: generate
-	go test ./test/e2e/... -kubeconfig=$(KUBECONFIG)  -root $(PWD) -globalMan deploy/prerequisites/01_crd.yaml -v
+test-e2e:
+	go test -v ./test/e2e/... -kubeconfig=$(KUBECONFIG)  -root $(PWD) -globalMan deploy/prerequisites/01_crd.yaml
 
 .PHONY: container
 # Build the docker image
