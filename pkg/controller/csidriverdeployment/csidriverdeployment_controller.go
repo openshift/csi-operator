@@ -46,7 +46,6 @@ func Add(mgr manager.Manager, config *config.Config) error {
 func newReconciler(mgr manager.Manager, config *config.Config) reconcile.Reconciler {
 	return &ReconcileCSIDriverDeployment{
 		client:   mgr.GetClient(),
-		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetRecorder("csi-operator"),
 		config:   config,
 	}
