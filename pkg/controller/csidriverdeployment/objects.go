@@ -77,7 +77,6 @@ func (r *ReconcileCSIDriverDeployment) generateClusterRoleBinding(cr *csidriverv
 		},
 	}
 	r.addOwnerLabels(&crb.ObjectMeta, cr)
-	r.addOwner(&crb.ObjectMeta, cr)
 	return crb
 }
 
@@ -425,7 +424,6 @@ func (r *ReconcileCSIDriverDeployment) generateStorageClass(cr *csidriverv1alpha
 	}
 	template.ObjectMeta.DeepCopyInto(&expectedSC.ObjectMeta)
 	r.addOwnerLabels(&expectedSC.ObjectMeta, cr)
-	r.addOwner(&expectedSC.ObjectMeta, cr)
 	if template.Default != nil && *template.Default == true {
 		expectedSC.Annotations = map[string]string{
 			defaultStorageClassAnnotation: "true",

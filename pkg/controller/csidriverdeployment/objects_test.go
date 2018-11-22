@@ -3,19 +3,16 @@ package csidriverdeployment
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/openshift/csi-operator/pkg/config"
-
-	"k8s.io/apimachinery/pkg/util/diff"
-
 	openshiftapi "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/csi-operator/pkg/apis/csidriver/v1alpha1"
+	"github.com/openshift/csi-operator/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/diff"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -106,10 +103,9 @@ var (
 
 	defaultClusterRoleBinding = &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       "",
-			Name:            "csidriverdeployment-defaultuid",
-			Labels:          defaultLabels,
-			OwnerReferences: []metav1.OwnerReference{defaultOwner},
+			Namespace: "",
+			Name:      "csidriverdeployment-defaultuid",
+			Labels:    defaultLabels,
 		},
 		Subjects: []rbacv1.Subject{
 			{

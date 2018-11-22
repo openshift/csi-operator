@@ -46,7 +46,6 @@ func Add(mgr manager.Manager, config *config.Config) error {
 func newReconciler(mgr manager.Manager, config *config.Config) reconcile.Reconciler {
 	return &ReconcileCSIDriverDeployment{
 		client:   mgr.GetClient(),
-		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetRecorder("csi-operator"),
 		config:   config,
 	}
@@ -387,7 +386,7 @@ func (r *ReconcileCSIDriverDeployment) syncStorageClass(cr *csidriverv1alpha1.CS
 }
 
 func (r *ReconcileCSIDriverDeployment) removeUnexpectedStorageClasses(cr *csidriverv1alpha1.CSIDriverDeployment, expectedClasses sets.String) []error {
-	list := &csidriverv1alpha1.CSIDriverDeploymentList{}
+	list := &storagev1.StorageClassList{}
 	opts := client.ListOptions{
 		LabelSelector: r.getOwnerLabelSelector(cr),
 	}
