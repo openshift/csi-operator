@@ -387,7 +387,7 @@ func (r *ReconcileCSIDriverDeployment) syncStorageClass(cr *csidriverv1alpha1.CS
 }
 
 func (r *ReconcileCSIDriverDeployment) removeUnexpectedStorageClasses(cr *csidriverv1alpha1.CSIDriverDeployment, expectedClasses sets.String) []error {
-	list := &csidriverv1alpha1.CSIDriverDeploymentList{}
+	list := &storagev1.StorageClassList{}
 	opts := client.ListOptions{
 		LabelSelector: r.getOwnerLabelSelector(cr),
 	}
