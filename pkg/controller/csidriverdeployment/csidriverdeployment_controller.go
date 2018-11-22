@@ -190,6 +190,9 @@ func (r *ReconcileCSIDriverDeployment) handleCSIDriverDeployment(instance *csidr
 
 	err := r.syncStatus(instance, newInstance)
 	if err != nil {
+		// This error has not been logged above
+		glog.V(2).Info(err.Error())
+		r.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", err.Error())
 		errs = append(errs, err)
 	}
 	if len(errs) > 0 {

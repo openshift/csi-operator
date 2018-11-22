@@ -58,6 +58,7 @@ rules:
   - csidriver.storage.openshift.io
   resources:
   - csidriverdeployments
+  - csidriverdeployments/status
   verbs:
   - get
   - list

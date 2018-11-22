@@ -53,9 +53,9 @@ func prepareTest(t *testing.T) (ctx *framework.TestCtx, client framework.Framewo
 
 }
 
-func waitForCSIDriverDeploymentReady(client framework.FrameworkClient, cr *v1alpha1.CSIDriverDeployment, timeout time.Duration) error {
-	return wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		newCR := &v1alpha1.CSIDriverDeployment{}
+func waitForCSIDriverDeploymentReady(t *testing.T, client framework.FrameworkClient, cr *v1alpha1.CSIDriverDeployment, timeout time.Duration) error {
+	newCR := &v1alpha1.CSIDriverDeployment{}
+	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
 		err = client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, newCR)
 		if err != nil {
 			return false, err
@@ -77,6 +77,11 @@ func waitForCSIDriverDeploymentReady(client framework.FrameworkClient, cr *v1alp
 		}
 		return false, nil
 	})
+	if err != nil {
+		t.Logf("failed to wait for CSIDriverDeployment to get ready")
+		t.Logf("last known version: %+v", newCR)
+	}
+	return err
 }
 
 func waitForObjectExists(client framework.FrameworkClient, namespace, name string, obj runtime.Object, timeout time.Duration) error {
@@ -92,8 +97,8 @@ func waitForObjectExists(client framework.FrameworkClient, namespace, name strin
 	})
 }
 
-func waitForObjectDeleted(client framework.FrameworkClient, namespace, name string, obj runtime.Object, timeout time.Duration) error {
-	return wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
+func waitForObjectDeleted(t *testing.T, client framework.FrameworkClient, namespace, name string, obj runtime.Object, timeout time.Duration) error {
+	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
 		err = client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, obj)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -103,6 +108,11 @@ func waitForObjectDeleted(client framework.FrameworkClient, namespace, name stri
 		}
 		return false, nil
 	})
+	if err != nil {
+		t.Logf("failed to wait for an object to be deleted")
+		t.Logf("last known object: %+v", obj)
+	}
+	return err
 }
 
 func createCSIDriverDeployment(client framework.FrameworkClient, namespace string, filename string) (*v1alpha1.CSIDriverDeployment, error) {
@@ -183,49 +193,49 @@ func checkChildrenExists(t *testing.T, client framework.FrameworkClient, namespa
 
 func checkChildrenDeleted(t *testing.T, client framework.FrameworkClient, namespace string, cr *v1alpha1.CSIDriverDeployment, timeout time.Duration) {
 	sa := &corev1.ServiceAccount{}
-	if err := waitForObjectDeleted(client, namespace, cr.Name, sa, timeout); err != nil {
+	if err := waitForObjectDeleted(t, client, namespace, cr.Name, sa, timeout); err != nil {
 		t.Errorf("error waiting for ServiceAccount to be deleted: %s", err)
 	}
 	t.Log("ServiceAccount deleted")
 
 	crb := &rbacv1.ClusterRoleBinding{}
 	crbName := "csidriverdeployment-" + string(cr.UID)
-	if err := waitForObjectDeleted(client, "", crbName, crb, timeout); err != nil {
+	if err := waitForObjectDeleted(t, client, "", crbName, crb, timeout); err != nil {
 		t.Errorf("error waiting for ClusterRoleBinding to be deleted: %s", err)
 	}
 	t.Log("ClusterRoleBinding deleted")
 
 	rb := &rbacv1.RoleBinding{}
 	rbName := "leader-election-" + cr.Name
-	if err := waitForObjectDeleted(client, namespace, rbName, rb, timeout); err != nil {
+	if err := waitForObjectDeleted(t, client, namespace, rbName, rb, timeout); err != nil {
 		t.Errorf("error waiting for RoleBinding to be deleted: %s", err)
 	}
 	t.Log("RoleBinding deleted")
 
 	ds := &appsv1.DaemonSet{}
 	dsName := cr.Name + "-node"
-	if err := waitForObjectDeleted(client, namespace, dsName, ds, timeout); err != nil {
+	if err := waitForObjectDeleted(t, client, namespace, dsName, ds, timeout); err != nil {
 		t.Errorf("error waiting for DaemonSet to be deleted: %s", err)
 	}
 	t.Log("DaemonSet deleted")
 
 	deployment := &appsv1.Deployment{}
 	deploymentName := cr.Name + "-controller"
-	if err := waitForObjectDeleted(client, namespace, deploymentName, deployment, timeout); err != nil {
+	if err := waitForObjectDeleted(t, client, namespace, deploymentName, deployment, timeout); err != nil {
 		t.Errorf("error waiting for Deployment to be deleted: %s", err)
 	}
 	t.Log("Deployment deleted")
 
 	sc1 := &storagev1.StorageClass{}
 	sc1Name := "sc1" // from hostpath.yaml
-	if err := waitForObjectDeleted(client, "", sc1Name, sc1, timeout); err != nil {
+	if err := waitForObjectDeleted(t, client, "", sc1Name, sc1, timeout); err != nil {
 		t.Errorf("error waiting for StorageClass1 to be deleted: %s", err)
 	}
 	t.Log("StorageClass1 deleted")
 
 	sc2 := &storagev1.StorageClass{}
 	sc2Name := "sc2" // from hostpath.yaml
-	if err := waitForObjectDeleted(client, "", sc2Name, sc2, timeout); err != nil {
+	if err := waitForObjectDeleted(t, client, "", sc2Name, sc2, timeout); err != nil {
 		t.Errorf("error waiting for StorageClass2 to be deleted: %s", err)
 	}
 	t.Log("StorageClass2 deleted")
@@ -308,6 +318,7 @@ func modifyObject(client framework.FrameworkClient, obj runtime.Object, modifyFu
 func TestCSIOperatorCreateDelete(t *testing.T) {
 	ctx, client, ns := prepareTest(t)
 	defer ctx.Cleanup()
+	defer collectLogs(t, client, ns)
 
 	t.Log("=== Create CSIDriverDeployment")
 	csi, err := createCSIDriverDeployment(client, ns, "hostpath.yaml")
@@ -316,7 +327,7 @@ func TestCSIOperatorCreateDelete(t *testing.T) {
 	}
 
 	t.Log("=== Wait for CSIDriverDeployment to be ready")
-	if err := waitForCSIDriverDeploymentReady(client, csi, csiDeploymentTimeout); err != nil {
+	if err := waitForCSIDriverDeploymentReady(t, client, csi, csiDeploymentTimeout); err != nil {
 		t.Errorf("failed to wait for CSIDriverDeployment to get ready: %s", err)
 	}
 	t.Log("CSIDriverDeployment is ready")
