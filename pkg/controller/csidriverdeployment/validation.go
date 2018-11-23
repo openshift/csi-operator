@@ -102,6 +102,9 @@ func (r *ReconcileCSIDriverDeployment) validateStorageClassTemplates(templates [
 
 	for i, template := range templates {
 		errs = append(errs, r.validateStorageClassTemplate(template, fldPath.Index(i))...)
+		if template.Default != nil && *template.Default {
+			defaults = append(defaults, template.Name)
+		}
 	}
 
 	if len(defaults) > 1 {

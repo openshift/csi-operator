@@ -58,10 +58,22 @@ func TestValidateCSIDriverDeployment(t *testing.T) {
 		AllowVolumeExpansion: &bTrue,
 		VolumeBindingMode:    &bindingImmediate,
 	}
+	validDefaultStorageClass2 := v1alpha1.StorageClassTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "class2",
+		},
+		Default: &bTrue,
+	}
+
 	validCRWithClasses := validCR.DeepCopy()
 	validCRWithClasses.Spec.StorageClassTemplates = []v1alpha1.StorageClassTemplate{
 		validStorageClass,
 		validDefaultStorageClass,
+	}
+	multipleDefaultClasses := validCR.DeepCopy()
+	multipleDefaultClasses.Spec.StorageClassTemplates = []v1alpha1.StorageClassTemplate{
+		validDefaultStorageClass,
+		validDefaultStorageClass2,
 	}
 
 	noControllerTemplate := validCR.DeepCopy()
@@ -120,6 +132,11 @@ func TestValidateCSIDriverDeployment(t *testing.T) {
 			name:           "valid storage classes",
 			cr:             validCRWithClasses,
 			expectedErrors: field.ErrorList{},
+		},
+		{
+			name:           "multiple default storage classes",
+			cr:             multipleDefaultClasses,
+			expectedErrors: field.ErrorList{field.Invalid(field.NewPath("spec.storageClassTemplates"), nil, "")},
 		},
 		{
 			name:           "invalid driver name",
@@ -191,6 +208,7 @@ func TestValidateCSIDriverDeployment(t *testing.T) {
 
 			ok := errorMatch(errs, test.expectedErrors, t)
 			if !ok {
+				t.Error("Errors do not match")
 				t.Log("Expected errors:")
 				for _, err := range test.expectedErrors {
 					t.Logf("%s", err)
