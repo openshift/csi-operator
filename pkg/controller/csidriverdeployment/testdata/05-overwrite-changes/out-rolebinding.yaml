@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    csidriver.storage.openshift.io/owner-name: test
+    csidriver.storage.openshift.io/owner-namespace: "default"
+    newLabel: newValue # user change
+  name: leader-election-test
+  namespace: default
+  ownerReferences:
+  - apiVersion: csidriver.storage.openshift.io/v1alpha1
+    controller: true
+    kind: CSIDriverDeployment
+    name: test
+    namespace: default
+    uid: "1234567890"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:csi-driver-controller-leader-election
+subjects:
+- kind: ServiceAccount
+  name: test
+  namespace: default

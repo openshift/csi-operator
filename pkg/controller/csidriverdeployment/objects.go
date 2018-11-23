@@ -428,6 +428,10 @@ func (r *ReconcileCSIDriverDeployment) generateStorageClass(cr *csidriverv1alpha
 		expectedSC.Annotations = map[string]string{
 			defaultStorageClassAnnotation: "true",
 		}
+	} else {
+		expectedSC.Annotations = map[string]string{
+			defaultStorageClassAnnotation: "false",
+		}
 	}
 	return expectedSC
 }

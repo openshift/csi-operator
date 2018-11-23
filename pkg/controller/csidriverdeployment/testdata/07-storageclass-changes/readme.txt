@@ -1,0 +1,1 @@
+The controller creates necessary storage classes and deletes obsolete ones.
