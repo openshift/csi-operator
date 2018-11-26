@@ -182,7 +182,9 @@ func (r *ReconcileCSIDriverDeployment) handleCSIDriverDeployment(instance *csidr
 			// Send errors as events
 			for _, e := range errs {
 				glog.V(2).Info(e.Error())
-				r.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", e.Error())
+				if !errors.IsConflict(e) {
+					r.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", e.Error())
+				}
 			}
 		}
 	}
@@ -191,7 +193,9 @@ func (r *ReconcileCSIDriverDeployment) handleCSIDriverDeployment(instance *csidr
 	if err != nil {
 		// This error has not been logged above
 		glog.V(2).Info(err.Error())
-		r.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", err.Error())
+		if !errors.IsConflict(err) {
+			r.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", err.Error())
+		}
 		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
@@ -219,6 +223,7 @@ func (r *ReconcileCSIDriverDeployment) syncCSIDriverDeployment(cr *csidriverv1al
 		err := fmt.Errorf("error syncing ServiceAccount for CSIDriverDeployment %s/%s: %s", cr.Namespace, cr.Name, err)
 		errs = append(errs, err)
 	}
+
 	err = r.syncClusterRoleBinding(cr, serviceAccount)
 	if err != nil {
 		err := fmt.Errorf("error syncing ClusterRoleBinding for CSIDriverDeployment %s/%s: %s", cr.Namespace, cr.Name, err)
@@ -306,9 +311,6 @@ func (r *ReconcileCSIDriverDeployment) syncFinalizer(cr *csidriverv1alpha1.CSIDr
 
 	glog.V(4).Infof("Updating CSIDriverDeployment.Finalizers")
 	if err := r.client.Update(context.TODO(), newCR); err != nil {
-		if errors.IsConflict(err) {
-			err = nil
-		}
 		return cr, err
 	}
 
@@ -320,11 +322,12 @@ func (r *ReconcileCSIDriverDeployment) syncServiceAccount(cr *csidriverv1alpha1.
 
 	sc := r.generateServiceAccount(cr)
 
-	sc, _, err := resourceapply.ApplyServiceAccount(context.TODO(), r.client, sc)
+	newSC, _, err := resourceapply.ApplyServiceAccount(context.TODO(), r.client, sc)
 	if err != nil {
-		return nil, err
+		// Return the SC even on error, lot of subsequent children depend on it.
+		return sc, err
 	}
-	return sc, nil
+	return newSC, nil
 }
 
 func (r *ReconcileCSIDriverDeployment) syncClusterRoleBinding(cr *csidriverv1alpha1.CSIDriverDeployment, serviceAccount *corev1.ServiceAccount) error {
@@ -469,9 +472,6 @@ func (r *ReconcileCSIDriverDeployment) syncStatus(oldInstance, newInstance *csid
 	if !equality.Semantic.DeepEqual(oldInstance.Status, newInstance.Status) {
 		glog.V(4).Info("Updating CSIDriverDeployment.Status")
 		err := r.client.Status().Update(context.TODO(), newInstance)
-		if err != nil && errors.IsConflict(err) {
-			err = nil
-		}
 		return err
 	}
 	return nil
@@ -513,9 +513,6 @@ func (r *ReconcileCSIDriverDeployment) cleanupFinalizer(cr *csidriverv1alpha1.CS
 	glog.V(4).Infof("Removing CSIDriverDeployment.Finalizers")
 	err := r.client.Update(context.TODO(), newCR)
 	if err != nil {
-		if errors.IsConflict(err) {
-			err = nil
-		}
 		return cr, err
 	}
 	return newCR, nil

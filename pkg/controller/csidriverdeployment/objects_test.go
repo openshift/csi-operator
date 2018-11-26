@@ -537,6 +537,19 @@ func TestGenerateDeployment(t *testing.T) {
 	crWithNoProbe.Spec.ProbePeriodSeconds = nil
 	crWithNoProbe.Spec.ProbeTimeoutSeconds = nil
 
+	crWithCustomImages := defaultCR.DeepCopy()
+	provisioner := "my-custom-provisioner"
+	attacher := "my-custom-attacher"
+	probe := "my-custom-probe"
+	crWithCustomImages.Spec.ContainerImages = &v1alpha1.CSIDeploymentContainerImages{}
+	crWithCustomImages.Spec.ContainerImages.AttacherImage = &attacher
+	crWithCustomImages.Spec.ContainerImages.ProvisionerImage = &provisioner
+	crWithCustomImages.Spec.ContainerImages.LivenessProbeImage = &probe
+	deploymentWithCustomImages := defaultDeployment.DeepCopy()
+	deploymentWithCustomImages.Spec.Template.Spec.Containers[1].Image = "my-custom-provisioner"
+	deploymentWithCustomImages.Spec.Template.Spec.Containers[2].Image = "my-custom-attacher"
+	deploymentWithCustomImages.Spec.Template.Spec.Containers[3].Image = "my-custom-probe"
+
 	tests := []struct {
 		name               string
 		cdd                *v1alpha1.CSIDriverDeployment
@@ -556,6 +569,11 @@ func TestGenerateDeployment(t *testing.T) {
 			"no probe",
 			crWithNoProbe,
 			deploymentWithNoProbe,
+		},
+		{
+			"custom images",
+			crWithCustomImages,
+			deploymentWithCustomImages,
 		},
 	}
 
@@ -595,6 +613,16 @@ func TestGenerateDaemonSet(t *testing.T) {
 	crWithNoProbe.Spec.ProbePeriodSeconds = nil
 	crWithNoProbe.Spec.ProbeTimeoutSeconds = nil
 
+	crWithCustomImages := defaultCR.DeepCopy()
+	registrar := "my-custom-registrar"
+	probe := "my-custom-probe"
+	crWithCustomImages.Spec.ContainerImages = &v1alpha1.CSIDeploymentContainerImages{}
+	crWithCustomImages.Spec.ContainerImages.DriverRegistrarImage = &registrar
+	crWithCustomImages.Spec.ContainerImages.LivenessProbeImage = &probe
+	daemonSetWithCustomImages := defaultDaemonSet.DeepCopy()
+	daemonSetWithCustomImages.Spec.Template.Spec.Containers[1].Image = "my-custom-registrar"
+	daemonSetWithCustomImages.Spec.Template.Spec.Containers[2].Image = "my-custom-probe"
+
 	tests := []struct {
 		name              string
 		cdd               *v1alpha1.CSIDriverDeployment
@@ -614,6 +642,11 @@ func TestGenerateDaemonSet(t *testing.T) {
 			"no probe",
 			crWithNoProbe,
 			daemonSetWithNoProbe,
+		},
+		{
+			"custom images",
+			crWithCustomImages,
+			daemonSetWithCustomImages,
 		},
 	}
 
