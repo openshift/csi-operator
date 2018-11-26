@@ -425,7 +425,7 @@ func (r *ReconcileCSIDriverDeployment) syncConditions(instance *csidriverv1alpha
 	if deployment != nil {
 		if deployment.Status.UnavailableReplicas > 0 {
 			available = false
-			msgs = append(msgs, fmt.Sprintf("Deployment %q with CSI driver has still %d not ready pod(s).", deployment.Name, deployment.Status.UnavailableReplicas))
+			msgs = append(msgs, fmt.Sprintf("Deployment %q with CSI driver has %d not ready pod(s).", deployment.Name, deployment.Status.UnavailableReplicas))
 		}
 	} else {
 		unknown = true
@@ -433,6 +433,7 @@ func (r *ReconcileCSIDriverDeployment) syncConditions(instance *csidriverv1alpha
 	if ds != nil {
 		if ds.Status.NumberUnavailable > 0 {
 			available = false
+			msgs = append(msgs, fmt.Sprintf("DaemonSet %q with CSI driver has %d not ready pod(s).", ds.Name, ds.Status.NumberUnavailable))
 		}
 	} else {
 		unknown = true
