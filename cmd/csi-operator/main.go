@@ -19,6 +19,7 @@ import (
 )
 
 func printVersion() {
+	glog.Infof("csi-operator Version: %v", version)
 	glog.Infof("Go Version: %s", runtime.Version())
 	glog.Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
 	glog.Infof("operator-sdk Version: %v", sdkVersion.Version)
@@ -26,6 +27,9 @@ func printVersion() {
 
 var (
 	configFile = flag.String("config", "", "Path to configuration yaml file")
+
+	// Filled by makefile
+	version = "unknown"
 )
 
 func main() {

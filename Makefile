@@ -9,6 +9,8 @@ E2E_MANIFESTS_SRC=test/e2e/manifests
 BINDIR=bin
 BINDATA=$(BINDIR)/go-bindata
 
+REV=$(shell git describe --long --tags --match='v*' --always --dirty)
+
 all: build
 
 # Run tests
@@ -19,7 +21,7 @@ test:
 # Build the binary
 .PHONY: build
 build: generate
-	go build -o $(BINDIR)/csi-operator github.com/openshift/csi-operator/cmd/csi-operator
+	go build -o $(BINDIR)/csi-operator -ldflags '-X main.version=$(REV) -extldflags "-static"' github.com/openshift/csi-operator/cmd/csi-operator
 
 .PHONY: generate
 generate: $(BINDATA)
