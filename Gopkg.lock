@@ -168,6 +168,11 @@
   version = "v1.1.5"
 
 [[projects]]
+  name = "github.com/jteeuwen/go-bindata"
+  packages = ["."]
+  revision = "6025e8de665b31fa74ab1a66f2cddd8c0abf887e"
+
+[[projects]]
   branch = "master"
   name = "github.com/mailru/easyjson"
   packages = [
@@ -645,6 +650,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "04631b5b1ded3c1b4b3ca04b63e20d23e31e5f701902f45c488782ad73053162"
+  inputs-digest = "e58dece462a5cf6ff6b254f75f8160936ab3c2c6deea972632460f14668466db"
   solver-name = "gps-cdcl"
   solver-version = 1
