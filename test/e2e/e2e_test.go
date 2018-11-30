@@ -29,6 +29,9 @@ const (
 
 	// How long to wait for CSIDriverDeployment to get ready. It may wait for some image pulls.
 	csiDeploymentTimeout = time.Minute * 5
+
+	// Name of config map for operator's leader election
+	leaderElectionConfigMapName = "csi-operator-leader"
 )
 
 func prepareTest(t *testing.T) (ctx *framework.TestCtx, client framework.FrameworkClient, namespace string) {
@@ -371,4 +374,18 @@ func TestCSIOperatorCreateDelete(t *testing.T) {
 
 	t.Log("=== Check children are deleted")
 	checkChildrenDeleted(t, client, ns, csi, deletionTimeout)
+}
+
+// Check the operator uses leader election.
+// This test expects that the operator runs in-cluster, i.e. with leader election.
+func TestLeaderElection(t *testing.T) {
+	ctx, client, ns := prepareTest(t)
+	defer ctx.Cleanup()
+	defer collectLogs(t, client, ns)
+
+	cfg := &corev1.ConfigMap{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: leaderElectionConfigMapName, Namespace: csiOperatorNamespace}, cfg)
+	if err != nil {
+		t.Errorf("error getting leader election config map %s/%s: %s", csiOperatorNamespace, leaderElectionConfigMapName, err)
+	}
 }

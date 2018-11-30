@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"os"
 	"runtime"
 
 	"github.com/golang/glog"
@@ -18,19 +19,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 )
 
+const (
+	inClusterNamespacePath      = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+	leaderElectionConfigMapName = "csi-operator-leader"
+)
+
+var (
+	configFile = flag.String("config", "", "Path to configuration yaml file.")
+
+	// Filled by makefile
+	version = "unknown"
+)
+
 func printVersion() {
 	glog.Infof("csi-operator Version: %v", version)
 	glog.Infof("Go Version: %s", runtime.Version())
 	glog.Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
 	glog.Infof("operator-sdk Version: %v", sdkVersion.Version)
 }
-
-var (
-	configFile = flag.String("config", "", "Path to configuration yaml file")
-
-	// Filled by makefile
-	version = "unknown"
-)
 
 func main() {
 	// for glog
@@ -71,8 +77,19 @@ func main() {
 		glog.Fatal(err)
 	}
 
+	opts := manager.Options{
+		Namespace: namespace,
+	}
+
+	if detectInCluster() {
+		opts.LeaderElection = true
+		opts.LeaderElectionID = leaderElectionConfigMapName
+	} else {
+		glog.Warningf("Not running in-cluster, disabling leader election!")
+	}
+
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(restConfig, manager.Options{Namespace: namespace})
+	mgr, err := manager.New(restConfig, opts)
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -101,4 +118,11 @@ type glogWriter struct{}
 func (file *glogWriter) Write(data []byte) (n int, err error) {
 	glog.InfoDepth(0, string(data))
 	return len(data), nil
+}
+
+func detectInCluster() bool {
+	if _, err := os.Stat(inClusterNamespacePath); err != nil {
+		return false
+	}
+	return true
 }
