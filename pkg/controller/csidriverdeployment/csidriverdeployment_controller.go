@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	openshiftapi "github.com/openshift/api/operator/v1alpha1"
@@ -34,6 +35,7 @@ import (
 
 const (
 	finalizerName = "csidriver.storage.openshift.io"
+	apiTimeout    = time.Minute
 )
 
 // Add creates a new CSIDriverDeployment Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -130,7 +132,9 @@ func (r *ReconcileCSIDriverDeployment) Reconcile(request reconcile.Request) (rec
 
 	// Fetch the CSIDriverDeployment instance
 	instance := &csidriverv1alpha1.CSIDriverDeployment{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	err := r.client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -309,8 +313,10 @@ func (r *ReconcileCSIDriverDeployment) syncFinalizer(cr *csidriverv1alpha1.CSIDr
 	}
 	newCR.Finalizers = append(newCR.Finalizers, finalizerName)
 
+	ctx, cancel := r.apiContext()
+	defer cancel()
 	glog.V(4).Infof("Updating CSIDriverDeployment.Finalizers")
-	if err := r.client.Update(context.TODO(), newCR); err != nil {
+	if err := r.client.Update(ctx, newCR); err != nil {
 		return cr, err
 	}
 
@@ -322,7 +328,9 @@ func (r *ReconcileCSIDriverDeployment) syncServiceAccount(cr *csidriverv1alpha1.
 
 	sc := r.generateServiceAccount(cr)
 
-	newSC, _, err := resourceapply.ApplyServiceAccount(context.TODO(), r.client, sc)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	newSC, _, err := resourceapply.ApplyServiceAccount(ctx, r.client, sc)
 	if err != nil {
 		// Return the SC even on error, lot of subsequent children depend on it.
 		return sc, err
@@ -335,7 +343,9 @@ func (r *ReconcileCSIDriverDeployment) syncClusterRoleBinding(cr *csidriverv1alp
 
 	crb := r.generateClusterRoleBinding(cr, serviceAccount)
 
-	_, _, err := resourceapply.ApplyClusterRoleBinding(context.TODO(), r.client, crb)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	_, _, err := resourceapply.ApplyClusterRoleBinding(ctx, r.client, crb)
 	return err
 }
 
@@ -344,7 +354,9 @@ func (r *ReconcileCSIDriverDeployment) syncLeaderElectionRoleBinding(cr *csidriv
 
 	rb := r.generateLeaderElectionRoleBinding(cr, serviceAccount)
 
-	_, _, err := resourceapply.ApplyRoleBinding(context.TODO(), r.client, rb)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	_, _, err := resourceapply.ApplyRoleBinding(ctx, r.client, rb)
 	return err
 }
 
@@ -354,7 +366,9 @@ func (r *ReconcileCSIDriverDeployment) syncDaemonSet(cr *csidriverv1alpha1.CSIDr
 	gvk := appsv1.SchemeGroupVersion.WithKind("DaemonSet")
 	generation := r.getExpectedGeneration(cr, requiredDS, gvk)
 
-	ds, _, err := resourceapply.ApplyDaemonSet(context.TODO(), r.client, requiredDS, generation, templateChanged)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	ds, _, err := resourceapply.ApplyDaemonSet(ctx, r.client, requiredDS, generation, templateChanged)
 	if err != nil {
 		return requiredDS, err
 	}
@@ -372,7 +386,9 @@ func (r *ReconcileCSIDriverDeployment) syncDeployment(cr *csidriverv1alpha1.CSID
 	gvk := appsv1.SchemeGroupVersion.WithKind("Deployment")
 	generation := r.getExpectedGeneration(cr, requiredDeployment, gvk)
 
-	deployment, _, err := resourceapply.ApplyDeployment(context.TODO(), r.client, requiredDeployment, generation, templateChanged)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	deployment, _, err := resourceapply.ApplyDeployment(ctx, r.client, requiredDeployment, generation, templateChanged)
 	if err != nil {
 		return requiredDeployment, err
 	}
@@ -383,7 +399,9 @@ func (r *ReconcileCSIDriverDeployment) syncStorageClass(cr *csidriverv1alpha1.CS
 	glog.V(4).Infof("Syncing StorageClass %s", template.Name)
 
 	sc := r.generateStorageClass(cr, template)
-	_, _, err := resourceapply.ApplyStorageClass(context.TODO(), r.client, sc)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	_, _, err := resourceapply.ApplyStorageClass(ctx, r.client, sc)
 
 	return err
 }
@@ -393,7 +411,9 @@ func (r *ReconcileCSIDriverDeployment) removeUnexpectedStorageClasses(cr *csidri
 	opts := client.ListOptions{
 		LabelSelector: r.getOwnerLabelSelector(cr),
 	}
-	err := r.client.List(context.TODO(), &opts, list)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	err := r.client.List(ctx, &opts, list)
 	if err != nil {
 		err := fmt.Errorf("cannot list StorageClasses for CSIDriverDeployment %s/%s: %s", cr.Namespace, cr.Name, err)
 		return []error{err}
@@ -403,7 +423,9 @@ func (r *ReconcileCSIDriverDeployment) removeUnexpectedStorageClasses(cr *csidri
 	for _, sc := range list.Items {
 		if !expectedClasses.Has(sc.Name) {
 			glog.V(4).Infof("Deleting StorageClass %s", sc.Name)
-			if err := r.client.Delete(context.TODO(), &sc); err != nil {
+			ctx, cancel := r.apiContext()
+			defer cancel()
+			if err := r.client.Delete(ctx, &sc); err != nil {
 				if !errors.IsNotFound(err) {
 					err := fmt.Errorf("cannot delete StorageClasses %s for CSIDriverDeployment %s/%s: %s", sc.Name, cr.Namespace, cr.Name, err)
 					errs = append(errs, err)
@@ -472,7 +494,9 @@ func (r *ReconcileCSIDriverDeployment) syncStatus(oldInstance, newInstance *csid
 
 	if !equality.Semantic.DeepEqual(oldInstance.Status, newInstance.Status) {
 		glog.V(4).Info("Updating CSIDriverDeployment.Status")
-		err := r.client.Status().Update(context.TODO(), newInstance)
+		ctx, cancel := r.apiContext()
+		defer cancel()
+		err := r.client.Status().Update(ctx, newInstance)
 		return err
 	}
 	return nil
@@ -512,7 +536,9 @@ func (r *ReconcileCSIDriverDeployment) cleanupFinalizer(cr *csidriverv1alpha1.CS
 	}
 
 	glog.V(4).Infof("Removing CSIDriverDeployment.Finalizers")
-	err := r.client.Update(context.TODO(), newCR)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	err := r.client.Update(ctx, newCR)
 	if err != nil {
 		return cr, err
 	}
@@ -522,7 +548,9 @@ func (r *ReconcileCSIDriverDeployment) cleanupFinalizer(cr *csidriverv1alpha1.CS
 func (r *ReconcileCSIDriverDeployment) cleanupClusterRoleBinding(cr *csidriverv1alpha1.CSIDriverDeployment) error {
 	sa := r.generateServiceAccount(cr)
 	crb := r.generateClusterRoleBinding(cr, sa)
-	err := r.client.Delete(context.TODO(), crb)
+	ctx, cancel := r.apiContext()
+	defer cancel()
+	err := r.client.Delete(ctx, crb)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -569,4 +597,8 @@ func (r *ReconcileCSIDriverDeployment) getOwnerLabelSelector(i *csidriverv1alpha
 		OwnerLabelName:      i.Name,
 	}
 	return labels.SelectorFromSet(ls)
+}
+
+func (r *ReconcileCSIDriverDeployment) apiContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), apiTimeout)
 }

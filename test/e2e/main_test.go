@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"testing"
+	"time"
 
 	f "github.com/operator-framework/operator-sdk/pkg/test"
 	corev1 "k8s.io/api/core/v1"
@@ -12,6 +13,7 @@ import (
 
 const (
 	csiOperatorNamespace = "openshift-csi-operator"
+	apiTimeout           = 10 * time.Second
 )
 
 func TestMain(m *testing.M) {
@@ -27,7 +29,9 @@ func collectLogs(t *testing.T, client f.FrameworkClient, namespace string) {
 			Namespace: csiOperatorNamespace,
 		}
 
-		err := client.List(context.TODO(), opts, podList)
+		ctx, cancel := testContext()
+		defer cancel()
+		err := client.List(ctx, opts, podList)
 		if err != nil {
 			t.Logf("failed to list pods in %s: %s", csiOperatorNamespace, err)
 		}
@@ -47,7 +51,9 @@ func collectLogs(t *testing.T, client f.FrameworkClient, namespace string) {
 		opts = &dynclient.ListOptions{
 			Namespace: namespace,
 		}
-		err = client.List(context.TODO(), opts, eventList)
+		ctx, cancel = testContext()
+		defer cancel()
+		err = client.List(ctx, opts, eventList)
 		if err != nil {
 			t.Logf("failed to list events in %s: %s", namespace, err)
 		}
@@ -55,4 +61,8 @@ func collectLogs(t *testing.T, client f.FrameworkClient, namespace string) {
 			t.Logf("event first time %s, count %d, type %s, reason %s: %s", e.FirstTimestamp, e.Count, e.Type, e.Reason, e.Message)
 		}
 	}
+}
+
+func testContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), apiTimeout)
 }

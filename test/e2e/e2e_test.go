@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -59,7 +58,9 @@ func prepareTest(t *testing.T) (ctx *framework.TestCtx, client framework.Framewo
 func waitForCSIDriverDeploymentReady(t *testing.T, client framework.FrameworkClient, cr *v1alpha1.CSIDriverDeployment, timeout time.Duration) error {
 	newCR := &v1alpha1.CSIDriverDeployment{}
 	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		err = client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, newCR)
+		ctx, cancel := testContext()
+		defer cancel()
+		err = client.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, newCR)
 		if err != nil {
 			return false, err
 		}
@@ -89,7 +90,9 @@ func waitForCSIDriverDeploymentReady(t *testing.T, client framework.FrameworkCli
 
 func waitForObjectExists(client framework.FrameworkClient, namespace, name string, obj runtime.Object, timeout time.Duration) error {
 	return wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		err = client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, obj)
+		ctx, cancel := testContext()
+		defer cancel()
+		err = client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return false, nil
@@ -102,7 +105,9 @@ func waitForObjectExists(client framework.FrameworkClient, namespace, name strin
 
 func waitForObjectDeleted(t *testing.T, client framework.FrameworkClient, namespace, name string, obj runtime.Object, timeout time.Duration) error {
 	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		err = client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, obj)
+		ctx, cancel := testContext()
+		defer cancel()
+		err = client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return true, nil
@@ -125,7 +130,9 @@ func createCSIDriverDeployment(client framework.FrameworkClient, namespace strin
 		return nil, fmt.Errorf("cannot decode %s: %s", filename, err)
 	}
 	csi.Namespace = namespace
-	err := client.Create(context.TODO(), csi, nil)
+	ctx, cancel := testContext()
+	defer cancel()
+	err := client.Create(ctx, csi, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CSIDriverDeployment: %s", err)
 	}
@@ -246,49 +253,63 @@ func checkChildrenDeleted(t *testing.T, client framework.FrameworkClient, namesp
 
 func deleteChildren(t *testing.T, client framework.FrameworkClient, namespace string, cr *v1alpha1.CSIDriverDeployment) {
 	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: cr.Name, Namespace: namespace}}
-	if err := client.Delete(context.TODO(), sa); err != nil {
+	ctx, cancel := testContext()
+	defer cancel()
+	if err := client.Delete(ctx, sa); err != nil {
 		t.Errorf("error deleting ServiceAccount: %s", err)
 	}
 	t.Log("ServiceAccount deleted")
 
 	crbName := "csidriverdeployment-" + string(cr.UID)
 	crb := &rbacv1.ClusterRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: crbName, Namespace: ""}}
-	if err := client.Delete(context.TODO(), crb); err != nil {
+	ctx, cancel = testContext()
+	defer cancel()
+	if err := client.Delete(ctx, crb); err != nil {
 		t.Errorf("error deleting ClusterRoleBinding: %s", err)
 	}
 	t.Log("ClusterRoleBinding deleted")
 
 	rbName := "leader-election-" + cr.Name
 	rb := &rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: rbName, Namespace: namespace}}
-	if err := client.Delete(context.TODO(), rb); err != nil {
+	ctx, cancel = testContext()
+	defer cancel()
+	if err := client.Delete(ctx, rb); err != nil {
 		t.Errorf("error deleting RoleBinding: %s", err)
 	}
 	t.Log("RoleBinding deleted")
 
 	dsName := cr.Name + "-node"
 	ds := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Name: dsName, Namespace: namespace}}
-	if err := client.Delete(context.TODO(), ds); err != nil {
+	ctx, cancel = testContext()
+	defer cancel()
+	if err := client.Delete(ctx, ds); err != nil {
 		t.Errorf("error deleting DaemonSet: %s", err)
 	}
 	t.Log("DaemonSet deleted")
 
 	deploymentName := cr.Name + "-controller"
 	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: deploymentName, Namespace: namespace}}
-	if err := client.Delete(context.TODO(), deployment); err != nil {
+	ctx, cancel = testContext()
+	defer cancel()
+	if err := client.Delete(ctx, deployment); err != nil {
 		t.Errorf("error deleting Deployment: %s", err)
 	}
 	t.Log("Deployment deleted")
 
 	sc1Name := "sc1" // from hostpath.yaml
 	sc1 := &storagev1.StorageClass{ObjectMeta: metav1.ObjectMeta{Name: sc1Name, Namespace: namespace}}
-	if err := client.Delete(context.TODO(), sc1); err != nil {
+	ctx, cancel = testContext()
+	defer cancel()
+	if err := client.Delete(ctx, sc1); err != nil {
 		t.Errorf("error deleting StorageClass1: %s", err)
 	}
 	t.Log("StorageClass1 deleted")
 
 	sc2Name := "sc2" // from hostpath.yaml
 	sc2 := &storagev1.StorageClass{ObjectMeta: metav1.ObjectMeta{Name: sc2Name, Namespace: namespace}}
-	if err := client.Delete(context.TODO(), sc2); err != nil {
+	ctx, cancel = testContext()
+	defer cancel()
+	if err := client.Delete(ctx, sc2); err != nil {
 		t.Errorf("error deleting StorageClass2: %s", err)
 	}
 	t.Log("StorageClass2 deleted")
@@ -302,11 +323,15 @@ func modifyObject(client framework.FrameworkClient, obj runtime.Object, modifyFu
 	key := types.NamespacedName{Name: accessor.GetName(), Namespace: accessor.GetNamespace()}
 
 	for {
-		if err := client.Get(context.TODO(), key, obj); err != nil {
+		ctx, cancel := testContext()
+		defer cancel()
+		if err := client.Get(ctx, key, obj); err != nil {
 			return err
 		}
 		modifyFunc(obj)
-		if err := client.Update(context.TODO(), obj); err != nil {
+		ctx, cancel = testContext()
+		defer cancel()
+		if err := client.Update(ctx, obj); err != nil {
 			if errors.IsConflict(err) {
 				continue
 			}
@@ -367,7 +392,9 @@ func TestCSIOperatorCreateDelete(t *testing.T) {
 
 	// Delete the CR
 	t.Log("=== Delete CSIDriverDeployment")
-	if err := client.Delete(context.TODO(), csi); err != nil {
+	c, cancel := testContext()
+	defer cancel()
+	if err := client.Delete(c, csi); err != nil {
 		t.Errorf("failed to delete CSIDriverDeployment: %s", err)
 	}
 	t.Log("CSIDriverDeployment deleted")
@@ -384,7 +411,9 @@ func TestLeaderElection(t *testing.T) {
 	defer collectLogs(t, client, ns)
 
 	cfg := &corev1.ConfigMap{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: leaderElectionConfigMapName, Namespace: csiOperatorNamespace}, cfg)
+	c, cancel := testContext()
+	defer cancel()
+	err := client.Get(c, types.NamespacedName{Name: leaderElectionConfigMapName, Namespace: csiOperatorNamespace}, cfg)
 	if err != nil {
 		t.Errorf("error getting leader election config map %s/%s: %s", csiOperatorNamespace, leaderElectionConfigMapName, err)
 	}
