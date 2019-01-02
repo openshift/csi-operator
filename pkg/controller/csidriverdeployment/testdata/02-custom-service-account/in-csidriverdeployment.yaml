@@ -18,8 +18,6 @@ spec:
         volumeMounts:
         - name: hostpath-root
           mountPath: /tmp
-        securityContext:
-          privileged: true
       volumes:
       - name: hostpath-root
         hostPath:

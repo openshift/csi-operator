@@ -8,7 +8,7 @@ metadata:
   uid: "1234567890"
   generation: 1
 spec:
-  managementState: Unmanaged
+  managementState: Managed
 
   driverName: csi-test
   driverControllerTemplate:
@@ -21,6 +21,8 @@ spec:
         volumeMounts:
         - name: hostpath-root
           mountPath: /tmp
+        securityContext:
+          privileged: true
       volumes:
       - name: hostpath-root
         hostPath:
@@ -33,6 +35,8 @@ spec:
         - --test-argument=bar
         image: quay.io/k8scsi/hostpathplugin:v0.2.0
         name: csi-driver
+        securityContext:
+          privileged: true
 
   driverSocket: /csi/csi.sock
   nodeUpdateStrategy: Rolling
@@ -71,4 +75,4 @@ status:
     status: "True"
     type: SyncSuccessful
   observedGeneration: 1
-  state: Unmanaged
+  state: Managed

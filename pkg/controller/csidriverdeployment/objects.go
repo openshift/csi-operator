@@ -146,7 +146,6 @@ func (r *ReconcileCSIDriverDeployment) generateDaemonSet(cr *csidriverv1alpha1.C
 	// Path to the kubelet dynamic registration directory
 	kubeletRegistrationDirectory := path.Join(r.config.KubeletRootDir, "plugins")
 
-	bTrue := true
 	// Add CSI Registrar sidecar
 	registrarImage := *r.config.DefaultImages.DriverRegistrarImage
 	if cr.Spec.ContainerImages != nil && cr.Spec.ContainerImages.DriverRegistrarImage != nil {
@@ -160,9 +159,6 @@ func (r *ReconcileCSIDriverDeployment) generateDaemonSet(cr *csidriverv1alpha1.C
 			"--csi-address=$(ADDRESS)",
 			// TODO: enable when 1.12 is rebased
 			// "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
-		},
-		SecurityContext: &v1.SecurityContext{
-			Privileged: &bTrue,
 		},
 		Env: []v1.EnvVar{
 			{
@@ -192,6 +188,9 @@ func (r *ReconcileCSIDriverDeployment) generateDaemonSet(cr *csidriverv1alpha1.C
 				MountPath: "/registration",
 			},
 		},
+	}
+	if podSpec.Spec.Containers[0].SecurityContext != nil {
+		registrar.SecurityContext = podSpec.Spec.Containers[0].SecurityContext.DeepCopy()
 	}
 	podSpec.Spec.Containers = append(podSpec.Spec.Containers, registrar)
 
@@ -333,6 +332,9 @@ func (r *ReconcileCSIDriverDeployment) generateDeployment(cr *csidriverv1alpha1.
 			},
 		},
 	}
+	if podSpec.Spec.Containers[0].SecurityContext != nil {
+		provisioner.SecurityContext = podSpec.Spec.Containers[0].SecurityContext.DeepCopy()
+	}
 	podSpec.Spec.Containers = append(podSpec.Spec.Containers, provisioner)
 
 	attacherImage := *r.config.DefaultImages.AttacherImage
@@ -359,6 +361,9 @@ func (r *ReconcileCSIDriverDeployment) generateDeployment(cr *csidriverv1alpha1.
 				MountPath: driverSocketVolumeMountPath,
 			},
 		},
+	}
+	if podSpec.Spec.Containers[0].SecurityContext != nil {
+		attacher.SecurityContext = podSpec.Spec.Containers[0].SecurityContext.DeepCopy()
 	}
 	podSpec.Spec.Containers = append(podSpec.Spec.Containers, attacher)
 
@@ -538,6 +543,9 @@ func (r *ReconcileCSIDriverDeployment) addLivenessProbe(cr *csidriverv1alpha1.CS
 				MountPath: driverSocketVolumeMountPath,
 			},
 		},
+	}
+	if podSpec.Spec.Containers[0].SecurityContext != nil {
+		probeContainer.SecurityContext = podSpec.Spec.Containers[0].SecurityContext.DeepCopy()
 	}
 
 	podSpec.Spec.Containers = append(podSpec.Spec.Containers, probeContainer)

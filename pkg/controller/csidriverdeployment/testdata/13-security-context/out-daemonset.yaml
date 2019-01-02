@@ -1,13 +1,11 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   labels:
     csidriver.storage.openshift.io/owner-name: test
     csidriver.storage.openshift.io/owner-namespace: "default"
-    newLabel: newValue # user change
-  name: test-controller
+  name: test-node
   namespace: default
-  generation: 1 # Simulate user change
   ownerReferences:
   - apiVersion: csidriver.storage.openshift.io/v1alpha1
     controller: true
@@ -15,20 +13,17 @@ metadata:
     name: test
     uid: "1234567890"
 spec:
-  replicas: 1
   selector:
     matchLabels:
-      csidriver.storage.openshift.io/deployment: test-controller
-  strategy:
-    type: RollingUpdate
+      csidriver.storage.openshift.io/daemonset: test-node
   template:
     metadata:
       labels:
-        csidriver.storage.openshift.io/deployment: test-controller
+        csidriver.storage.openshift.io/daemonset: test-node
     spec:
       containers:
       - args:
-        - --test-argument=foo
+        - --test-argument=bar
         image: quay.io/k8scsi/hostpathplugin:v0.2.0
         livenessProbe:
           failureThreshold: 3
@@ -44,33 +39,34 @@ spec:
           name: csi-probe
           protocol: TCP
         volumeMounts:
-        - mountPath: /tmp
-          name: hostpath-root
         - mountPath: /csi
           name: csi-driver
-      - args:
-        - --v=5
-        - --csi-address=$(ADDRESS)
-        - --provisioner=csi-test
-        env:
-        - name: ADDRESS
-          value: /csi/csi.sock
-        image: quay.io/k8scsi/csi-provisioner:v0.3.1
-        name: csi-provisioner
-        volumeMounts:
-        - mountPath: /csi
-          name: csi-driver
+        - mountPath: /var/lib/kubelet
+          mountPropagation: Bidirectional
+          name: kubelet-root
+        securityContext:
+          privileged: true
       - args:
         - --v=5
         - --csi-address=$(ADDRESS)
         env:
         - name: ADDRESS
           value: /csi/csi.sock
-        image: quay.io/k8scsi/csi-attacher:v0.3.0
-        name: csi-attacher
+        - name: DRIVER_REG_SOCK_PATH
+          value: /var/lib/kubelet/plugins/csi-test/csi.sock
+        - name: KUBE_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: quay.io/k8scsi/driver-registrar:v0.3.0
+        name: csi-driver-registrar
         volumeMounts:
         - mountPath: /csi
           name: csi-driver
+        - mountPath: /registration
+          name: registration-dir
+        securityContext:
+          privileged: true
       - args:
         - --v=5
         - --csi-address=$(ADDRESS)
@@ -83,12 +79,21 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: csi-driver
+        securityContext:
+          privileged: true
       serviceAccountName: test
       volumes:
       - hostPath:
-          path: /tmp
+          path: /var/lib/kubelet/plugins
           type: Directory
-        name: hostpath-root
-      - emptyDir: {}
+        name: registration-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins/csi-test
+          type: DirectoryOrCreate
         name: csi-driver
-status: {}
+      - hostPath:
+          path: /var/lib/kubelet
+          type: Directory
+        name: kubelet-root
+  updateStrategy:
+    type: RollingUpdate
