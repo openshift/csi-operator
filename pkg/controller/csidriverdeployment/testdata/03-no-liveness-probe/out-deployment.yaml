@@ -29,8 +29,6 @@ spec:
         - --test-argument=foo
         image: quay.io/k8scsi/hostpathplugin:v0.2.0
         name: csi-driver
-        securityContext:
-          privileged: true
         volumeMounts:
         - mountPath: /tmp
           name: hostpath-root

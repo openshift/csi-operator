@@ -346,9 +346,6 @@ var (
 								"--v=5",
 								"--csi-address=$(ADDRESS)",
 							},
-							SecurityContext: &corev1.SecurityContext{
-								Privileged: &bTrue,
-							},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "ADDRESS",

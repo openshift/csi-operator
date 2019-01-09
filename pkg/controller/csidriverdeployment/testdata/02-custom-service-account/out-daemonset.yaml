@@ -59,8 +59,6 @@ spec:
               fieldPath: spec.nodeName
         image: quay.io/k8scsi/driver-registrar:v0.3.0
         name: csi-driver-registrar
-        securityContext:
-          privileged: true
         volumeMounts:
         - mountPath: /csi
           name: csi-driver

@@ -43,8 +43,6 @@ spec:
         - containerPort: 9808
           name: csi-probe
           protocol: TCP
-        securityContext:
-          privileged: true
         volumeMounts:
         - mountPath: /tmp
           name: hostpath-root

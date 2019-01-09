@@ -43,8 +43,6 @@ spec:
           name: csi-probe
           protocol: TCP
         resources: {}
-        securityContext:
-          privileged: true
         volumeMounts:
         - mountPath: /tmp
           name: hostpath-root

@@ -4,10 +4,8 @@ metadata:
   labels:
     csidriver.storage.openshift.io/owner-name: test
     csidriver.storage.openshift.io/owner-namespace: "default"
-    newLabel: newValue # user change
   name: test-controller
   namespace: default
-  generation: 1 # Simulate user change
   ownerReferences:
   - apiVersion: csidriver.storage.openshift.io/v1alpha1
     controller: true
@@ -48,6 +46,8 @@ spec:
           name: hostpath-root
         - mountPath: /csi
           name: csi-driver
+        securityContext:
+          privileged: true
       - args:
         - --v=5
         - --csi-address=$(ADDRESS)
@@ -60,6 +60,8 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: csi-driver
+        securityContext:
+          privileged: true
       - args:
         - --v=5
         - --csi-address=$(ADDRESS)
@@ -71,6 +73,8 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: csi-driver
+        securityContext:
+          privileged: true
       - args:
         - --v=5
         - --csi-address=$(ADDRESS)
@@ -83,6 +87,8 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: csi-driver
+        securityContext:
+          privileged: true
       serviceAccountName: test
       volumes:
       - hostPath:
