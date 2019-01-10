@@ -37,6 +37,7 @@ verify:
 .PHONY: test-e2e
 # usage: KUBECONFIG=/var/run/kubernetes/admin.kubeconfig make test-e2e
 test-e2e: generate
+	hack/deploy-local.sh
 	go test -v ./test/e2e/... -kubeconfig=$(KUBECONFIG)  -root $(PWD) -globalMan deploy/prerequisites/01_crd.yaml
 
 .PHONY: container

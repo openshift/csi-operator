@@ -8,6 +8,6 @@ RUN useradd csi-operator
 COPY --from=builder /go/src/github.com/openshift/csi-operator/bin/csi-operator /usr/bin/
 COPY deploy/openshift/image-references deploy/prerequisites/*.yaml /manifests/
 COPY deploy/operator.yaml /manifests/99_operator.yaml
-LABEL io.openshift.release.operator true
+# LABEL io.openshift.release.operator true
 USER csi-operator
 ENTRYPOINT ["/usr/bin/csi-operator"]
