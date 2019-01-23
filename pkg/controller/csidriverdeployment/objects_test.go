@@ -16,14 +16,14 @@ import (
 )
 
 var (
-	defaultDriverContainer corev1.Container = corev1.Container{
+	defaultDriverContainer = corev1.Container{
 		Name:  "defaultDriverContainer",
 		Image: "defaultDriverImage",
 	}
 
 	sixty = int32(60)
 
-	defaultCR v1alpha1.CSIDriverDeployment = v1alpha1.CSIDriverDeployment{
+	defaultCR = v1alpha1.CSIDriverDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
 			Namespace: "default",
