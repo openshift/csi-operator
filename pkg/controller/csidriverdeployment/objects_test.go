@@ -345,6 +345,7 @@ var (
 							Args: []string{
 								"--v=5",
 								"--csi-address=$(ADDRESS)",
+								"--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
 							},
 							Env: []corev1.EnvVar{
 								{
