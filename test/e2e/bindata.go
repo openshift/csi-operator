@@ -83,7 +83,7 @@ func hostpathYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "hostpath.yaml", size: 1941, mode: os.FileMode(436), modTime: time.Unix(1542874535, 0)}
+	info := bindataFileInfo{name: "hostpath.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
