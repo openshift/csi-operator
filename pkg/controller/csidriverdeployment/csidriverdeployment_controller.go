@@ -142,6 +142,8 @@ func (r *ReconcileCSIDriverDeployment) Reconcile(request reconcile.Request) (rec
 			// Return and don't requeue
 			return reconcile.Result{}, nil
 		}
+		glog.Warningf("failed to get %v: %v", request.NamespacedName, err)
+		r.recorder.Event(instance, corev1.EventTypeWarning, "SyncError", err.Error())
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
@@ -185,7 +187,7 @@ func (r *ReconcileCSIDriverDeployment) handleCSIDriverDeployment(instance *csidr
 		if errs != nil {
 			// Send errors as events
 			for _, e := range errs {
-				glog.V(2).Info(e.Error())
+				glog.Warning(e.Error())
 				if !errors.IsConflict(e) {
 					r.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", e.Error())
 				}
@@ -196,7 +198,7 @@ func (r *ReconcileCSIDriverDeployment) handleCSIDriverDeployment(instance *csidr
 	err := r.syncStatus(instance, newInstance)
 	if err != nil {
 		// This error has not been logged above
-		glog.V(2).Info(err.Error())
+		glog.Warning(err.Error())
 		if !errors.IsConflict(err) {
 			r.recorder.Event(newInstance, corev1.EventTypeWarning, "SyncError", err.Error())
 		}
