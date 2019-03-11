@@ -157,8 +157,7 @@ func (r *ReconcileCSIDriverDeployment) generateDaemonSet(cr *csidriverv1alpha1.C
 		Args: []string{
 			"--v=5",
 			"--csi-address=$(ADDRESS)",
-			// TODO: enable when 1.12 is rebased
-			// "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
+			"--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)",
 		},
 		Env: []v1.EnvVar{
 			{
