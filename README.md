@@ -70,3 +70,5 @@ See [docs/usage.md](docs/usage.md) for details.
 
 ## OpenShift vs. Kubernetes
 This operator works both in Kubernetes and OpenShift (and any other Kubernetes distribution). There are some OpenShift specific things, e.g. special manifests installed into Dockerfile and objects with "openshift" prefix in various `deploy/` yaml files, however, there is nothing OpenShift-ish in the code itself. It's pure Kubernetes code. We're open for contributions from Kubernetes community or even adding non-OpenShift version of yaml files or Dockerfiles.
+
+
