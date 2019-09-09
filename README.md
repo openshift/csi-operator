@@ -2,6 +2,8 @@
 
 This operator deploys and updates a CSI driver in OpenShift or Kubernetes cluster.
 
+**WARNING**: This operator is obsolete and no longer in active development. It failed to attract necessary attention and build a community around. Installation of CSI drivers, its documentation and necessary tooling is responsibility of CSI driver vendors.
+
 ## Usage
 
 1. Create namespace openshift-csi-operator for the operator, necessary RBAC rules and service account:
