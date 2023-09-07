@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+  name: aws-ebs-csi-driver-node
+  namespace: openshift-cluster-csi-drivers
+spec:
+  selector:
+    matchLabels:
+      app: aws-ebs-csi-driver-node
+  template:
+    metadata:
+      annotations:
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        app: aws-ebs-csi-driver-node
+    spec:
+      containers:
+      - args:
+        - node
+        - --endpoint=$(CSI_ENDPOINT)
+        - --logtostderr
+        - --v=${LOG_LEVEL}
+        env:
+        - name: CSI_ENDPOINT
+          value: unix:/csi/csi.sock
+        image: ${DRIVER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+        name: csi-driver
+        ports:
+        - containerPort: 10300
+          name: healthz
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /var/lib/kubelet
+          mountPropagation: Bidirectional
+          name: kubelet-dir
+        - mountPath: /csi
+          name: socket-dir
+        - mountPath: /dev
+          name: device-dir
+        - mountPath: /etc/selinux
+          name: etc-selinux
+        - mountPath: /sys/fs
+          name: sys-fs
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --kubelet-registration-path=/var/lib/kubelet/plugins/ebs.csi.aws.com/csi.sock
+        - --v=${LOG_LEVEL}
+        env: []
+        image: ${NODE_DRIVER_REGISTRAR_IMAGE}
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - rm -rf /registration/ebs.csi.aws.com-reg.sock /csi/csi.sock
+        name: csi-node-driver-registrar
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+        - mountPath: /registration
+          name: registration-dir
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --health-port=10300
+        - --v=${LOG_LEVEL}
+        - --probe-timeout=3s
+        env: []
+        image: ${LIVENESS_PROBE_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-liveness-probe
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      serviceAccount: aws-ebs-csi-driver-node-sa
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/lib/kubelet
+          type: Directory
+        name: kubelet-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins/ebs.csi.aws.com/
+          type: DirectoryOrCreate
+        name: socket-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins_registry/
+          type: Directory
+        name: registration-dir
+      - hostPath:
+          path: /dev
+          type: Directory
+        name: device-dir
+      - hostPath:
+          path: /etc/selinux
+          type: DirectoryOrCreate
+        name: etc-selinux
+      - hostPath:
+          path: /sys/fs
+          type: Directory
+        name: sys-fs
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate

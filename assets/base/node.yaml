@@ -1,0 +1,58 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: ${ASSET_PREFIX}-node
+  namespace: openshift-cluster-csi-drivers
+spec:
+  selector:
+    matchLabels:
+      app: ${ASSET_PREFIX}-node
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+  template:
+    metadata:
+      annotations:
+        # This annotation allows the workload pinning feature to work when clusters are configured for it.
+        # An admission webhook will look for this annotation when Pod admission occurs to modify the
+        # memory and cpu resources to a custom resource name that the schedular will use to correctly 
+        # assign Pods in a workload pinned cluster. This annotation will be stripped from Pods when 
+        # the cluster is not configured for workload pinning.
+        # See (openshift/enhancements#1213) for more info.
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        app: ${ASSET_PREFIX}-node
+    spec:
+      serviceAccount: ${ASSET_PREFIX}-node-sa
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      volumes:
+        - name: kubelet-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/${DRIVER_NAME}/
+            type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+        - name: device-dir
+          hostPath:
+            path: /dev
+            type: Directory
+        - name: etc-selinux
+          hostPath:
+            path: /etc/selinux
+            type: DirectoryOrCreate
+        - name: sys-fs
+          hostPath:
+            path: /sys/fs
+            type: Directory

@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ${ASSET_PREFIX}-controller-pdb
+  namespace: ${NAMESPACE}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: ${ASSET_PREFIX}-controller

@@ -1,0 +1,54 @@
+# Add HyperShift specific tolerations + affinity to Deployment running in a hosted control plane namespace
+kind: Deployment
+apiVersion: apps/v1
+spec:
+  template:
+    metadata:
+      labels:
+        hypershift.openshift.io/hosted-control-plane: ${NAMESPACE}
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: hypershift.openshift.io/control-plane
+                operator: In
+                values:
+                - "true"
+            weight: 50
+          - preference:
+              matchExpressions:
+              - key: hypershift.openshift.io/cluster
+                operator: In
+                values:
+                - ${NAMESPACE}
+            weight: 100
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  hypershift.openshift.io/hosted-control-plane: ${NAMESPACE}
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: ${ASSET_PREFIX}-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+
+      priorityClassName: hypershift-control-plane
+
+      tolerations:
+      - effect: NoSchedule
+        key: hypershift.openshift.io/control-plane
+        operator: Equal
+        value: "true"
+      - effect: NoSchedule
+        key: hypershift.openshift.io/cluster
+        operator: Equal
+        value: ${NAMESPACE}

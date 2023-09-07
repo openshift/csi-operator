@@ -1,0 +1,29 @@
+# This is a generic kube-rbac-proxy sidecar that is added to the CSI driver containers.
+# Each sidecar has its own kube-rbac-proxy already in its own <sidecar>.yaml.
+kind: Deployment
+apiVersion: apps/v1
+spec:
+  template:
+    spec:
+      containers:
+        - name: kube-rbac-proxy-${LOCAL_METRICS_PORT}
+          args:
+          - --secure-listen-address=0.0.0.0:${EXPOSED_METRICS_PORT}
+          - --upstream=http://127.0.0.1:${LOCAL_METRICS_PORT}/
+          - --tls-cert-file=/etc/tls/private/tls.crt
+          - --tls-private-key-file=/etc/tls/private/tls.key
+          - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+          - --logtostderr=true
+          image: ${KUBE_RBAC_PROXY_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: ${EXPOSED_METRICS_PORT}
+            name: ${PORT_NAME}
+            protocol: TCP
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 10m
+          volumeMounts:
+          - mountPath: /etc/tls/private
+            name: metrics-serving-cert

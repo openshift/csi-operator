@@ -1,0 +1,14 @@
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  annotations:
+    csi.openshift.io/managed: "true"
+  name: ebs.csi.aws.com
+spec:
+  attachRequired: true
+  fsGroupPolicy: File
+  podInfoOnMount: false
+  requiresRepublish: false
+  storageCapacity: false
+  volumeLifecycleModes:
+  - Persistent

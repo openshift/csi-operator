@@ -1,0 +1,48 @@
+kind: Deployment
+apiVersion: apps/v1
+spec:
+  template:
+    spec:
+      containers:
+        - name: csi-attacher
+          image: ${ATTACHER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+            - --http-endpoint=localhost:${LOCAL_METRICS_PORT}
+            - --leader-election
+            - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+            - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+            - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+            - --leader-election-namespace=openshift-cluster-csi-drivers
+            - --v=${LOG_LEVEL}
+          # Empty env. instead of nil for json patch to append new env. vars there
+          env: []
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+        - name: attacher-kube-rbac-proxy
+          args:
+          - --secure-listen-address=0.0.0.0:${EXPOSED_METRICS_PORT}
+          - --upstream=http://127.0.0.1:${LOCAL_METRICS_PORT}/
+          - --tls-cert-file=/etc/tls/private/tls.crt
+          - --tls-private-key-file=/etc/tls/private/tls.key
+          - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+          - --logtostderr=true
+          image: ${KUBE_RBAC_PROXY_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: ${EXPOSED_METRICS_PORT}
+            name: attacher-m
+            protocol: TCP
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 10m
+          volumeMounts:
+          - mountPath: /etc/tls/private
+            name: metrics-serving-cert

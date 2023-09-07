@@ -1,0 +1,12 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ${ASSET_SHORT_PREFIX}-csi-main-attacher-binding
+subjects:
+  - kind: ServiceAccount
+    name: ${ASSET_PREFIX}-controller-sa
+    namespace: openshift-cluster-csi-drivers
+roleRef:
+  kind: ClusterRole
+  name: openshift-csi-main-attacher-role
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,14 @@
+# Grant controller access to leases
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ${ASSET_PREFIX}-lease-leader-election
+  namespace: openshift-cluster-csi-drivers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ${ASSET_PREFIX}-lease-leader-election
+subjects:
+- kind: ServiceAccount
+  name: ${ASSET_PREFIX}-controller-sa
+  namespace: openshift-cluster-csi-drivers

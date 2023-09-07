@@ -1,0 +1,38 @@
+spec:
+  template:
+    spec:
+      containers:
+        # Explicitly mention csi-driver container so the minter is appended after it
+        - name: csi-driver
+
+        - name: token-minter
+          args:
+          - --service-account-namespace=openshift-cluster-csi-drivers
+          - --service-account-name=aws-ebs-csi-driver-controller-sa
+          - --token-audience=openshift
+          - --token-file=/var/run/secrets/openshift/serviceaccount/token
+          - --kubeconfig=/etc/hosted-kubernetes/kubeconfig
+          command:
+          - /usr/bin/control-plane-operator
+          - token-minter
+          image: ${HYPERSHIFT_IMAGE}
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+          volumeMounts:
+          - mountPath: /var/run/secrets/openshift/serviceaccount
+            name: bound-sa-token
+          - mountPath: /etc/hosted-kubernetes
+            name: hosted-kubeconfig
+            readOnly: true
+      volumes:
+      - name: bound-sa-token
+        emptyDir:
+          medium: Memory
+        projected: null # Explicity overwrite existing projected: with null in strategic merge patch
+      - name: hosted-kubeconfig
+        secret:
+          defaultMode: 420
+          secretName: service-network-admin-kubeconfig
