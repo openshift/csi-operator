@@ -25,7 +25,7 @@ import (
 
 // Builder is a helper to create Clients.
 type Builder struct {
-	clientName             string
+	userAgwent             string
 	csiDriverName          string
 	resync                 time.Duration
 	controllerConfig       *controllercmd.ControllerContext
@@ -35,9 +35,9 @@ type Builder struct {
 }
 
 // NewBuilder creates a new Builder.
-func NewBuilder(clientName string, csiDriverName string, controllerConfig *controllercmd.ControllerContext, resync time.Duration) *Builder {
+func NewBuilder(userAgent string, csiDriverName string, controllerConfig *controllercmd.ControllerContext, resync time.Duration) *Builder {
 	return &Builder{
-		clientName:       clientName,
+		userAgwent:       userAgent,
 		csiDriverName:    csiDriverName,
 		resync:           resync,
 		controllerConfig: controllerConfig,
@@ -46,7 +46,6 @@ func NewBuilder(clientName string, csiDriverName string, controllerConfig *contr
 		},
 		guestNamespaces: []string{
 			"",
-			CloudConfigNamespace,
 			CSIDriverNamespace,
 			ManagedConfigNamespace, // TODO: is it needed?
 		},
@@ -54,13 +53,14 @@ func NewBuilder(clientName string, csiDriverName string, controllerConfig *contr
 }
 
 // WithHyperShiftGuest sets the kubeconfig file for the guest cluster. Usable only on HyperShift.
-func (b *Builder) WithHyperShiftGuest(kubeConfigFile string) {
+func (b *Builder) WithHyperShiftGuest(kubeConfigFile string) *Builder {
 	b.guestKubeConfigFile = kubeConfigFile
+	return b
 }
 
 // BuildOrDie creates new Kubernetes clients.
 func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
-	controlPlaneRestConfig := rest.AddUserAgent(b.controllerConfig.KubeConfig, b.clientName)
+	controlPlaneRestConfig := rest.AddUserAgent(b.controllerConfig.KubeConfig, b.userAgwent)
 	controlPlaneKubeClient := kubeclient.NewForConfigOrDie(controlPlaneRestConfig)
 	controlPlaneKubeInformers := v1helpers.NewKubeInformersForNamespaces(controlPlaneKubeClient, b.controlPlaneNamespaces...)
 
@@ -86,7 +86,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		if err != nil {
 			panic(err)
 		}
-		guestKubeConfig = rest.AddUserAgent(guestKubeConfig, b.clientName)
+		guestKubeConfig = rest.AddUserAgent(guestKubeConfig, b.userAgwent)
 		guestKubeClient = kubeclient.NewForConfigOrDie(guestKubeConfig)
 
 		// Create all events in the GUEST cluster.
@@ -97,7 +97,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		if err != nil {
 			klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
 		}
-		clients.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(CSIDriverNamespace), b.clientName, controllerRef)
+		clients.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(CSIDriverNamespace), b.userAgwent, controllerRef)
 	}
 	clients.GuestKubeClient = guestKubeClient
 	clients.GuestKubeInformers = v1helpers.NewKubeInformersForNamespaces(guestKubeClient, b.guestNamespaces...)

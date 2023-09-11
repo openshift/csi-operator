@@ -20,8 +20,7 @@ import (
 
 const (
 	CSIDriverNamespace     = "openshift-cluster-csi-drivers"
-	CloudConfigNamespace   = "openshift-config"
-	ManagedConfigNamespace = "openshift-config-managed"
+	ManagedConfigNamespace = "openshift-config-managed" // For kube-cloud-config config map. TODO: should be namespace list configurable?
 )
 
 // Clients is a collection of clients for a CSI driver operator.
