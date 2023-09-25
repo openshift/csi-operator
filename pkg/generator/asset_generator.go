@@ -10,11 +10,12 @@ import (
 
 // AssetGenerator generates assets for CSI driver operators.
 type AssetGenerator struct {
-	flavour         ClusterFlavour
-	operatorConfig  *CSIDriverGeneratorConfig
-	replacements    []string
-	generatedAssets *generated_assets.CSIDriverAssets
-	reader          AssetReader
+	flavour          ClusterFlavour
+	operatorConfig   *CSIDriverGeneratorConfig
+	replacements     []string
+	controllerAssets map[string]*YAMLWithHistory
+	guestAssets      map[string]*YAMLWithHistory
+	reader           AssetReader
 }
 
 type AssetReader func(assetName string) ([]byte, error)
@@ -32,8 +33,7 @@ func NewAssetGenerator(
 			"${ASSET_SHORT_PREFIX}", operatorConfig.AssetShortPrefix,
 			"${DRIVER_NAME}", operatorConfig.DriverName,
 		},
-		generatedAssets: &generated_assets.CSIDriverAssets{},
-		reader:          reader,
+		reader: reader,
 	}
 }
 
@@ -46,13 +46,25 @@ func (gen *AssetGenerator) GenerateAssets() (*generated_assets.CSIDriverAssets, 
 	if err := gen.generateGuest(); err != nil {
 		return nil, err
 	}
-	return gen.generatedAssets, nil
+	return gen.collectAssets(), nil
+}
+
+func (gen *AssetGenerator) collectAssets() *generated_assets.CSIDriverAssets {
+	generatedAssets := &generated_assets.CSIDriverAssets{
+		ControllerAssets: make(map[string][]byte),
+		GuestAssets:      make(map[string][]byte),
+	}
+	for name, a := range gen.controllerAssets {
+		generatedAssets.ControllerAssets[name] = a.Render()
+	}
+	for name, a := range gen.guestAssets {
+		generatedAssets.GuestAssets[name] = a.Render()
+	}
+	return generatedAssets
 }
 
 func (gen *AssetGenerator) generateController() error {
-	gen.generatedAssets = &generated_assets.CSIDriverAssets{
-		ControllerAssets: make(map[string][]byte),
-	}
+	gen.controllerAssets = make(map[string]*YAMLWithHistory)
 	if err := gen.generateDeployment(); err != nil {
 		return err
 	}
@@ -78,25 +90,24 @@ func (gen *AssetGenerator) patchController() error {
 		if !patch.ClusterFlavours.Has(gen.flavour) {
 			continue
 		}
-		assetYAML := gen.generatedAssets.ControllerAssets[patch.GeneratedAssetName]
+		assetYAML := gen.controllerAssets[patch.GeneratedAssetName]
 		if assetYAML == nil {
-			return fmt.Errorf("asset %s not found to apply patch %s", patch.GeneratedAssetName, patch.PatchAssetName)
+			return fmt.Errorf("YAMLWithHistory %s not found to apply patch %s", patch.GeneratedAssetName, patch.PatchAssetName)
 		}
-		assetYAML, err := gen.applyAssetPatch(assetYAML, patch.PatchAssetName, nil)
+		err := gen.applyAssetPatch(assetYAML, patch.PatchAssetName, nil)
 		if err != nil {
 			return err
 		}
-		gen.generatedAssets.ControllerAssets[patch.GeneratedAssetName] = assetYAML
 	}
 	return nil
 }
 
 func (gen *AssetGenerator) generateDeployment() error {
 	ctrlCfg := gen.operatorConfig.ControllerConfig
-	deploymentYAML := gen.mustReadAsset("base/controller.yaml", nil)
+	deploymentYAML := gen.mustReadBaseAsset("base/controller.yaml", nil)
 	var err error
 
-	deploymentYAML, err = gen.applyAssetPatch(deploymentYAML, ctrlCfg.DeploymentTemplateAssetName, nil)
+	err = gen.applyAssetPatch(deploymentYAML, ctrlCfg.DeploymentTemplateAssetName, nil)
 	if err != nil {
 		return err
 	}
@@ -122,7 +133,7 @@ func (gen *AssetGenerator) generateDeployment() error {
 		)
 		localPortIndex++
 		exposedPortIndex++
-		deploymentYAML, err = gen.applyAssetPatch(deploymentYAML, "common/sidecars/driver_kube_rbac_proxy.yaml", extraReplacements)
+		err = gen.applyAssetPatch(deploymentYAML, "common/sidecars/driver_kube_rbac_proxy.yaml", extraReplacements)
 		if err != nil {
 			return err
 		}
@@ -141,19 +152,19 @@ func (gen *AssetGenerator) generateDeployment() error {
 			localPortIndex++
 			exposedPortIndex++
 		}
-		deploymentYAML, err = gen.addSidecar(deploymentYAML, sidecar.TemplateAssetName, extraReplacements, sidecar.ExtraArguments, gen.flavour, sidecar.AssetPatches)
+		err = gen.addSidecar(deploymentYAML, sidecar.TemplateAssetName, extraReplacements, sidecar.ExtraArguments, gen.flavour, sidecar.AssetPatches)
 		if err != nil {
 			return err
 		}
 	}
-	gen.generatedAssets.ControllerAssets[generated_assets.ControllerDeploymentAssetName] = deploymentYAML
+	gen.controllerAssets[generated_assets.ControllerDeploymentAssetName] = deploymentYAML
 	return nil
 }
 
 func (gen *AssetGenerator) generateMonitoringService() error {
 	ctrlCfg := gen.operatorConfig.ControllerConfig
-	serviceYAML := gen.mustReadAsset("base/controller_metrics_service.yaml", nil)
-	serviceMonitorYAML := gen.mustReadAsset("base/controller_metrics_servicemonitor.yaml", nil)
+	serviceYAML := gen.mustReadBaseAsset("base/controller_metrics_service.yaml", nil)
+	serviceMonitorYAML := gen.mustReadBaseAsset("base/controller_metrics_servicemonitor.yaml", nil)
 
 	localPortIndex := int(ctrlCfg.SidecarLocalMetricsPortStart)
 	exposedPortIndex := int(ctrlCfg.SidecarExposedMetricsPortStart)
@@ -171,11 +182,11 @@ func (gen *AssetGenerator) generateMonitoringService() error {
 		exposedPortIndex++
 
 		var err error
-		serviceYAML, err = gen.applyAssetPatch(serviceYAML, "common/metrics/service_add_port.yaml", extraReplacements)
+		err = gen.applyAssetPatch(serviceYAML, "common/metrics/service_add_port.yaml", extraReplacements)
 		if err != nil {
 			return err
 		}
-		serviceMonitorYAML, err = gen.applyAssetPatch(serviceMonitorYAML, "common/metrics/service_monitor_add_port.yaml.patch", extraReplacements)
+		err = gen.applyAssetPatch(serviceMonitorYAML, "common/metrics/service_monitor_add_port.yaml.patch", extraReplacements)
 		if err != nil {
 			return err
 		}
@@ -189,20 +200,20 @@ func (gen *AssetGenerator) generateMonitoringService() error {
 			"${PORT_NAME}", port.Name,
 		}
 		var err error
-		serviceYAML, err = gen.applyAssetPatch(serviceYAML, "common/metrics/service_add_port.yaml", extraReplacements)
+		err = gen.applyAssetPatch(serviceYAML, "common/metrics/service_add_port.yaml", extraReplacements)
 		if err != nil {
 			return err
 		}
-		serviceMonitorYAML, err = gen.applyAssetPatch(serviceMonitorYAML, "common/metrics/service_monitor_add_port.yaml.patch", extraReplacements)
+		err = gen.applyAssetPatch(serviceMonitorYAML, "common/metrics/service_monitor_add_port.yaml.patch", extraReplacements)
 		if err != nil {
 			return err
 		}
 	}
 
-	gen.generatedAssets.ControllerAssets[generated_assets.MetricServiceAssetName] = serviceYAML
+	gen.controllerAssets[generated_assets.MetricServiceAssetName] = serviceYAML
 	if gen.flavour != FlavourHyperShift {
 		// TODO: figure out monitoring on HyperShift. The operator does not have RBAC for ServiceMonitors now.
-		gen.generatedAssets.ControllerAssets[generated_assets.MetricServiceMonitorAssetName] = serviceMonitorYAML
+		gen.controllerAssets[generated_assets.MetricServiceMonitorAssetName] = serviceMonitorYAML
 	}
 	return nil
 }
@@ -211,15 +222,15 @@ func (gen *AssetGenerator) collectControllerAssets() error {
 	ctrlCfg := gen.operatorConfig.ControllerConfig
 	for _, a := range ctrlCfg.Assets {
 		if a.ClusterFlavours.Has(gen.flavour) {
-			assetBytes := gen.mustReadAsset(a.AssetName, nil)
-			gen.generatedAssets.ControllerAssets[filepath.Base(a.AssetName)] = assetBytes
+			assetBytes := gen.mustReadBaseAsset(a.AssetName, nil)
+			gen.controllerAssets[filepath.Base(a.AssetName)] = assetBytes
 		}
 	}
 	return nil
 }
 
 func (gen *AssetGenerator) generateGuest() error {
-	gen.generatedAssets.GuestAssets = make(map[string][]byte)
+	gen.guestAssets = make(map[string]*YAMLWithHistory)
 
 	if err := gen.generateDaemonSet(); err != nil {
 		return err
@@ -235,7 +246,7 @@ func (gen *AssetGenerator) generateGuest() error {
 
 func (gen *AssetGenerator) generateDaemonSet() error {
 	cfg := gen.operatorConfig.GuestConfig
-	dsYAML := gen.mustReadAsset("base/node.yaml", nil)
+	dsYAML := gen.mustReadBaseAsset("base/node.yaml", nil)
 	var err error
 
 	extraReplacements := []string{}
@@ -243,19 +254,19 @@ func (gen *AssetGenerator) generateDaemonSet() error {
 		extraReplacements = append(extraReplacements, "${LIVENESS_PROBE_PORT}", strconv.Itoa(int(cfg.LivenessProbePort)))
 	}
 
-	dsYAML, err = gen.applyAssetPatch(dsYAML, cfg.DaemonSetTemplateAssetName, extraReplacements)
+	err = gen.applyAssetPatch(dsYAML, cfg.DaemonSetTemplateAssetName, extraReplacements)
 	if err != nil {
 		return err
 	}
 
 	for i := 0; i < len(cfg.Sidecars); i++ {
 		sidecar := cfg.Sidecars[i]
-		dsYAML, err = gen.addSidecar(dsYAML, sidecar.TemplateAssetName, extraReplacements, sidecar.ExtraArguments, gen.flavour, sidecar.AssetPatches)
+		err = gen.addSidecar(dsYAML, sidecar.TemplateAssetName, extraReplacements, sidecar.ExtraArguments, gen.flavour, sidecar.AssetPatches)
 		if err != nil {
 			return err
 		}
 	}
-	gen.generatedAssets.GuestAssets[generated_assets.NodeDaemonSetAssetName] = dsYAML
+	gen.guestAssets[generated_assets.NodeDaemonSetAssetName] = dsYAML
 	return nil
 }
 
@@ -266,16 +277,16 @@ func (gen *AssetGenerator) patchGuest() error {
 		if !patch.ClusterFlavours.Has(gen.flavour) {
 			continue
 		}
-		assetYAML := gen.generatedAssets.GuestAssets[patch.GeneratedAssetName]
+		assetYAML := gen.guestAssets[patch.GeneratedAssetName]
 		if assetYAML == nil {
-			return fmt.Errorf("asset %s not found to apply patch %s", patch.GeneratedAssetName, patch.PatchAssetName)
+			return fmt.Errorf("YAMLWithHistory %s not found to apply patch %s", patch.GeneratedAssetName, patch.PatchAssetName)
 		}
 
-		assetYAML, err := gen.applyAssetPatch(assetYAML, patch.PatchAssetName, nil)
+		err := gen.applyAssetPatch(assetYAML, patch.PatchAssetName, nil)
 		if err != nil {
 			return err
 		}
-		gen.generatedAssets.GuestAssets[patch.GeneratedAssetName] = assetYAML
+		gen.guestAssets[patch.GeneratedAssetName] = assetYAML
 	}
 	return nil
 }
@@ -284,8 +295,8 @@ func (gen *AssetGenerator) collectGuestAssets() error {
 	cfg := gen.operatorConfig.GuestConfig
 	for _, a := range cfg.Assets {
 		if a.ClusterFlavours.Has(gen.flavour) {
-			assetBytes := gen.mustReadAsset(a.AssetName, nil)
-			gen.generatedAssets.GuestAssets[filepath.Base(a.AssetName)] = assetBytes
+			assetBytes := gen.mustReadBaseAsset(a.AssetName, nil)
+			gen.guestAssets[filepath.Base(a.AssetName)] = assetBytes
 		}
 	}
 
@@ -294,8 +305,9 @@ func (gen *AssetGenerator) collectGuestAssets() error {
 	ctrlCfg := gen.operatorConfig.ControllerConfig
 	for _, sidecar := range ctrlCfg.Sidecars {
 		for _, assetName := range sidecar.GuestAssetNames {
-			assetBytes := gen.mustReadAsset(assetName, nil)
-			gen.generatedAssets.GuestAssets[filepath.Base(assetName)] = assetBytes
+			assetBytes := gen.mustReadBaseAsset(assetName, nil)
+			assetBytes.Logf("  because it's needed by controller sidecar %s", sidecar.TemplateAssetName)
+			gen.guestAssets[filepath.Base(assetName)] = assetBytes
 		}
 	}
 

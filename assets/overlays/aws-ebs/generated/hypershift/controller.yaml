@@ -1,3 +1,32 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller.yaml
+# Applied strategic merge patch overlays/aws-ebs/patches/controller_add_driver.yaml
+# Applied strategic merge patch common/sidecars/driver_kube_rbac_proxy.yaml
+# provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
+# provisioner.yaml: Added arguments [--default-fstype=ext4 --feature-gates=Topology=true --extra-create-metadata=true --timeout=60s]
+# provisioner.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
+# Applied strategic merge patch provisioner.yaml
+# attacher.yaml: Loaded from common/sidecars/attacher.yaml
+# attacher.yaml: Added arguments [--timeout=60s]
+# attacher.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
+# Applied strategic merge patch attacher.yaml
+# resizer.yaml: Loaded from common/sidecars/resizer.yaml
+# resizer.yaml: Added arguments [--timeout=300s]
+# resizer.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
+# Applied strategic merge patch resizer.yaml
+# snapshotter.yaml: Loaded from common/sidecars/snapshotter.yaml
+# snapshotter.yaml: Added arguments [--timeout=300s --extra-create-metadata]
+# snapshotter.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
+# Applied strategic merge patch snapshotter.yaml
+# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
+# livenessprobe.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch livenessprobe.yaml
+# Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
+# Applied strategic merge patch overlays/aws-ebs/patches/controller_add_hypershift_controller_minter.yaml
+#
+#
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:

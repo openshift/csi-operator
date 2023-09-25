@@ -1,3 +1,14 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller_metrics_service.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+#
+#
+
 apiVersion: v1
 kind: Service
 metadata:

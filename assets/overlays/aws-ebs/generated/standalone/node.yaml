@@ -1,3 +1,15 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/node.yaml
+# Applied strategic merge patch overlays/aws-ebs/patches/node_add_driver.yaml
+# node_driver_registrar.yaml: Loaded from common/sidecars/node_driver_registrar.yaml
+# Applied strategic merge patch node_driver_registrar.yaml
+# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
+# livenessprobe.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch livenessprobe.yaml
+#
+#
+
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

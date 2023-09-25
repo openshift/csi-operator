@@ -1,3 +1,10 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/rbac/lease_leader_election_binding.yaml
+#
+#
+# Grant controller access to leases
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
