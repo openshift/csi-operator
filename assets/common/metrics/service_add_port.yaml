@@ -1,0 +1,9 @@
+# Add a port to Service
+apiVersion: v1
+kind: Service
+spec:
+  ports:
+  - name: ${PORT_NAME}
+    port: ${EXPOSED_METRICS_PORT}
+    protocol: TCP
+    targetPort: ${PORT_NAME}

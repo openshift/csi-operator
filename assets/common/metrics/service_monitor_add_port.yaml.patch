@@ -1,0 +1,13 @@
+# Add endpoint to ServiceMonitor.
+# Using json patch because ServiceMonitor does not have strategic merge in spec.endpoints[]
+- op: add
+  path: /spec/endpoints/-
+  value:
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    path: /metrics
+    port: ${PORT_NAME}
+    scheme: https
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: ${ASSET_PREFIX}-controller-metrics.${NAMESPACE}.svc

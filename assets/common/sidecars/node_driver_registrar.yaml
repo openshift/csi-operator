@@ -1,0 +1,30 @@
+kind: DaemonSet
+apiVersion: apps/v1
+spec:
+  template:
+    spec:
+      containers:
+        - name: csi-node-driver-registrar
+          securityContext:
+            privileged: true
+          image: ${NODE_DRIVER_REGISTRAR_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/${DRIVER_NAME}/csi.sock
+            - --v=${LOG_LEVEL}
+          # Empty env. instead of nil for json patch to append new env. vars there
+          env: []
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "rm -rf /registration/${DRIVER_NAME}-reg.sock /csi/csi.sock"]
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m

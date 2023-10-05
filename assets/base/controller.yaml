@@ -1,0 +1,36 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: ${ASSET_PREFIX}-controller
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: ${ASSET_PREFIX}-controller
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+#  replicas: ${REPLICAS}
+  template:
+    metadata:
+      annotations:
+        # This annotation allows the workload pinning feature to work when clusters are configured for it.
+        # An admission webhook will look for this annotation when Pod admission occurs to modify the
+        # memory and cpu resources to a custom resource name that the schedular will use to correctly
+        # assign Pods in a workload pinned cluster. This annotation will be stripped from Pods when
+        # the cluster is not configured for workload pinning.
+        # See (openshift/enhancements#1213) for more info.
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: "socket-dir"
+      labels:
+        app: ${ASSET_PREFIX}-controller
+    spec:
+      serviceAccount: ${ASSET_PREFIX}-controller-sa
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
+        - name: metrics-serving-cert
+          secret:
+            secretName: ${ASSET_PREFIX}-controller-metrics-serving-cert
