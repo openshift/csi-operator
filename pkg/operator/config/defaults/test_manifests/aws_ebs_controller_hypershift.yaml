@@ -1,5 +1,5 @@
-# Copied from assets/overlays/aws-ebs/generated/hypershift as a sample Deployment
-# to torture during unit tests.
+# Copied from assets/overlays/aws-ebs/generated/hypershift as a _generic_ / cloud-independent Deployment
+# to test for cloud-independent hooks.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

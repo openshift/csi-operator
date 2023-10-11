@@ -128,7 +128,7 @@ func GetAWSEBSOperatorControllerConfig(flavour generator.ClusterFlavour, c *clie
 		withCustomEndPoint,
 		withCABundleDeploymentHook)
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook)
-	cfg.AddStorageClassHookBuilders(c, getKMSKeyHook)
+	cfg.AddStorageClassHookBuilders(c, withKMSKeyHook)
 
 	if flavour == generator.FlavourStandalone {
 		// Standalone-only hooks
@@ -386,10 +386,10 @@ func withAWSRegion(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informe
 	return hook, informers
 }
 
-// getKMSKeyHook checks for AWSCSIDriverConfigSpec in the ClusterCSIDriver object.
+// withKMSKeyHook checks for AWSCSIDriverConfigSpec in the ClusterCSIDriver object.
 // If it contains KMSKeyARN, it sets the corresponding parameter in the StorageClass.
 // This allows the admin to specify a customer managed key to be used by default.
-func getKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHookFunc {
+func withKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHookFunc {
 	hook := func(_ *opv1.OperatorSpec, class *storagev1.StorageClass) error {
 		ccdLister := c.GuestOperatorInformers.Operator().V1().ClusterCSIDrivers().Lister()
 		ccd, err := ccdLister.Get(class.Provisioner)
@@ -416,5 +416,8 @@ func getKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHoo
 		class.Parameters[kmsKeyID] = arn
 		return nil
 	}
+	// Explicitly instantiate ClusterCSIDriver informer, so it is synced during WaitForCacheSync
+	// and thus its lister is populated
+	_ = c.GuestOperatorInformers.Operator().V1().ClusterCSIDrivers().Informer()
 	return hook
 }
