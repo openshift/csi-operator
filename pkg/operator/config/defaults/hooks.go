@@ -37,7 +37,7 @@ func NewDefaultOperatorControllerConfig(flavour generator.ClusterFlavour, c *cli
 		cfg.AddDeploymentHookBuilders(c, withClusterWideProxy, withStandaloneReplicas)
 	} else {
 		// HyperShift
-		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, getHyperShiftControlPlaneImages)
+		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftControlPlaneImages)
 	}
 
 	return cfg
@@ -128,8 +128,8 @@ func getHostedControlPlane(hostedControlPlaneLister cache.GenericLister, namespa
 	return hcp, nil
 }
 
-// getHyperShiftControlPlaneImages returns a Deployment hook that sets control-plane images on a HyperShift hosted
-func getHyperShiftControlPlaneImages(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+// withHyperShiftControlPlaneImages returns a Deployment hook that sets control-plane images on a HyperShift hosted
+func withHyperShiftControlPlaneImages(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
 	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
 		driverControlPlaneImage := os.Getenv("DRIVER_CONTROL_PLANE_IMAGE")
 		livenessProbeControlPlaneImage := os.Getenv("LIVENESS_PROBE_CONTROL_PLANE_IMAGE")

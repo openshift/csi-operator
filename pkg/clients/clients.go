@@ -32,7 +32,8 @@ type Clients struct {
 	// Client for operator's ClusterCSIDriver CR. Always in the guest or standalone cluster.
 	OperatorClient v1helpers.OperatorClientWithFinalizers
 	// Informer for the ClusterCSIDriver CR. Always in the guest or standalone cluster.
-	OperatorDynamicInformers dynamicinformer.DynamicSharedInformerFactory
+	// Explicitly private, because OperatorClient.Informer() should be used to add event handlers.
+	operatorDynamicInformers dynamicinformer.DynamicSharedInformerFactory
 
 	// Recorder for the operator events. Always in the guest cluster.
 	EventRecorder events.Recorder
@@ -100,7 +101,9 @@ func (c *Clients) GetGuestInfraInformer() cfgv1informers.InfrastructureInformer 
 
 // Start starts all informers.
 func (c *Clients) Start(ctx context.Context) {
-	c.OperatorDynamicInformers.Start(ctx.Done())
+	if c.operatorDynamicInformers != nil {
+		c.operatorDynamicInformers.Start(ctx.Done())
+	}
 	c.ControlPlaneKubeInformers.Start(ctx.Done())
 	c.ControlPlaneDynamicInformer.Start(ctx.Done())
 	c.GuestKubeInformers.Start(ctx.Done())
@@ -112,10 +115,17 @@ func (c *Clients) Start(ctx context.Context) {
 
 // WaitForCacheSync waits for all caches to sync.
 func (c *Clients) WaitForCacheSync(ctx context.Context) {
-	c.OperatorDynamicInformers.WaitForCacheSync(ctx.Done())
+	if c.operatorDynamicInformers != nil {
+		c.operatorDynamicInformers.WaitForCacheSync(ctx.Done())
+	}
 	c.ControlPlaneKubeInformers.InformersFor(c.ControlPlaneNamespace).WaitForCacheSync(ctx.Done())
+	for ns := range c.ControlPlaneKubeInformers.Namespaces() {
+		c.ControlPlaneKubeInformers.InformersFor(ns).WaitForCacheSync(ctx.Done())
+	}
 	c.ControlPlaneDynamicInformer.WaitForCacheSync(ctx.Done())
-	c.GuestKubeInformers.InformersFor(CSIDriverNamespace).WaitForCacheSync(ctx.Done())
+	for ns := range c.GuestKubeInformers.Namespaces() {
+		c.GuestKubeInformers.InformersFor(ns).WaitForCacheSync(ctx.Done())
+	}
 	c.GuestAPIExtInformer.WaitForCacheSync(ctx.Done())
 	c.GuestDynamicInformer.WaitForCacheSync(ctx.Done())
 	c.GuestOperatorInformers.WaitForCacheSync(ctx.Done())

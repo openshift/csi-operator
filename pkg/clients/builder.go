@@ -108,7 +108,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		panic(err)
 	}
 	clients.OperatorClient = guestOperatorClient
-	clients.OperatorDynamicInformers = guestOperatorDynamicInformers
+	clients.operatorDynamicInformers = guestOperatorDynamicInformers
 
 	guestAPIExtClient, err := apiextclient.NewForConfig(guestKubeConfig)
 	if err != nil {

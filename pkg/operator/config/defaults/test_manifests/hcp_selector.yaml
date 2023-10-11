@@ -1,0 +1,250 @@
+# Copied from a random e2e job + added nodeSelector
+apiVersion: hypershift.openshift.io/v1beta1
+kind: HostedControlPlane
+metadata:
+  annotations:
+    hypershift.openshift.io/cluster: clusters/test
+    resource-request-override.hypershift.openshift.io/kube-apiserver.kube-apiserver: memory=3Gi,cpu=2000m
+  creationTimestamp: "2023-10-01T14:02:55Z"
+  finalizers:
+  - hypershift.openshift.io/finalizer
+  generation: 1
+  labels:
+    cluster.x-k8s.io/cluster-name: test
+  name: test
+  namespace: clusters-test
+spec:
+  nodeSelector:
+    foo: bar
+    baz: ""
+  autoscaling: {}
+  clusterID: cf95e9d2-fb1d-4458-93b5-1e2d79536371
+  controllerAvailabilityPolicy: SingleReplica
+  dns:
+    baseDomain: ci.hypershift.devcluster.openshift.com
+    privateZoneID: Z06039493RXNBLKDA6O1W
+    publicZoneID: Z04148342DPTGWECPH7M5
+  etcd:
+    managed:
+      storage:
+        persistentVolume:
+          size: 8Gi
+          storageClassName: gp3-csi
+        type: PersistentVolume
+    managementType: Managed
+  fips: false
+  infraID: test
+  infrastructureAvailabilityPolicy: SingleReplica
+  issuerURL: https://hypershift-ci-1-oidc.s3.us-east-1.amazonaws.com/test
+  networking:
+    clusterNetwork:
+    - cidr: 10.132.0.0/14
+    machineNetwork:
+    - cidr: 10.0.0.0/16
+    networkType: OVNKubernetes
+    serviceNetwork:
+    - cidr: 172.29.0.0/16
+  olmCatalogPlacement: management
+  platform:
+    aws:
+      cloudProviderConfig:
+        subnet:
+          id: subnet-0998e3653a7a4fc16
+        vpc: vpc-01a83a9a7e523da74
+        zone: us-east-1a
+      endpointAccess: Public
+      region: us-east-1
+      resourceTags:
+      - key: expirationDate
+        value: 2023-10-01T18:02+00:00
+      - key: kubernetes.io/cluster/test
+        value: owned
+      rolesRef:
+        controlPlaneOperatorARN: arn:aws:iam::820196288204:role/test-control-plane-operator
+        imageRegistryARN: arn:aws:iam::820196288204:role/test-openshift-image-registry
+        ingressARN: arn:aws:iam::820196288204:role/test-openshift-ingress
+        kubeCloudControllerARN: arn:aws:iam::820196288204:role/test-cloud-controller
+        networkARN: arn:aws:iam::820196288204:role/test-cloud-network-config-controller
+        nodePoolManagementARN: arn:aws:iam::820196288204:role/test-node-pool
+        storageARN: arn:aws:iam::820196288204:role/test-aws-ebs-csi-driver-controller
+    type: AWS
+  pullSecret:
+    name: pull-secret
+  releaseImage: registry.ci.openshift.org/ocp/release:4.13.0-0.nightly-2023-10-01-011637
+  secretEncryption:
+    aescbc:
+      activeKey:
+        name: test-etcd-encryption-key
+    type: aescbc
+  services:
+  - service: APIServer
+    servicePublishingStrategy:
+      type: LoadBalancer
+  - service: OAuthServer
+    servicePublishingStrategy:
+      type: Route
+  - service: Konnectivity
+    servicePublishingStrategy:
+      type: Route
+  - service: Ignition
+    servicePublishingStrategy:
+      type: Route
+  - service: OVNSbDb
+    servicePublishingStrategy:
+      type: Route
+  sshKey: {}
+status:
+  conditions:
+  - lastTransitionTime: "2023-10-01T14:04:16Z"
+    message: All is well
+    observedGeneration: 1
+    reason: AsExpected
+    status: "True"
+    type: ValidAWSIdentityProvider
+  - lastTransitionTime: "2023-10-01T14:03:02Z"
+    message: Configuration passes validation
+    observedGeneration: 1
+    reason: AsExpected
+    status: "True"
+    type: ValidHostedControlPlaneConfiguration
+  - lastTransitionTime: "2023-10-01T14:03:44Z"
+    message: ""
+    observedGeneration: 1
+    reason: QuorumAvailable
+    status: "True"
+    type: EtcdAvailable
+  - lastTransitionTime: "2023-10-01T14:03:02Z"
+    message: AWS KMS is not configured
+    observedGeneration: 1
+    reason: StatusUnknown
+    status: Unknown
+    type: ValidAWSKMSConfig
+  - lastTransitionTime: "2023-10-01T14:04:15Z"
+    message: Kube APIServer deployment is available
+    observedGeneration: 1
+    reason: AsExpected
+    status: "True"
+    type: KubeAPIServerAvailable
+  - lastTransitionTime: "2023-10-01T14:09:48Z"
+    message: ""
+    observedGeneration: 1
+    reason: AsExpected
+    status: "False"
+    type: Degraded
+  - lastTransitionTime: "2023-10-01T14:03:05Z"
+    message: All is well
+    observedGeneration: 1
+    reason: AsExpected
+    status: "True"
+    type: InfrastructureReady
+  - lastTransitionTime: "2023-10-01T14:03:02Z"
+    message: External DNS is not configured
+    observedGeneration: 1
+    reason: StatusUnknown
+    status: Unknown
+    type: ExternalDNSReachable
+  - lastTransitionTime: "2023-10-01T14:04:15Z"
+    message: ""
+    observedGeneration: 1
+    reason: AsExpected
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-10-01T14:03:02Z"
+    message: Reconciliation active on resource
+    observedGeneration: 1
+    reason: AsExpected
+    status: "True"
+    type: ReconciliationActive
+  - lastTransitionTime: "2023-10-01T14:05:18Z"
+    message: All is well
+    reason: AsExpected
+    status: "True"
+    type: AWSDefaultSecurityGroupCreated
+  - lastTransitionTime: "2023-10-01T14:12:41Z"
+    message: ""
+    observedGeneration: 1
+    reason: FromClusterVersion
+    status: "False"
+    type: ClusterVersionFailing
+  - lastTransitionTime: "2023-10-01T14:05:38Z"
+    message: Payload loaded version="4.13.0-0.nightly-2023-10-01-011637" image="registry.ci.openshift.org/ocp/release:4.13.0-0.nightly-2023-10-01-011637"
+      architecture="amd64"
+    observedGeneration: 1
+    reason: PayloadLoaded
+    status: "True"
+    type: ClusterVersionReleaseAccepted
+  - lastTransitionTime: "2023-10-01T14:12:41Z"
+    message: Cluster version is 4.13.0-0.nightly-2023-10-01-011637
+    observedGeneration: 1
+    reason: FromClusterVersion
+    status: "False"
+    type: ClusterVersionProgressing
+  - lastTransitionTime: "2023-10-01T14:05:41Z"
+    message: Kubernetes 1.27 and therefore OpenShift 4.14 remove several APIs which
+      require admin consideration. Please see the knowledge article https://access.redhat.com/articles/6958395
+      for details and instructions.
+    observedGeneration: 1
+    reason: AdminAckRequired
+    status: "False"
+    type: ClusterVersionUpgradeable
+  - lastTransitionTime: "2023-10-01T14:12:41Z"
+    message: Done applying 4.13.0-0.nightly-2023-10-01-011637
+    observedGeneration: 1
+    reason: FromClusterVersion
+    status: "True"
+    type: ClusterVersionAvailable
+  - lastTransitionTime: "2023-10-01T14:05:59Z"
+    message: ""
+    reason: AsExpected
+    status: "False"
+    type: network.operator.openshift.io/ManagementStateDegraded
+  - lastTransitionTime: "2023-10-01T14:06:49Z"
+    message: ""
+    reason: AsExpected
+    status: "False"
+    type: network.operator.openshift.io/Degraded
+  - lastTransitionTime: "2023-10-01T14:05:59Z"
+    message: ""
+    reason: AsExpected
+    status: "True"
+    type: network.operator.openshift.io/Upgradeable
+  - lastTransitionTime: "2023-10-01T14:10:16Z"
+    message: ""
+    reason: AsExpected
+    status: "False"
+    type: network.operator.openshift.io/Progressing
+  - lastTransitionTime: "2023-10-01T14:06:04Z"
+    message: ""
+    reason: AsExpected
+    status: "True"
+    type: network.operator.openshift.io/Available
+  controlPlaneEndpoint:
+    host: aa01004be1859424491cc44cba3d3310-e3a9ad663000c178.elb.us-east-1.amazonaws.com
+    port: 6443
+  externalManagedControlPlane: true
+  initialized: true
+  kubeConfig:
+    key: kubeconfig
+    name: admin-kubeconfig
+  kubeadminPassword:
+    name: kubeadmin-password
+  oauthCallbackURLTemplate: https://oauth-clusters-test.apps.hypershift-ci-1.gjvz.p1.openshiftapps.com:443/oauth2callback/[identity-provider-name]
+  platform:
+    aws:
+      defaultWorkerSecurityGroupID: sg-08e0b61a66a0e3b48
+  ready: true
+  releaseImage: registry.ci.openshift.org/ocp/release:4.13.0-0.nightly-2023-10-01-011637
+  version: 4.13.0-0.nightly-2023-10-01-011637
+  versionStatus:
+    availableUpdates: null
+    desired:
+      image: registry.ci.openshift.org/ocp/release:4.13.0-0.nightly-2023-10-01-011637
+      version: 4.13.0-0.nightly-2023-10-01-011637
+    history:
+    - completionTime: "2023-10-01T14:12:41Z"
+      image: registry.ci.openshift.org/ocp/release:4.13.0-0.nightly-2023-10-01-011637
+      startedTime: "2023-10-01T14:05:26Z"
+      state: Completed
+      verified: false
+      version: 4.13.0-0.nightly-2023-10-01-011637
+    observedGeneration: 1
