@@ -9,10 +9,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"gopkg.in/yaml.v2"
-	appv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
@@ -26,12 +23,14 @@ const (
 	MetricServiceMonitorAssetName = "servicemonitor.yaml"
 )
 
-var (
-	deploymentKind          = getObjectKind(&appv1.Deployment{})
-	daemonSetKind           = getObjectKind(&appv1.DaemonSet{})
-	storageClassKind        = getObjectKind(&v1.StorageClass{})
+const (
+	deploymentKind          = "Deployment.apps"
+	daemonSetKind           = "DaemonSet.apps"
+	storageClassKind        = "StorageClass.storage.k8s.io"
 	volumeSnapshotClassKind = "VolumeSnapshotClass.snapshot.storage.k8s.io"
+)
 
+var (
 	notStaticControllerAssets = sets.NewString(deploymentKind)
 	notStaticGuestAssets      = sets.NewString(daemonSetKind, storageClassKind, volumeSnapshotClassKind)
 )
@@ -267,10 +266,6 @@ func loadAsset(reader resourceapply.AssetFunc, dir, assetName string) ([]byte, e
 	}
 	klog.V(4).Infof("Loaded asset %s", filename)
 	return assetBytes, nil
-}
-
-func getObjectKind(o runtime.Object) string {
-	return o.GetObjectKind().GroupVersionKind().GroupKind().String()
 }
 
 func getYAMLKind(yaml []byte) (string, error) {
