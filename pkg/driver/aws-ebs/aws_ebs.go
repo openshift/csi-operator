@@ -2,6 +2,7 @@ package aws_ebs
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	opv1 "github.com/openshift/api/operator/v1"
@@ -35,7 +36,7 @@ const (
 	trustedCAConfigMap    = "aws-ebs-csi-driver-trusted-ca-bundle"
 	kmsKeyID              = "kmsKeyId"
 
-	generatedAssetBase = "overlays/aws-ebs/generated"
+	assetBase = "overlays/aws-ebs"
 )
 
 // GetAWSEBSGeneratorConfig returns configuration for generating assets of  AWS EBS CSI driver operator.
@@ -44,10 +45,10 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		AssetPrefix:      "aws-ebs-csi-driver",
 		AssetShortPrefix: "ebs",
 		DriverName:       "ebs.csi.aws.com",
-		OutputDir:        generatedAssetBase,
+		OutputDir:        filepath.Join(assetBase, "generated"),
 
 		ControllerConfig: &generator.ControlPlaneConfig{
-			DeploymentTemplateAssetName: "overlays/aws-ebs/patches/controller_add_driver.yaml",
+			DeploymentTemplateAssetName: filepath.Join(assetBase, "patches/controller_add_driver.yaml"),
 			LivenessProbePort:           10301,
 			MetricsPorts: []generator.MetricsPort{
 				{
@@ -82,12 +83,12 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			},
 			Assets: common.DefaultControllerAssets,
 			AssetPatches: common.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
-				"controller.yaml", "overlays/aws-ebs/patches/controller_add_hypershift_controller_minter.yaml",
+				"controller.yaml", filepath.Join(assetBase, "patches/controller_add_hypershift_controller_minter.yaml"),
 			),
 		},
 
 		GuestConfig: &generator.GuestConfig{
-			DaemonSetTemplateAssetName: "overlays/aws-ebs/patches/node_add_driver.yaml",
+			DaemonSetTemplateAssetName: filepath.Join(assetBase, "patches/node_add_driver.yaml"),
 			LivenessProbePort:          10300,
 			Sidecars: []generator.SidecarConfig{
 				common.DefaultNodeDriverRegistrar,
@@ -96,10 +97,10 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				),
 			},
 			Assets: common.DefaultNodeAssets.WithAssets(generator.AllFlavours,
-				"overlays/aws-ebs/base/csidriver.yaml",
-				"overlays/aws-ebs/base/storageclass_gp2.yaml",
-				"overlays/aws-ebs/base/storageclass_gp3.yaml",
-				"overlays/aws-ebs/base/volumesnapshotclass.yaml",
+				filepath.Join(assetBase, "base/csidriver.yaml"),
+				filepath.Join(assetBase, "base/storageclass_gp2.yaml"),
+				filepath.Join(assetBase, "base/storageclass_gp3.yaml"),
+				filepath.Join(assetBase, "base/volumesnapshotclass.yaml"),
 			),
 		},
 	}
@@ -111,7 +112,7 @@ func GetAWSEBSOperatorConfig() *config.OperatorConfig {
 		CSIDriverName:                   opv1.AWSEBSCSIDriver,
 		UserAgent:                       "aws-ebs-csi-driver-operator",
 		AssetReader:                     assets.ReadFile,
-		AssetDir:                        generatedAssetBase,
+		AssetDir:                        filepath.Join(assetBase, "generated"),
 		OperatorControllerConfigBuilder: GetAWSEBSOperatorControllerConfig,
 	}
 }
