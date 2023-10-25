@@ -1,4 +1,4 @@
-package defaults
+package operator
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/openshift/csi-operator/pkg/clients"
-	"github.com/openshift/csi-operator/pkg/operator/config/defaults/test_manifests"
+	"github.com/openshift/csi-operator/pkg/driver/common/operator/test_manifests"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"

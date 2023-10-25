@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	aws_ebs "github.com/openshift/csi-operator/assets/overlays/aws-ebs"
+	"github.com/openshift/csi-operator/pkg/driver/aws-ebs"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/cli"
