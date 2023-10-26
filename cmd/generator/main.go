@@ -2,10 +2,12 @@ package main
 
 import (
 	"flag"
+	"path/filepath"
 
 	"github.com/openshift/csi-operator/assets"
-	"github.com/openshift/csi-operator/pkg/driver/aws-ebs"
+	aws_ebs "github.com/openshift/csi-operator/pkg/driver/aws-ebs"
 	"github.com/openshift/csi-operator/pkg/generator"
+	"k8s.io/klog/v2"
 )
 
 // generator is a tool that generates assets for CSI driver operators.
@@ -13,21 +15,30 @@ import (
 //
 // The generated assets will be then compiled into the operator binaries using assets.go.
 func main() {
-	// TODO: AWS EBS is hardcoded, add support for other CSI driver operators
-	flavour := flag.String("flavour", "standalone", "cluster flavour")
-	path := flag.String("path", "", "path to save assets")
-
+	path := flag.String("path", "assets", "path to save assets")
+	klog.InitFlags(nil)
 	flag.Parse()
 
-	cfg := aws_ebs.GetAWSEBSGeneratorConfig()
+	cfgs := collectConfigs()
+	for _, cfg := range cfgs {
+		for _, flavour := range []generator.ClusterFlavour{generator.FlavourStandalone, generator.FlavourHyperShift} {
+			gen := generator.NewAssetGenerator(generator.ClusterFlavour(flavour), cfg, assets.ReadFile)
+			a, err := gen.GenerateAssets()
+			if err != nil {
+				panic(err)
+			}
 
-	gen := generator.NewAssetGenerator(generator.ClusterFlavour(*flavour), cfg, assets.ReadFile)
-	a, err := gen.GenerateAssets()
-	if err != nil {
-		panic(err)
+			outputPath := filepath.Join(*path, cfg.OutputDir, string(flavour))
+			if err := a.Save(outputPath); err != nil {
+				panic(err)
+			}
+			klog.Infof("Generated %s", outputPath)
+		}
 	}
+}
 
-	if err := a.Save(*path); err != nil {
-		panic(err)
+func collectConfigs() []*generator.CSIDriverGeneratorConfig {
+	return []*generator.CSIDriverGeneratorConfig{
+		aws_ebs.GetAWSEBSGeneratorConfig(),
 	}
 }
