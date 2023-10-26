@@ -7,10 +7,10 @@ import (
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
-	"github.com/openshift/csi-operator/pkg/config/common"
+	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
+	"github.com/openshift/csi-operator/pkg/driver/common/operator"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
-	"github.com/openshift/csi-operator/pkg/operator/config/defaults"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
@@ -51,37 +51,37 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			LivenessProbePort:           10301,
 			MetricsPorts: []generator.MetricsPort{
 				{
-					LocalPort:           common.AWSEBSLoopbackMetricsPortStart,
+					LocalPort:           commongenerator.AWSEBSLoopbackMetricsPortStart,
 					InjectKubeRBACProxy: true,
-					ExposedPort:         common.AWSEBSExposedMetricsPortStart,
+					ExposedPort:         commongenerator.AWSEBSExposedMetricsPortStart,
 					Name:                "driver-m",
 				},
 			},
-			SidecarLocalMetricsPortStart:   common.AWSEBSLoopbackMetricsPortStart + 1,
-			SidecarExposedMetricsPortStart: common.AWSEBSExposedMetricsPortStart + 1,
+			SidecarLocalMetricsPortStart:   commongenerator.AWSEBSLoopbackMetricsPortStart + 1,
+			SidecarExposedMetricsPortStart: commongenerator.AWSEBSExposedMetricsPortStart + 1,
 			Sidecars: []generator.SidecarConfig{
-				common.DefaultProvisionerWithSnapshots.WithExtraArguments(
+				commongenerator.DefaultProvisionerWithSnapshots.WithExtraArguments(
 					"--default-fstype=ext4",
 					"--feature-gates=Topology=true",
 					"--extra-create-metadata=true",
 					"--timeout=60s",
 				),
-				common.DefaultAttacher.WithExtraArguments(
+				commongenerator.DefaultAttacher.WithExtraArguments(
 					"--timeout=60s",
 				),
-				common.DefaultResizer.WithExtraArguments(
+				commongenerator.DefaultResizer.WithExtraArguments(
 					"--timeout=300s",
 				),
-				common.DefaultSnapshotter.WithExtraArguments(
+				commongenerator.DefaultSnapshotter.WithExtraArguments(
 					"--timeout=300s",
 					"--extra-create-metadata",
 				),
-				common.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
-			Assets: common.DefaultControllerAssets,
-			AssetPatches: common.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
+			Assets: commongenerator.DefaultControllerAssets,
+			AssetPatches: commongenerator.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
 				"controller.yaml", "overlays/aws-ebs/patches/controller_add_hypershift_controller_minter.yaml",
 			),
 		},
@@ -90,12 +90,12 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			DaemonSetTemplateAssetName: "overlays/aws-ebs/patches/node_add_driver.yaml",
 			LivenessProbePort:          10300,
 			Sidecars: []generator.SidecarConfig{
-				common.DefaultNodeDriverRegistrar,
-				common.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultNodeDriverRegistrar,
+				commongenerator.DefaultLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
-			Assets: common.DefaultNodeAssets.WithAssets(generator.AllFlavours,
+			Assets: commongenerator.DefaultNodeAssets.WithAssets(generator.AllFlavours,
 				"overlays/aws-ebs/base/csidriver.yaml",
 				"overlays/aws-ebs/base/storageclass_gp2.yaml",
 				"overlays/aws-ebs/base/storageclass_gp3.yaml",
@@ -119,7 +119,7 @@ func GetAWSEBSOperatorConfig() *config.OperatorConfig {
 // GetAWSEBSOperatorControllerConfig returns second half of runtime configuration of the CSI driver operator,
 // after a client connection + cluster flavour are established.
 func GetAWSEBSOperatorControllerConfig(flavour generator.ClusterFlavour, c *clients.Clients) *config.OperatorControllerConfig {
-	cfg := defaults.NewDefaultOperatorControllerConfig(flavour, c, "AWSEBS")
+	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEBS")
 
 	// Hooks to run on all clusters
 	cfg.AddDeploymentHookBuilders(c,

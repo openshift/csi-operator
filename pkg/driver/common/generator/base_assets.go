@@ -1,4 +1,4 @@
-package common
+package generator
 
 import (
 	"github.com/openshift/csi-operator/pkg/generator"

@@ -8,10 +8,10 @@ import (
 
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
+	"github.com/openshift/csi-operator/pkg/driver/common/operator"
 	"github.com/openshift/csi-operator/pkg/generated-assets"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
-	"github.com/openshift/csi-operator/pkg/operator/config/defaults"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
@@ -46,7 +46,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if err != nil {
 		return err
 	}
-	a.SetReplacements(defaults.DefaultReplacements(controlPlaneNamespace))
+	a.SetReplacements(operator.DefaultReplacements(controlPlaneNamespace))
 
 	// Build ControllerConfig
 	csiOperatorControllerConfig := opConfig.OperatorControllerConfigBuilder(flavour, c)

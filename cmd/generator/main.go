@@ -4,7 +4,7 @@ import (
 	"flag"
 
 	"github.com/openshift/csi-operator/assets"
-	"github.com/openshift/csi-operator/assets/overlays/aws-ebs"
+	"github.com/openshift/csi-operator/pkg/driver/aws-ebs"
 	"github.com/openshift/csi-operator/pkg/generator"
 )
 

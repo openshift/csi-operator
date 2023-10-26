@@ -1,4 +1,4 @@
-package common
+package generator
 
 const (
 	AWSEBSLoopbackMetricsPortStart = 8201
