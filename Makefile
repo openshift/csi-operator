@@ -12,7 +12,11 @@ include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 
 test-unit: test-unit-aws-ebs
 
-verify: verify-aws-ebs
+verify: verify-aws-ebs verify-generated-assets
+
+verify-generated-assets: update-generated-assets
+	git diff --exit-code
+.PHONY: verify-generated-assets
 
 test-unit-aws-ebs:
 	cd legacy/aws-ebs-csi-driver-operator && $(MAKE) test-unit
@@ -22,5 +26,8 @@ verify-aws-ebs:
 	cd legacy/aws-ebs-csi-driver-operator && $(MAKE) verify
 .PHONY: verify-aws-ebs
 
-update:
+update: update-generated-assets
+
+update-generated-assets:
 	hack/update-generated-assets.sh
+.PHONY: update-generated-assets
