@@ -59,7 +59,7 @@ func Test_WithStandaloneReplicas(t *testing.T) {
 			cr := clients.GetFakeOperatorCR()
 			c := clients.NewFakeClients("test", cr)
 			// Arrange: inject desired nr. of nodes to the client
-			kubeTracker := c.GuestKubeClient.(*fake.Clientset).Tracker()
+			kubeTracker := c.KubeClient.(*fake.Clientset).Tracker()
 			nodeID := 0
 			for label, count := range tt.nodeCounts {
 				for i := 0; i < count; i++ {

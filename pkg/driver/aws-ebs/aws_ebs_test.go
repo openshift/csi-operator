@@ -126,7 +126,7 @@ func Test_WithCustomEndPoint(t *testing.T) {
 			hook, _ := withCustomEndPoint(c)
 			deployment := getTestDeployment()
 			// Arrange - inject custom infrastructure
-			c.GuestConfigClientSet.(*fakeconfig.Clientset).Tracker().Add(tt.infrastructure)
+			c.ConfigClientSet.(*fakeconfig.Clientset).Tracker().Add(tt.infrastructure)
 			clients.SyncFakeInformers(t, c)
 
 			// Act
@@ -202,7 +202,7 @@ func Test_WithCustomTags(t *testing.T) {
 			hook, _ := withCustomTags(c)
 			deployment := getTestDeployment()
 			// Arrange - inject custom infrastructure
-			c.GuestConfigClientSet.(*fakeconfig.Clientset).Tracker().Add(tt.infrastructure)
+			c.ConfigClientSet.(*fakeconfig.Clientset).Tracker().Add(tt.infrastructure)
 			clients.SyncFakeInformers(t, c)
 
 			// Act
@@ -277,7 +277,7 @@ func Test_WithCustomRegion(t *testing.T) {
 			hook, _ := withAWSRegion(c)
 			deployment := getTestDeployment()
 			// Arrange - inject custom infrastructure
-			c.GuestConfigClientSet.(*fakeconfig.Clientset).Tracker().Add(tt.infrastructure)
+			c.ConfigClientSet.(*fakeconfig.Clientset).Tracker().Add(tt.infrastructure)
 			clients.SyncFakeInformers(t, c)
 
 			// Act
@@ -351,7 +351,7 @@ func Test_WithKMSKeyHook(t *testing.T) {
 			hook := withKMSKeyHook(c)
 			sc := getTestStorageClass()
 			// Arrange - inject custom infrastructure
-			c.GuestOperatorClientSet.(*fakeoperator.Clientset).Tracker().Add(tt.clusterCSIDriver)
+			c.OperatorClientSet.(*fakeoperator.Clientset).Tracker().Add(tt.clusterCSIDriver)
 			clients.SyncFakeInformers(t, c)
 
 			// Act

@@ -99,8 +99,8 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		}
 		clients.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(CSIDriverNamespace), b.userAgwent, controllerRef)
 	}
-	clients.GuestKubeClient = guestKubeClient
-	clients.GuestKubeInformers = v1helpers.NewKubeInformersForNamespaces(guestKubeClient, b.guestNamespaces...)
+	clients.KubeClient = guestKubeClient
+	clients.KubeInformers = v1helpers.NewKubeInformersForNamespaces(guestKubeClient, b.guestNamespaces...)
 
 	gvr := opv1.SchemeGroupVersion.WithResource("clustercsidrivers")
 	guestOperatorClient, guestOperatorDynamicInformers, err := goc.NewClusterScopedOperatorClientWithConfigName(guestKubeConfig, gvr, b.csiDriverName)
@@ -114,23 +114,23 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 	if err != nil {
 		panic(err)
 	}
-	clients.GuestAPIExtClient = guestAPIExtClient
-	clients.GuestAPIExtInformer = apiextinformers.NewSharedInformerFactory(guestAPIExtClient, b.resync)
+	clients.APIExtClient = guestAPIExtClient
+	clients.APIExtInformer = apiextinformers.NewSharedInformerFactory(guestAPIExtClient, b.resync)
 
 	guestDynamicClient, err := dynamic.NewForConfig(guestKubeConfig)
 	if err != nil {
 		panic(err)
 	}
-	clients.GuestDynamicClient = guestDynamicClient
+	clients.DynamicClient = guestDynamicClient
 
 	// TODO: non-filtered one for VolumeSnapshots?
-	clients.GuestDynamicInformer = dynamicinformer.NewFilteredDynamicSharedInformerFactory(guestDynamicClient, b.resync, CSIDriverNamespace, nil)
+	clients.DynamicInformer = dynamicinformer.NewFilteredDynamicSharedInformerFactory(guestDynamicClient, b.resync, CSIDriverNamespace, nil)
 
-	clients.GuestOperatorClientSet = opclient.NewForConfigOrDie(guestKubeConfig)
-	clients.GuestOperatorInformers = opinformers.NewSharedInformerFactory(clients.GuestOperatorClientSet, b.resync)
+	clients.OperatorClientSet = opclient.NewForConfigOrDie(guestKubeConfig)
+	clients.OperatorInformers = opinformers.NewSharedInformerFactory(clients.OperatorClientSet, b.resync)
 
-	clients.GuestConfigClientSet = cfgclientset.NewForConfigOrDie(guestKubeConfig)
-	clients.GuestConfigInformers = cfginformers.NewSharedInformerFactory(clients.GuestConfigClientSet, b.resync)
+	clients.ConfigClientSet = cfgclientset.NewForConfigOrDie(guestKubeConfig)
+	clients.ConfigInformers = cfginformers.NewSharedInformerFactory(clients.ConfigClientSet, b.resync)
 
 	return clients
 }
