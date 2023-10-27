@@ -49,29 +49,29 @@ type Clients struct {
 	ControlPlaneDynamicInformer dynamicinformer.DynamicSharedInformerFactory
 
 	// Kubernetes API client for guest or standalone.
-	GuestKubeClient kubernetes.Interface
+	KubeClient kubernetes.Interface
 	// Kubernetes API client for guest or standalone. Per namespace.
-	GuestKubeInformers v1helpers.KubeInformersForNamespaces
+	KubeInformers v1helpers.KubeInformersForNamespaces
 
 	// CRD API client for guest or standalone. Used to check if volume snapshot CRDs are installed.
-	GuestAPIExtClient apiextclient.Interface
+	APIExtClient apiextclient.Interface
 	// CRD API informers for guest or standalone. Used to check if volume snapshot CRDs are installed.
-	GuestAPIExtInformer apiextinformers.SharedInformerFactory
+	APIExtInformer apiextinformers.SharedInformerFactory
 
 	// Dynamic client for the guest cluster. E.g. for VolumeSnapshotClass.
-	GuestDynamicClient dynamic.Interface
+	DynamicClient dynamic.Interface
 	// Dynamic informer for the guest cluster. E.g. for VolumeSnapshotClass.
-	GuestDynamicInformer dynamicinformer.DynamicSharedInformerFactory
+	DynamicInformer dynamicinformer.DynamicSharedInformerFactory
 
 	// operator.openshift.io client, e.g. for ClusterCSIDriver. Always in the guest or standalone cluster.
-	GuestOperatorClientSet opclient.Interface
+	OperatorClientSet opclient.Interface
 	// operator.openshift.io informers.  Always in the guest or standalone cluster.
-	GuestOperatorInformers opinformers.SharedInformerFactory
+	OperatorInformers opinformers.SharedInformerFactory
 
 	// config.openshift.io client, e.g. for Infrastructure. Always in the guest or standalone cluster.
-	GuestConfigClientSet cfgclientset.Interface
+	ConfigClientSet cfgclientset.Interface
 	// config.openshift.io informers. Always in the guest or standalone cluster.
-	GuestConfigInformers cfginformers.SharedInformerFactory
+	ConfigInformers cfginformers.SharedInformerFactory
 }
 
 // GetControlPlaneSecretInformer returns a Secret informer for given control plane namespace.
@@ -84,19 +84,19 @@ func (c *Clients) GetControlPlaneConfigMapInformer(namespace string) coreinforme
 	return c.ControlPlaneKubeInformers.InformersFor(namespace).Core().V1().ConfigMaps()
 }
 
-// GetGuestConfigMapInformer returns a ConfigMap informer for given guest namespace.
-func (c *Clients) GetGuestConfigMapInformer(namespace string) coreinformers.ConfigMapInformer {
-	return c.GuestKubeInformers.InformersFor(namespace).Core().V1().ConfigMaps()
+// GetConfigMapInformer returns a ConfigMap informer for given guest namespace.
+func (c *Clients) GetConfigMapInformer(namespace string) coreinformers.ConfigMapInformer {
+	return c.KubeInformers.InformersFor(namespace).Core().V1().ConfigMaps()
 }
 
-// GetGuestNodeInformer returns a Node informer.
-func (c *Clients) GetGuestNodeInformer() coreinformers.NodeInformer {
-	return c.GuestKubeInformers.InformersFor("").Core().V1().Nodes()
+// GetNodeInformer returns a Node informer.
+func (c *Clients) GetNodeInformer() coreinformers.NodeInformer {
+	return c.KubeInformers.InformersFor("").Core().V1().Nodes()
 }
 
-// GetGuestInfraInformer returns an Infrastructure informer.
-func (c *Clients) GetGuestInfraInformer() cfgv1informers.InfrastructureInformer {
-	return c.GuestConfigInformers.Config().V1().Infrastructures()
+// GetInfraInformer returns an Infrastructure informer.
+func (c *Clients) GetInfraInformer() cfgv1informers.InfrastructureInformer {
+	return c.ConfigInformers.Config().V1().Infrastructures()
 }
 
 // Start starts all informers.
@@ -106,11 +106,11 @@ func (c *Clients) Start(ctx context.Context) {
 	}
 	c.ControlPlaneKubeInformers.Start(ctx.Done())
 	c.ControlPlaneDynamicInformer.Start(ctx.Done())
-	c.GuestKubeInformers.Start(ctx.Done())
-	c.GuestAPIExtInformer.Start(ctx.Done())
-	c.GuestDynamicInformer.Start(ctx.Done())
-	c.GuestOperatorInformers.Start(ctx.Done())
-	c.GuestConfigInformers.Start(ctx.Done())
+	c.KubeInformers.Start(ctx.Done())
+	c.APIExtInformer.Start(ctx.Done())
+	c.DynamicInformer.Start(ctx.Done())
+	c.OperatorInformers.Start(ctx.Done())
+	c.ConfigInformers.Start(ctx.Done())
 }
 
 // WaitForCacheSync waits for all caches to sync.
@@ -123,11 +123,11 @@ func (c *Clients) WaitForCacheSync(ctx context.Context) {
 		c.ControlPlaneKubeInformers.InformersFor(ns).WaitForCacheSync(ctx.Done())
 	}
 	c.ControlPlaneDynamicInformer.WaitForCacheSync(ctx.Done())
-	for ns := range c.GuestKubeInformers.Namespaces() {
-		c.GuestKubeInformers.InformersFor(ns).WaitForCacheSync(ctx.Done())
+	for ns := range c.KubeInformers.Namespaces() {
+		c.KubeInformers.InformersFor(ns).WaitForCacheSync(ctx.Done())
 	}
-	c.GuestAPIExtInformer.WaitForCacheSync(ctx.Done())
-	c.GuestDynamicInformer.WaitForCacheSync(ctx.Done())
-	c.GuestOperatorInformers.WaitForCacheSync(ctx.Done())
-	c.GuestConfigInformers.WaitForCacheSync(ctx.Done())
+	c.APIExtInformer.WaitForCacheSync(ctx.Done())
+	c.DynamicInformer.WaitForCacheSync(ctx.Done())
+	c.OperatorInformers.WaitForCacheSync(ctx.Done())
+	c.ConfigInformers.WaitForCacheSync(ctx.Done())
 }

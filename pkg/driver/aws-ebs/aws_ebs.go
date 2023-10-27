@@ -203,7 +203,7 @@ func getCustomAWSCABundleBuilder(cmName string) config.DeploymentHookBuilder {
 // infrastructure.Status.PlatformStatus.AWS.ServiceEndpoints.
 func withCustomEndPoint(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
 	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
-		infraLister := c.GetGuestInfraInformer().Lister()
+		infraLister := c.GetInfraInformer().Lister()
 		infra, err := infraLister.Get(infrastructureName)
 		if err != nil {
 			return err
@@ -236,7 +236,7 @@ func withCustomEndPoint(c *clients.Clients) (dc.DeploymentHookFunc, []factory.In
 		return nil
 	}
 	informers := []factory.Informer{
-		c.GetGuestInfraInformer().Informer(),
+		c.GetInfraInformer().Informer(),
 	}
 	return hook, informers
 }
@@ -256,9 +256,9 @@ func newCustomAWSBundleSyncer(c *clients.Clients) (factory.Controller, error) {
 	}
 	certController := resourcesynccontroller.NewResourceSyncController(
 		c.OperatorClient,
-		c.GuestKubeInformers,
-		c.GuestKubeClient.CoreV1(),
-		c.GuestKubeClient.CoreV1(),
+		c.KubeInformers,
+		c.KubeClient.CoreV1(),
+		c.KubeClient.CoreV1(),
 		c.EventRecorder)
 	err := certController.SyncConfigMap(dstConfigMap, srcConfigMap)
 	if err != nil {
@@ -301,10 +301,10 @@ func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroll
 	hook := csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
 		clients.CSIDriverNamespace,
 		trustedCAConfigMap,
-		c.GetGuestConfigMapInformer(clients.CSIDriverNamespace),
+		c.GetConfigMapInformer(clients.CSIDriverNamespace),
 	)
 	informers := []factory.Informer{
-		c.GetGuestConfigMapInformer(clients.CSIDriverNamespace).Informer(),
+		c.GetConfigMapInformer(clients.CSIDriverNamespace).Informer(),
 	}
 	return hook, informers
 }
@@ -313,7 +313,7 @@ func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroll
 // --extra-tags=<key1>=<value1>,<key2>=<value2>,...
 func withCustomTags(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
 	hook := func(spec *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
-		infraLister := c.GetGuestInfraInformer().Lister()
+		infraLister := c.GetInfraInformer().Lister()
 		infra, err := infraLister.Get(infrastructureName)
 		if err != nil {
 			return err
@@ -345,7 +345,7 @@ func withCustomTags(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Inform
 		return nil
 	}
 	informers := []factory.Informer{
-		c.GetGuestInfraInformer().Informer(),
+		c.GetInfraInformer().Informer(),
 	}
 	return hook, informers
 }
@@ -353,7 +353,7 @@ func withCustomTags(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Inform
 // withAWSRegion sets AWS_REGION env. var from infrastructure.Status.PlatformStatus.AWS.Region
 func withAWSRegion(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
 	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
-		infraLister := c.GetGuestInfraInformer().Lister()
+		infraLister := c.GetInfraInformer().Lister()
 		infra, err := infraLister.Get(infrastructureName)
 		if err != nil {
 			return err
@@ -381,7 +381,7 @@ func withAWSRegion(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informe
 		return nil
 	}
 	informers := []factory.Informer{
-		c.GetGuestInfraInformer().Informer(),
+		c.GetInfraInformer().Informer(),
 	}
 	return hook, informers
 }
@@ -391,7 +391,7 @@ func withAWSRegion(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informe
 // This allows the admin to specify a customer managed key to be used by default.
 func withKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHookFunc {
 	hook := func(_ *opv1.OperatorSpec, class *storagev1.StorageClass) error {
-		ccdLister := c.GuestOperatorInformers.Operator().V1().ClusterCSIDrivers().Lister()
+		ccdLister := c.OperatorInformers.Operator().V1().ClusterCSIDrivers().Lister()
 		ccd, err := ccdLister.Get(class.Provisioner)
 		if err != nil {
 			return err
@@ -418,6 +418,6 @@ func withKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHo
 	}
 	// Explicitly instantiate ClusterCSIDriver informer, so it is synced during WaitForCacheSync
 	// and thus its lister is populated
-	_ = c.GuestOperatorInformers.Operator().V1().ClusterCSIDrivers().Informer()
+	_ = c.OperatorInformers.Operator().V1().ClusterCSIDrivers().Informer()
 	return hook
 }

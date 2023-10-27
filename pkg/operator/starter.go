@@ -78,14 +78,14 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		a.GetControllerStaticAssetNames(),
 	).WithCSIConfigObserverController(
 		csiOperatorControllerConfig.GetControllerName("DriverCSIConfigObserverController"),
-		c.GuestConfigInformers,
+		c.ConfigInformers,
 	).WithCSIDriverControllerService(
 		csiOperatorControllerConfig.GetControllerName("DriverControllerServiceController"),
 		a.GetAsset,
 		generated_assets.ControllerDeploymentAssetName,
 		c.ControlPlaneKubeClient,
 		c.ControlPlaneKubeInformers.InformersFor(controlPlaneNamespace),
-		c.GuestConfigInformers,
+		c.ConfigInformers,
 		controlPlaneControllerInformers,
 		controllerHooks...,
 	)
@@ -99,17 +99,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		c.EventRecorder,
 	).WithStaticResourcesController(
 		csiOperatorControllerConfig.GetControllerName("DriverGuestStaticResourcesController"),
-		c.GuestKubeClient,
-		c.GuestDynamicClient,
-		c.GuestKubeInformers,
+		c.KubeClient,
+		c.DynamicClient,
+		c.KubeInformers,
 		a.GetAsset,
 		a.GetGuestStaticAssetNames(),
 	).WithCSIDriverNodeService(
 		csiOperatorControllerConfig.GetControllerName("DriverNodeServiceController"),
 		a.GetAsset,
 		generated_assets.NodeDaemonSetAssetName,
-		c.GuestKubeClient,
-		c.GuestKubeInformers.InformersFor(clients.CSIDriverNamespace),
+		c.KubeClient,
+		c.KubeInformers.InformersFor(clients.CSIDriverNamespace),
 		csiOperatorControllerConfig.GuestDaemonSetInformers,
 		csiOperatorControllerConfig.GuestDaemonSetHooks...,
 	)
@@ -120,9 +120,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			csiOperatorControllerConfig.GetControllerName("DriverStorageClassController"),
 			a.GetAsset,
 			scNames,
-			c.GuestKubeClient,
-			c.GuestKubeInformers.InformersFor(""),
-			c.GuestOperatorInformers,
+			c.KubeClient,
+			c.KubeInformers.InformersFor(""),
+			c.OperatorInformers,
 			// TODO: add extra informers
 			csiOperatorControllerConfig.StorageClassHooks...,
 		)
@@ -132,15 +132,15 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if snapshotClassNames := a.GetVolumeSnapshotClassAssetNames(); len(snapshotClassNames) > 0 {
 		guestCSIControllerSet = guestCSIControllerSet.WithConditionalStaticResourcesController(
 			csiOperatorControllerConfig.GetControllerName("DriverConditionalStaticResourcesController"),
-			c.GuestKubeClient,
-			c.GuestDynamicClient,
-			c.GuestKubeInformers,
+			c.KubeClient,
+			c.DynamicClient,
+			c.KubeInformers,
 			a.GetAsset,
 			snapshotClassNames,
 			// Only install when snapshot CRD exists. It can be disabled with "snapshot" capability flag.
 			func() bool {
 				name := "volumesnapshotclasses.snapshot.storage.k8s.io"
-				_, err := c.GuestAPIExtClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
+				_, err := c.APIExtClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
 				return err == nil
 			},
 			// Don't ever remove.

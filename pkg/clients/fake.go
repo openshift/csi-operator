@@ -76,16 +76,16 @@ func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clie
 		ControlPlaneDynamicClient:   controlPlaneDynamicClient,
 		ControlPlaneDynamicInformer: controlPlaneDynamicInformer,
 
-		GuestKubeClient:        guestKubeClient,
-		GuestKubeInformers:     guestKubeInformers,
-		GuestAPIExtClient:      guestAPIExtClient,
-		GuestAPIExtInformer:    guestAPIExtInformerFactory,
-		GuestDynamicClient:     guestDynamicClient,
-		GuestDynamicInformer:   guestDynamicInformer,
-		GuestOperatorClientSet: guestOperatorClient,
-		GuestOperatorInformers: guestOperatorInformerFactory,
-		GuestConfigClientSet:   guestConfigClient,
-		GuestConfigInformers:   guestConfigInformerFactory,
+		KubeClient:        guestKubeClient,
+		KubeInformers:     guestKubeInformers,
+		APIExtClient:      guestAPIExtClient,
+		APIExtInformer:    guestAPIExtInformerFactory,
+		DynamicClient:     guestDynamicClient,
+		DynamicInformer:   guestDynamicInformer,
+		OperatorClientSet: guestOperatorClient,
+		OperatorInformers: guestOperatorInformerFactory,
+		ConfigClientSet:   guestConfigClient,
+		ConfigInformers:   guestConfigInformerFactory,
 	}
 }
 
