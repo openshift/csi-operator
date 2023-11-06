@@ -12,4 +12,3 @@
 *.out
 
 _output
-aws-ebs-csi-driver-operator
