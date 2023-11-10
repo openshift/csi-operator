@@ -1,6 +1,7 @@
 package csidrivercontrollerservicecontroller
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -212,10 +213,16 @@ func WithServingInfo() dc.ManifestHookFunc {
 		if err != nil {
 			return nil, fmt.Errorf("couldn't get the servingInfo.cipherSuites config from observed config: %w", err)
 		}
+		if !cipherSuitesFound && bytes.Contains(manifest, []byte("${TLS_CIPHER_SUITES}")) {
+			return nil, fmt.Errorf("could not find the servingInfo.cipherSuites config from observed config")
+		}
 
 		minTLSVersion, minTLSVersionFound, err := unstructured.NestedString(config, csiconfigobservercontroller.MinTLSVersionPath()...)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't get the servingInfo.minTLSVersion config from observed config: %v", err)
+		}
+		if !minTLSVersionFound && bytes.Contains(manifest, []byte("${TLS_MIN_VERSION}")) {
+			return nil, fmt.Errorf("could not find the servingInfo.minTLSVersion config from observed config")
 		}
 
 		pairs := []string{}

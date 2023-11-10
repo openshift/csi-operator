@@ -114,6 +114,7 @@ spec:
           - --tls-cert-file=/etc/tls/private/tls.crt
           - --tls-private-key-file=/etc/tls/private/tls.key
           - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+          - --tls-min-version=${TLS_MIN_VERSION}
           - --logtostderr=true
           image: ${KUBE_RBAC_PROXY_IMAGE}
           imagePullPolicy: IfNotPresent
@@ -164,6 +165,7 @@ spec:
           - --tls-cert-file=/etc/tls/private/tls.crt
           - --tls-private-key-file=/etc/tls/private/tls.key
           - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+          - --tls-min-version=${TLS_MIN_VERSION}
           - --logtostderr=true
           image: ${KUBE_RBAC_PROXY_IMAGE}
           imagePullPolicy: IfNotPresent
@@ -209,6 +211,7 @@ spec:
           - --tls-cert-file=/etc/tls/private/tls.crt
           - --tls-private-key-file=/etc/tls/private/tls.key
           - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+          - --tls-min-version=${TLS_MIN_VERSION}
           - --logtostderr=true
           image: ${KUBE_RBAC_PROXY_IMAGE}
           imagePullPolicy: IfNotPresent
@@ -254,6 +257,7 @@ spec:
           - --tls-cert-file=/etc/tls/private/tls.crt
           - --tls-private-key-file=/etc/tls/private/tls.key
           - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+          - --tls-min-version=${TLS_MIN_VERSION}
           - --logtostderr=true
           image: ${KUBE_RBAC_PROXY_IMAGE}
           imagePullPolicy: IfNotPresent
@@ -300,6 +304,7 @@ spec:
           - --tls-cert-file=/etc/tls/private/tls.crt
           - --tls-private-key-file=/etc/tls/private/tls.key
           - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+          - --tls-min-version=${TLS_MIN_VERSION}
           - --logtostderr=true
           image: ${KUBE_RBAC_PROXY_IMAGE}
           imagePullPolicy: IfNotPresent
