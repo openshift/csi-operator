@@ -27,6 +27,7 @@ const (
 )
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext, guestKubeConfigString string, opConfig *config.OperatorConfig) error {
+	klog.V(2).Infof("Running openshift/csi-operator for %s", opConfig.CSIDriverName)
 	isHypershift := guestKubeConfigString != ""
 	controlPlaneNamespace := controllerConfig.OperatorNamespace
 
