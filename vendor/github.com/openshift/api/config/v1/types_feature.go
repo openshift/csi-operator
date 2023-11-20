@@ -164,15 +164,11 @@ var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
 	},
 	TechPreviewNoUpgrade: newDefaultFeatures().
 		with(validatingAdmissionPolicy).
-		with(externalCloudProvider).
-		with(externalCloudProviderGCP).
 		with(csiDriverSharedResource).
 		with(nodeSwap).
 		with(machineAPIProviderOpenStack).
 		with(insightsConfigAPI).
-		with(retroactiveDefaultStorageClass).
 		with(dynamicResourceAllocation).
-		with(admissionWebhookMatchConditions).
 		with(gateGatewayAPI).
 		with(maxUnavailableStatefulSet).
 		without(eventedPleg).
@@ -181,8 +177,14 @@ var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
 		with(vSphereStaticIPs).
 		with(routeExternalCertificate).
 		with(automatedEtcdBackup).
+		with(vSphereControlPlaneMachineset).
 		without(machineAPIOperatorDisableMachineHealthCheckController).
 		with(adminNetworkPolicy).
+		with(dnsNameResolver).
+		with(machineConfigNodes).
+		with(metricsServer).
+		without(installAlternateInfrastructureAWS).
+		without(clusterAPIInstall).
 		toFeatures(defaultFeatures),
 	LatencySensitive: newDefaultFeatures().
 		toFeatures(defaultFeatures),
@@ -194,14 +196,14 @@ var defaultFeatures = &FeatureGateEnabledDisabled{
 		alibabaPlatform, // This is a bug, it should be TechPreviewNoUpgrade. This must be downgraded before 4.14 is shipped.
 		azureWorkloadIdentity,
 		cloudDualStackNodeIPs,
+		externalCloudProvider,
 		externalCloudProviderAzure,
+		externalCloudProviderGCP,
 		externalCloudProviderExternal,
 		privateHostedZoneAWS,
 		buildCSIVolumes,
 	},
-	Disabled: []FeatureGateDescription{
-		retroactiveDefaultStorageClass,
-	},
+	Disabled: []FeatureGateDescription{},
 }
 
 type featureSetBuilder struct {
