@@ -145,6 +145,9 @@ spec:
             - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
             - --leader-election-namespace=openshift-cluster-csi-drivers
             - --v=${LOG_LEVEL}
+            - --kube-api-qps=20
+            - --kube-api-burst=100
+            - --worker-threads=100
           env:
             - name: ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -192,6 +195,9 @@ spec:
             - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
             - --leader-election-namespace=openshift-cluster-csi-drivers
             - --v=${LOG_LEVEL}
+            - --kube-api-qps=20
+            - --kube-api-burst=100
+            - --worker-threads=100
           env:
             - name: ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -229,7 +235,6 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --csi-address=$(ADDRESS)
-            - --timeout=300s
             - --http-endpoint=localhost:8204
             - --leader-election
             - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
@@ -237,6 +242,9 @@ spec:
             - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
             - --leader-election-namespace=openshift-cluster-csi-drivers
             - --v=${LOG_LEVEL}
+            - --kube-api-qps=20
+            - --kube-api-burst=100
+            - --workers=100
           env:
             - name: ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -275,7 +283,7 @@ spec:
           args:
             - --csi-address=$(ADDRESS)
             - --metrics-address=localhost:8205
-            - --timeout=300s
+            - --timeout=60s
             - --leader-election
             - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
             - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
@@ -283,6 +291,9 @@ spec:
             - --leader-election-namespace=openshift-cluster-csi-drivers
             - --v=${LOG_LEVEL}
             - --extra-create-metadata
+            - --kube-api-qps=20
+            - --kube-api-burst=100
+            - --worker-threads=100
           env:
           - name: ADDRESS
             value: /var/lib/csi/sockets/pluginproxy/csi.sock

@@ -4,19 +4,19 @@
 # Applied strategic merge patch overlays/aws-ebs/patches/controller_add_driver.yaml
 # Applied strategic merge patch common/sidecars/driver_kube_rbac_proxy.yaml
 # provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
-# provisioner.yaml: Added arguments [--default-fstype=ext4 --feature-gates=Topology=true --extra-create-metadata=true --timeout=60s]
+# provisioner.yaml: Added arguments [--default-fstype=ext4 --feature-gates=Topology=true --extra-create-metadata=true --timeout=60s --kube-api-qps=20 --kube-api-burst=100 --worker-threads=100]
 # provisioner.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
 # Applied strategic merge patch provisioner.yaml
 # attacher.yaml: Loaded from common/sidecars/attacher.yaml
-# attacher.yaml: Added arguments [--timeout=60s]
+# attacher.yaml: Added arguments [--timeout=60s --kube-api-qps=20 --kube-api-burst=100 --worker-threads=100]
 # attacher.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
 # Applied strategic merge patch attacher.yaml
 # resizer.yaml: Loaded from common/sidecars/resizer.yaml
-# resizer.yaml: Added arguments [--timeout=300s]
+# resizer.yaml: Added arguments [--timeout=60s --kube-api-qps=20 --kube-api-burst=100 --workers=100]
 # resizer.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
 # Applied strategic merge patch resizer.yaml
 # snapshotter.yaml: Loaded from common/sidecars/snapshotter.yaml
-# snapshotter.yaml: Added arguments [--timeout=300s --extra-create-metadata]
+# snapshotter.yaml: Added arguments [--extra-create-metadata --kube-api-qps=20 --kube-api-burst=100 --worker-threads=100]
 # snapshotter.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
 # Applied strategic merge patch snapshotter.yaml
 # livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
@@ -175,6 +175,9 @@ spec:
         - --feature-gates=Topology=true
         - --extra-create-metadata=true
         - --timeout=60s
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --worker-threads=100
         - --kubeconfig=$(KUBECONFIG)
         env:
         - name: KUBECONFIG
@@ -223,6 +226,9 @@ spec:
         - --leader-election-namespace=openshift-cluster-csi-drivers
         - --v=${LOG_LEVEL}
         - --timeout=60s
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --worker-threads=100
         - --kubeconfig=$(KUBECONFIG)
         env:
         - name: KUBECONFIG
@@ -270,7 +276,10 @@ spec:
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
         - --leader-election-namespace=openshift-cluster-csi-drivers
         - --v=${LOG_LEVEL}
-        - --timeout=300s
+        - --timeout=60s
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --workers=100
         - --kubeconfig=$(KUBECONFIG)
         env:
         - name: KUBECONFIG
@@ -318,8 +327,10 @@ spec:
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
         - --leader-election-namespace=openshift-cluster-csi-drivers
         - --v=${LOG_LEVEL}
-        - --timeout=300s
         - --extra-create-metadata
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --worker-threads=100
         - --kubeconfig=$(KUBECONFIG)
         env:
         - name: KUBECONFIG
