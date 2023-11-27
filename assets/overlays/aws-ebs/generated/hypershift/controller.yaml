@@ -94,6 +94,7 @@ spec:
         - --logtostderr
         - --http-endpoint=localhost:8201
         - --v=${LOG_LEVEL}
+        - --batching=true
         env:
         - name: CSI_ENDPOINT
           value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
