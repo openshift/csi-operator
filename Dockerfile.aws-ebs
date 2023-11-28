@@ -1,10 +1,10 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.20-openshift-4.15 AS builder
-WORKDIR /go/src/github.com/openshift/aws-ebs-csi-driver-operator
-COPY legacy/aws-ebs-csi-driver-operator .
+WORKDIR /go/src/github.com/openshift/csi-operator
+COPY . .
 RUN make
 
 FROM registry.ci.openshift.org/ocp/4.15:base-rhel9
-COPY --from=builder /go/src/github.com/openshift/aws-ebs-csi-driver-operator/aws-ebs-csi-driver-operator /usr/bin/
+COPY --from=builder /go/src/github.com/openshift/csi-operator/bin/aws-ebs-csi-driver-operator /usr/bin/
 ENTRYPOINT ["/usr/bin/aws-ebs-csi-driver-operator"]
 LABEL io.k8s.display-name="OpenShift AWS EBS CSI Driver Operator" \
 	io.k8s.description="The AWS EBS CSI Driver Operator installs and maintains the AWS EBS CSI Driver on a cluster."
