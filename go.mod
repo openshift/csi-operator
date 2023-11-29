@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/openshift/api v0.0.0-20231129134630-a782d1c1541c
+	github.com/google/go-cmp v0.5.9
 	github.com/openshift/build-machinery-go v0.0.0-20230824093055-6a18da01283c
 	github.com/openshift/client-go v0.0.0-20231110140829-a6ca51f6d5ba
 	github.com/openshift/library-go v0.0.0-20231212225932-4a819e39ef45
@@ -47,7 +48,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/cel-go v0.16.1 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect

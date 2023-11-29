@@ -47,14 +47,18 @@ func NewBuilder(userAgent string, csiDriverName string, controllerConfig *contro
 		guestNamespaces: []string{
 			"",
 			CSIDriverNamespace,
-			ManagedConfigNamespace, // TODO: is it needed?
 		},
 	}
 }
 
 // WithHyperShiftGuest sets the kubeconfig file for the guest cluster. Usable only on HyperShift.
-func (b *Builder) WithHyperShiftGuest(kubeConfigFile string) *Builder {
+func (b *Builder) WithHyperShiftGuest(kubeConfigFile string, cloudConfigNamespace string) *Builder {
 	b.guestKubeConfigFile = kubeConfigFile
+	if cloudConfigNamespace != "" {
+		b.guestNamespaces = append(b.guestNamespaces, cloudConfigNamespace)
+	} else {
+		b.guestNamespaces = append(b.guestNamespaces, ManagedConfigNamespace)
+	}
 	return b
 }
 
@@ -84,7 +88,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		var err error
 		guestKubeConfig, err = client.GetKubeConfigOrInClusterConfig(b.guestKubeConfigFile, nil)
 		if err != nil {
-			panic(err)
+			klog.Fatalf("error reading guesKubeConfig from %s: %v", b.guestKubeConfigFile, err)
 		}
 		guestKubeConfig = rest.AddUserAgent(guestKubeConfig, b.userAgwent)
 		guestKubeClient = kubeclient.NewForConfigOrDie(guestKubeConfig)
@@ -105,21 +109,21 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 	gvr := opv1.SchemeGroupVersion.WithResource("clustercsidrivers")
 	guestOperatorClient, guestOperatorDynamicInformers, err := goc.NewClusterScopedOperatorClientWithConfigName(guestKubeConfig, gvr, b.csiDriverName)
 	if err != nil {
-		panic(err)
+		klog.Fatalf("error building clustercsidriver informers: %v", err)
 	}
 	clients.OperatorClient = guestOperatorClient
 	clients.operatorDynamicInformers = guestOperatorDynamicInformers
 
 	guestAPIExtClient, err := apiextclient.NewForConfig(guestKubeConfig)
 	if err != nil {
-		panic(err)
+		klog.Fatalf("error building api extension client in target cluster: %v", err)
 	}
 	clients.APIExtClient = guestAPIExtClient
 	clients.APIExtInformer = apiextinformers.NewSharedInformerFactory(guestAPIExtClient, b.resync)
 
 	guestDynamicClient, err := dynamic.NewForConfig(guestKubeConfig)
 	if err != nil {
-		panic(err)
+		klog.Fatalf("error building dynamic api client in target cluster: %v", err)
 	}
 	clients.DynamicClient = guestDynamicClient
 

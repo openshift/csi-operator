@@ -1,0 +1,18 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/azure-disk/base/storageclass.yaml
+#
+#
+
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+  name: managed-csi
+parameters:
+  skuname: Premium_LRS
+provisioner: disk.csi.azure.com
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer

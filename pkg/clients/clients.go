@@ -79,6 +79,10 @@ func (c *Clients) GetControlPlaneSecretInformer(namespace string) coreinformers.
 	return c.ControlPlaneKubeInformers.InformersFor(namespace).Core().V1().Secrets()
 }
 
+func (c *Clients) GetNodeSecretInformer(namespace string) coreinformers.SecretInformer {
+	return c.KubeInformers.InformersFor(namespace).Core().V1().Secrets()
+}
+
 // GetControlPlaneConfigMapInformer returns a ConfigMap informer for given control plane namespace.
 func (c *Clients) GetControlPlaneConfigMapInformer(namespace string) coreinformers.ConfigMapInformer {
 	return c.ControlPlaneKubeInformers.InformersFor(namespace).Core().V1().ConfigMaps()

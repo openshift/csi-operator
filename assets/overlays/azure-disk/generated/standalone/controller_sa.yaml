@@ -1,0 +1,11 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller_sa.yaml
+#
+#
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: azure-disk-csi-driver-controller-sa
+  namespace: ${NAMESPACE}

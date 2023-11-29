@@ -61,7 +61,7 @@ func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clie
 		Name:       "fake",
 		APIVersion: "v1",
 	}
-	return &Clients{
+	c := &Clients{
 		ControlPlaneNamespace: controllerNamespace,
 
 		OperatorClient: dynamicOperatorClient,
@@ -87,6 +87,7 @@ func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clie
 		ConfigClientSet:   guestConfigClient,
 		ConfigInformers:   guestConfigInformerFactory,
 	}
+	return c
 }
 
 func GetFakeOperatorCR() *opv1.ClusterCSIDriver {

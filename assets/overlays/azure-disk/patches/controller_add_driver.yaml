@@ -1,0 +1,53 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+spec:
+  template:
+    spec:
+      containers:
+        - name: csi-driver
+          image: ${DRIVER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --metrics-address=localhost:8201
+            - --v=${LOG_LEVEL}
+            # Use credentials provided by the azure-inject-credentials container
+            - --cloud-config-secret-name=""
+            - --cloud-config-secret-namespace=""
+          env:
+            - name: AZURE_CREDENTIAL_FILE
+              value: "/etc/kubernetes/cloud.conf"
+            - name: CSI_ENDPOINT
+              value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+          ports:
+            - name: healthz
+              containerPort: 10301
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+            - name: cloud-config
+              mountPath: /etc/kubernetes/
+              readOnly: true
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+      volumes:
+        - name: metrics-serving-cert
+          secret:
+            secretName: azure-disk-csi-driver-controller-metrics-serving-cert
+
