@@ -4,16 +4,16 @@
 # Applied strategic merge patch overlays/azure-disk/patches/controller_add_driver.yaml
 # Applied strategic merge patch common/sidecars/driver_kube_rbac_proxy.yaml
 # provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
-# provisioner.yaml: Added arguments [--default-fstype=ext4 --feature-gates=Topology=true --extra-create-metadata=true --timeout=60s]
+# provisioner.yaml: Added arguments [--default-fstype=ext4 --feature-gates=Topology=true --extra-create-metadata=true --strict-topology=true --timeout=30s --worker-threads=100 --kube-api-qps=50 --kube-api-burst=100]
 # Applied strategic merge patch provisioner.yaml
 # attacher.yaml: Loaded from common/sidecars/attacher.yaml
-# attacher.yaml: Added arguments [--timeout=60s]
+# attacher.yaml: Added arguments [--timeout=1200s --worker-threads=1000 --kube-api-qps=200 --kube-api-burst=400]
 # Applied strategic merge patch attacher.yaml
 # resizer.yaml: Loaded from common/sidecars/resizer.yaml
-# resizer.yaml: Added arguments [--timeout=300s]
+# resizer.yaml: Added arguments [--timeout=240s -handle-volume-inuse-error=false]
 # Applied strategic merge patch resizer.yaml
 # snapshotter.yaml: Loaded from common/sidecars/snapshotter.yaml
-# snapshotter.yaml: Added arguments [--timeout=300s --extra-create-metadata]
+# snapshotter.yaml: Added arguments [--timeout=600s]
 # Applied strategic merge patch snapshotter.yaml
 # livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
 # livenessprobe.yaml: Added arguments [--probe-timeout=3s]
@@ -95,6 +95,9 @@ spec:
         - mountPath: /etc/kubernetes/
           name: cloud-config
           readOnly: true
+        - mountPath: /var/run/secrets/openshift/serviceaccount
+          name: bound-sa-token
+          readOnly: true
       - args:
         - --secure-listen-address=0.0.0.0:9201
         - --upstream=http://127.0.0.1:8201/
@@ -129,7 +132,11 @@ spec:
         - --default-fstype=ext4
         - --feature-gates=Topology=true
         - --extra-create-metadata=true
-        - --timeout=60s
+        - --strict-topology=true
+        - --timeout=30s
+        - --worker-threads=100
+        - --kube-api-qps=50
+        - --kube-api-burst=100
         env: []
         image: ${PROVISIONER_IMAGE}
         imagePullPolicy: IfNotPresent
@@ -172,7 +179,10 @@ spec:
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
         - --leader-election-namespace=openshift-cluster-csi-drivers
         - --v=${LOG_LEVEL}
-        - --timeout=60s
+        - --timeout=1200s
+        - --worker-threads=1000
+        - --kube-api-qps=200
+        - --kube-api-burst=400
         env: []
         image: ${ATTACHER_IMAGE}
         imagePullPolicy: IfNotPresent
@@ -215,7 +225,8 @@ spec:
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
         - --leader-election-namespace=openshift-cluster-csi-drivers
         - --v=${LOG_LEVEL}
-        - --timeout=300s
+        - --timeout=240s
+        - -handle-volume-inuse-error=false
         env: []
         image: ${RESIZER_IMAGE}
         imagePullPolicy: IfNotPresent
@@ -258,8 +269,7 @@ spec:
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
         - --leader-election-namespace=openshift-cluster-csi-drivers
         - --v=${LOG_LEVEL}
-        - --timeout=300s
-        - --extra-create-metadata
+        - --timeout=600s
         env: []
         image: ${SNAPSHOTTER_IMAGE}
         imagePullPolicy: IfNotPresent
@@ -370,3 +380,9 @@ spec:
         name: src-cloud-config
       - emptyDir: {}
         name: cloud-config
+      - name: bound-sa-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: openshift
+              path: token

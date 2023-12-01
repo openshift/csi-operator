@@ -55,3 +55,10 @@ spec:
             name: azure-cloud-config
         - emptyDir: {}
           name: cloud-config
+        - name: bound-sa-token
+          projected:
+            sources:
+            - serviceAccountToken:
+                path: token
+                audience: openshift
+
