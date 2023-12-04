@@ -62,6 +62,8 @@ type OperatorControllerConfig struct {
 	ExtraReplacementsFunc func() []string
 
 	// SnapshotAssetName provides a way to override snapshot asset name that will be used
+	// TODO: remove the use of special purpose SnapshotAssetNameFunc in favour of
+	// dedicated controller
 	SnapshotAssetNameFunc func() []string
 }
 

@@ -428,8 +428,5 @@ func withKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHo
 		class.Parameters[kmsKeyID] = arn
 		return nil
 	}
-	// Explicitly instantiate ClusterCSIDriver informer, so it is synced during WaitForCacheSync
-	// and thus its lister is populated
-	_ = c.OperatorInformers.Operator().V1().ClusterCSIDrivers().Informer()
 	return hook
 }

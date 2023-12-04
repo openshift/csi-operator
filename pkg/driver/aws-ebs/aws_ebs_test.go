@@ -346,12 +346,13 @@ func Test_WithKMSKeyHook(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cr := clients.GetFakeOperatorCR()
-			c := clients.NewFakeClients("clusters-test", cr)
+			cr := tt.clusterCSIDriver
+			c := clients.NewFakeClients("clusters-test", tt.clusterCSIDriver)
 			hook := withKMSKeyHook(c)
 			sc := getTestStorageClass()
 			// Arrange - inject custom infrastructure
 			c.OperatorClientSet.(*fakeoperator.Clientset).Tracker().Add(tt.clusterCSIDriver)
+			c.OperatorInformers.Operator().V1().ClusterCSIDrivers().Informer().GetStore().Add(tt.clusterCSIDriver)
 			clients.SyncFakeInformers(t, c)
 
 			// Act
