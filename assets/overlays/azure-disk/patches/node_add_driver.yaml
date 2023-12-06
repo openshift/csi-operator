@@ -125,6 +125,6 @@ spec:
             path: /sys/class/scsi_host/
             type: Directory
           name: scsi-host-dir
-        - name: merged-cloud-config
-          emptydir:
+        - emptydir: {}
+          name: merged-cloud-config
 

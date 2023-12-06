@@ -213,7 +213,8 @@ spec:
           path: /sys/class/scsi_host/
           type: Directory
         name: scsi-host-dir
-      - name: merged-cloud-config
+      - emptydir: {}
+        name: merged-cloud-config
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 10%
