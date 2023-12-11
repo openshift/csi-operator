@@ -21,6 +21,8 @@ spec:
         # the cluster is not configured for workload pinning.
         # See (openshift/enhancements#1213) for more info.
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        # This annotation prevents eviction from the cluster-autoscaler
+        cluster-autoscaler.kubernetes.io/enable-ds-eviction: "false"
       labels:
         app: ${ASSET_PREFIX}-node
     spec:
