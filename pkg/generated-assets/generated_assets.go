@@ -84,7 +84,7 @@ func (a *CSIDriverAssets) getRawAsset(generatedAssetName string) ([]byte, error)
 // namespace or standalone cluster. These assets should be managed by a StaticResourcesController.
 // Any Deployment is filtered out from the list, they're supposed to be handled by DeploymentController.
 func (a *CSIDriverAssets) GetControllerStaticAssetNames() []string {
-	var names []string
+	assets := new(AssetOrderer)
 	for name, yaml := range a.ControllerAssets {
 		kind, err := getYAMLKind(yaml)
 		if err != nil {
@@ -95,16 +95,16 @@ func (a *CSIDriverAssets) GetControllerStaticAssetNames() []string {
 			continue
 		}
 		klog.V(4).Infof("Added %s %s to controller static assets", kind, name)
-		names = append(names, name)
+		assets.Add(name, kind)
 	}
-	return names
+	return assets.GetAll()
 }
 
 // GetGuestStaticAssetNames returns the generated names of all static assets deployed in the guest cluster (or
 // standalone cluster). These assets should be managed by a StaticResourcesController. Any DaemonSet, StorageClass or
 // VolumeSnapshotClass is filtered out from the list, they must be handled by their own specific controllers.
 func (a *CSIDriverAssets) GetGuestStaticAssetNames() []string {
-	var names []string
+	assets := new(AssetOrderer)
 	for name, yaml := range a.GuestAssets {
 		kind, err := getYAMLKind(yaml)
 		if err != nil {
@@ -115,9 +115,9 @@ func (a *CSIDriverAssets) GetGuestStaticAssetNames() []string {
 			continue
 		}
 		klog.V(4).Infof("Added %s %s to guest static assets", kind, name)
-		names = append(names, name)
+		assets.Add(name, kind)
 	}
-	return names
+	return assets.GetAll()
 }
 
 // GetStorageClassAssetNames returns the names of all generated StorageClass assets.
