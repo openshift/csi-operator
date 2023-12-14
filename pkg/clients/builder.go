@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	snapshotclientset "github.com/kubernetes-csi/external-snapshotter/client/v6/clientset/versioned"
 	opv1 "github.com/openshift/api/operator/v1"
 	cfgclientset "github.com/openshift/client-go/config/clientset/versioned"
 	cfginformers "github.com/openshift/client-go/config/informers/externalversions"
@@ -29,9 +30,12 @@ type Builder struct {
 	csiDriverName          string
 	resync                 time.Duration
 	controllerConfig       *controllercmd.ControllerContext
+	guestKubeConfig        *rest.Config
 	guestKubeConfigFile    string
 	controlPlaneNamespaces []string
 	guestNamespaces        []string
+
+	client *Clients
 }
 
 // NewBuilder creates a new Builder.
@@ -72,7 +76,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 	controlPlaneDynamicInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(controlPlaneDynamicClient, b.resync, b.controllerConfig.OperatorNamespace, nil)
 
 	isHyperShift := b.guestKubeConfigFile != ""
-	clients := &Clients{
+	b.client = &Clients{
 		ControlPlaneNamespace:     b.controllerConfig.OperatorNamespace,
 		EventRecorder:             b.controllerConfig.EventRecorder,
 		ControlPlaneKubeClient:    controlPlaneKubeClient,
@@ -101,40 +105,55 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		if err != nil {
 			klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
 		}
-		clients.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(CSIDriverNamespace), b.userAgwent, controllerRef)
+		b.client.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(CSIDriverNamespace), b.userAgwent, controllerRef)
 	}
-	clients.KubeClient = guestKubeClient
-	clients.KubeInformers = v1helpers.NewKubeInformersForNamespaces(guestKubeClient, b.guestNamespaces...)
+	// store guestKubeConfig in case we need it later for running
+	b.guestKubeConfig = guestKubeConfig
+	b.client.KubeClient = guestKubeClient
+	b.client.KubeInformers = v1helpers.NewKubeInformersForNamespaces(guestKubeClient, b.guestNamespaces...)
 
 	gvr := opv1.SchemeGroupVersion.WithResource("clustercsidrivers")
 	guestOperatorClient, guestOperatorDynamicInformers, err := goc.NewClusterScopedOperatorClientWithConfigName(guestKubeConfig, gvr, b.csiDriverName)
 	if err != nil {
 		klog.Fatalf("error building clustercsidriver informers: %v", err)
 	}
-	clients.OperatorClient = guestOperatorClient
-	clients.operatorDynamicInformers = guestOperatorDynamicInformers
+	b.client.OperatorClient = guestOperatorClient
+	b.client.operatorDynamicInformers = guestOperatorDynamicInformers
 
 	guestAPIExtClient, err := apiextclient.NewForConfig(guestKubeConfig)
 	if err != nil {
 		klog.Fatalf("error building api extension client in target cluster: %v", err)
 	}
-	clients.APIExtClient = guestAPIExtClient
-	clients.APIExtInformer = apiextinformers.NewSharedInformerFactory(guestAPIExtClient, b.resync)
+	b.client.APIExtClient = guestAPIExtClient
+	b.client.APIExtInformer = apiextinformers.NewSharedInformerFactory(guestAPIExtClient, b.resync)
 
 	guestDynamicClient, err := dynamic.NewForConfig(guestKubeConfig)
 	if err != nil {
 		klog.Fatalf("error building dynamic api client in target cluster: %v", err)
 	}
-	clients.DynamicClient = guestDynamicClient
+	b.client.DynamicClient = guestDynamicClient
 
 	// TODO: non-filtered one for VolumeSnapshots?
-	clients.DynamicInformer = dynamicinformer.NewFilteredDynamicSharedInformerFactory(guestDynamicClient, b.resync, CSIDriverNamespace, nil)
+	b.client.DynamicInformer = dynamicinformer.NewFilteredDynamicSharedInformerFactory(guestDynamicClient, b.resync, CSIDriverNamespace, nil)
 
-	clients.OperatorClientSet = opclient.NewForConfigOrDie(guestKubeConfig)
-	clients.OperatorInformers = opinformers.NewSharedInformerFactory(clients.OperatorClientSet, b.resync)
+	b.client.OperatorClientSet = opclient.NewForConfigOrDie(guestKubeConfig)
+	b.client.OperatorInformers = opinformers.NewSharedInformerFactory(b.client.OperatorClientSet, b.resync)
 
-	clients.ConfigClientSet = cfgclientset.NewForConfigOrDie(guestKubeConfig)
-	clients.ConfigInformers = cfginformers.NewSharedInformerFactory(clients.ConfigClientSet, b.resync)
+	b.client.ConfigClientSet = cfgclientset.NewForConfigOrDie(guestKubeConfig)
+	b.client.ConfigInformers = cfginformers.NewSharedInformerFactory(b.client.ConfigClientSet, b.resync)
 
-	return clients
+	return b.client
+}
+
+func (b *Builder) GetClient() *Clients {
+	return b.client
+}
+
+func (b *Builder) AddSnpshotClient(ctx context.Context) (snapshotclientset.Interface, error) {
+	var err error
+	b.client.SnapshotClient, err = snapshotclientset.NewForConfig(b.guestKubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	return b.client.SnapshotClient, nil
 }

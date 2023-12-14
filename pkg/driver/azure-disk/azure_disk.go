@@ -6,11 +6,13 @@ import (
 	"os"
 	"time"
 
+	snapshotapi "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
+	"github.com/openshift/csi-operator/pkg/operator/volume_snapshot_class"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
@@ -55,6 +57,8 @@ const (
 
 	// for azure hypershift install
 	hypershiftCloudConfigName = "azure-cloud-config"
+
+	incremetalSnapshotKey = "incremental"
 )
 
 func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
@@ -229,9 +233,7 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 	if insideStackHub {
 		klog.Infof("Running inside stackhub code")
 		cfg.StorageClassHooks = append(cfg.StorageClassHooks, getStackHubStorageClassHook())
-		cfg.SnapshotAssetNameFunc = func() []string {
-			return []string{"overlays/azure-disk/base/volumesnapshotclass_ash.yaml"}
-		}
+		cfg.VolumeSnapshotClassHooks = append(cfg.VolumeSnapshotClassHooks, getVolumeSnapshotHook())
 	}
 	return cfg, nil
 }
@@ -389,6 +391,17 @@ func getKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHoo
 		return nil
 	}
 
+	return hook
+}
+
+func getVolumeSnapshotHook() volume_snapshot_class.VolumeSnapshotClassHookFunc {
+	hook := func(_ *opv1.OperatorSpec, vsc *snapshotapi.VolumeSnapshotClass) error {
+		if vsc.Parameters == nil {
+			vsc.Parameters = map[string]string{}
+		}
+		vsc.Parameters[incremetalSnapshotKey] = "false"
+		return nil
+	}
 	return hook
 }
 

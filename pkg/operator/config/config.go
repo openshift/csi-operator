@@ -6,6 +6,7 @@ import (
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/generator"
+	"github.com/openshift/csi-operator/pkg/operator/volume_snapshot_class"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
@@ -58,13 +59,10 @@ type OperatorControllerConfig struct {
 	// No informers here, because StorageClassController does not accept any.
 	StorageClassHooks []csistorageclasscontroller.StorageClassHookFunc
 
+	VolumeSnapshotClassHooks []volume_snapshot_class.VolumeSnapshotClassHookFunc
+
 	// ExtraReplacements defines additional replacements that should be made to assets
 	ExtraReplacementsFunc func() []string
-
-	// SnapshotAssetName provides a way to override snapshot asset name that will be used
-	// TODO: remove the use of special purpose SnapshotAssetNameFunc in favour of
-	// dedicated controller
-	SnapshotAssetNameFunc func() []string
 }
 
 func (o *OperatorControllerConfig) AddDeploymentHook(hook deploymentcontroller.DeploymentHookFunc, informers ...factory.Informer) {

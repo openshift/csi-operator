@@ -11,7 +11,7 @@ import (
 	generated_assets "github.com/openshift/csi-operator/pkg/generated-assets"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/openshift/csi-operator/pkg/operator/volume_snapshot_class"
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
@@ -37,9 +37,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	}
 
 	// Create Clients
-	c := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), controllerConfig, resync).
-		WithHyperShiftGuest(guestKubeConfigString, opConfig.CloudConfigNamespace).
-		BuildOrDie(ctx)
+	builder := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), controllerConfig, resync).
+		WithHyperShiftGuest(guestKubeConfigString, opConfig.CloudConfigNamespace)
+
+	c := builder.BuildOrDie(ctx)
 
 	klog.Infof("Building clients is done")
 
@@ -151,34 +152,19 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		)
 	}
 
-	var snapshotAssetNames []string
-
-	if csiOperatorControllerConfig.SnapshotAssetNameFunc != nil {
-		snapshotAssetNames = csiOperatorControllerConfig.SnapshotAssetNameFunc()
-	} else {
-		snapshotAssetNames = a.GetVolumeSnapshotClassAssetNames()
-	}
+	snapshotAssetNames := a.GetVolumeSnapshotClassAssetNames()
 
 	// Prepare static resource controller for VolumeSnapshotClasses when needed
 	if len(snapshotAssetNames) > 0 {
-		guestCSIControllerSet = guestCSIControllerSet.WithConditionalStaticResourcesController(
-			csiOperatorControllerConfig.GetControllerName("DriverConditionalStaticResourcesController"),
-			c.KubeClient,
-			c.DynamicClient,
-			c.KubeInformers,
+		snapshotClassController := volume_snapshot_class.NewVolumeSnapshotClassController(
+			csiOperatorControllerConfig.GetControllerName("VolumeSnapshotController"),
 			a.GetAsset,
 			snapshotAssetNames,
-			// Only install when snapshot CRD exists. It can be disabled with "snapshot" capability flag.
-			func() bool {
-				name := "volumesnapshotclasses.snapshot.storage.k8s.io"
-				_, err := c.APIExtClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
-				return err == nil
-			},
-			// Don't ever remove.
-			func() bool {
-				return false
-			},
+			builder,
+			c.EventRecorder,
+			csiOperatorControllerConfig.VolumeSnapshotClassHooks...,
 		)
+		csiOperatorControllerConfig.ExtraControlPlaneControllers = append(csiOperatorControllerConfig.ExtraControlPlaneControllers, snapshotClassController)
 	}
 
 	// Start all informers
