@@ -152,14 +152,6 @@ github.com/kubernetes-csi/external-snapshotter/client/v6/clientset/versioned
 github.com/kubernetes-csi/external-snapshotter/client/v6/clientset/versioned/scheme
 github.com/kubernetes-csi/external-snapshotter/client/v6/clientset/versioned/typed/volumegroupsnapshot/v1alpha1
 github.com/kubernetes-csi/external-snapshotter/client/v6/clientset/versioned/typed/volumesnapshot/v1
-github.com/kubernetes-csi/external-snapshotter/client/v6/informers/externalversions
-github.com/kubernetes-csi/external-snapshotter/client/v6/informers/externalversions/internalinterfaces
-github.com/kubernetes-csi/external-snapshotter/client/v6/informers/externalversions/volumegroupsnapshot
-github.com/kubernetes-csi/external-snapshotter/client/v6/informers/externalversions/volumegroupsnapshot/v1alpha1
-github.com/kubernetes-csi/external-snapshotter/client/v6/informers/externalversions/volumesnapshot
-github.com/kubernetes-csi/external-snapshotter/client/v6/informers/externalversions/volumesnapshot/v1
-github.com/kubernetes-csi/external-snapshotter/client/v6/listers/volumegroupsnapshot/v1alpha1
-github.com/kubernetes-csi/external-snapshotter/client/v6/listers/volumesnapshot/v1
 # github.com/mailru/easyjson v0.7.7
 ## explicit; go 1.12
 github.com/mailru/easyjson/buffer
