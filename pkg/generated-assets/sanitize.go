@@ -45,3 +45,41 @@ func initialComments(src []byte) ([]byte, error) {
 		comments.Write(line)
 	}
 }
+
+// AssetOrderer organizes assets into three stages based on their kind.
+// Its main purpose is to order asset names according to their creation preference.
+// For instance, typically RBAC Roles should be created before RoleBindings.
+type AssetOrderer struct {
+	// stage1 contains standalone resources that are typically referenced by other resources.
+	// Examples include ClusterRoles and Roles.
+	stage1 []string
+
+	// stage2 contains resources that reference other resources from stage1.
+	// Examples include ClusterRoleBindings and RoleBindings.
+	stage2 []string
+
+	// stage3 contains resources that should be created last and may depend on resources from stage1 and stage2.
+	// Examples include Deployments and DaemonSets.
+	stage3 []string
+}
+
+// Add adds an asset to the appropriate stage based on its kind.
+func (a *AssetOrderer) Add(name, kind string) {
+	switch kind {
+	case "ClusterRole.rbac.authorization.k8s.io", "Role.rbac.authorization.k8s.io":
+		a.stage1 = append(a.stage1, name)
+	case "ClusterRoleBinding.rbac.authorization.k8s.io", "RoleBinding.rbac.authorization.k8s.io":
+		a.stage2 = append(a.stage2, name)
+	default:
+		a.stage3 = append(a.stage3, name)
+	}
+}
+
+// Get returns a concatenated list of assets from all stages.
+func (a *AssetOrderer) GetAll() []string {
+	result := make([]string, 0, len(a.stage1)+len(a.stage2)+len(a.stage3))
+	result = append(result, a.stage1...)
+	result = append(result, a.stage2...)
+	result = append(result, a.stage3...)
+	return result
+}

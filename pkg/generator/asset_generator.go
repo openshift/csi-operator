@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/openshift/csi-operator/pkg/generated-assets"
+	generated_assets "github.com/openshift/csi-operator/pkg/generated-assets"
 )
 
 // AssetGenerator generates assets for CSI driver operators.
