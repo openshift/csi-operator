@@ -1,0 +1,224 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: azure-disk-csi-driver-node
+  namespace: openshift-cluster-csi-drivers
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+spec:
+  selector:
+    matchLabels:
+      app: azure-disk-csi-driver-node
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+  template:
+    metadata:
+      labels:
+        app: azure-disk-csi-driver-node
+      annotations:
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        # This annotation prevents eviction from the cluster-autoscaler
+        cluster-autoscaler.kubernetes.io/enable-ds-eviction: "false"
+    spec:
+      hostNetwork: true
+      serviceAccount: azure-disk-csi-driver-node-sa
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+      nodeSelector:
+        kubernetes.io/os: linux
+      initContainers:
+        # Merge /etc/kubernetes/cloud.conf (on the host) with secret "azure-disk-credentials" into "merged-cloud-config" emptydir.
+        - name: azure-inject-credentials
+          image: ${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}
+          command:
+            - /azure-config-credentials-injector
+          args:
+            - --cloud-config-file-path=/etc/cloud-config/cloud.conf
+            - --output-file-path=/etc/merged-cloud-config/cloud.conf
+            # Force disable node's managed identity, azure-disk-credentials Secret should be used.
+            - --disable-identity-extension-auth
+            - --enable-azure-workload-identity=${ENABLE_AZURE_WORKLOAD_IDENTITY}
+          env:
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-disk-credentials
+                  key: azure_client_id
+            - name: AZURE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: azure-disk-credentials
+                  key: azure_client_secret
+                  optional: true
+            - name: AZURE_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-disk-credentials
+                  key: azure_tenant_id
+                  optional: true
+            - name: AZURE_FEDERATED_TOKEN_FILE
+              valueFrom:
+                secretKeyRef:
+                  name: azure-disk-credentials
+                  key: azure_federated_token_file
+                  optional: true
+          volumeMounts:
+            - name: host-cloud-config
+              mountPath: /etc/cloud-config
+              readOnly: true
+            - name: merged-cloud-config
+              mountPath: /etc/merged-cloud-config
+      containers:
+        - name: csi-driver
+          securityContext:
+            privileged: true
+          image: ${DRIVER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --v=${LOG_LEVEL}
+            - --nodeid=$(KUBE_NODE_NAME)
+            # Set localhost port to avoid exposing to whole
+            # network. We don't scrape metrics on node
+            - --metrics-address=localhost:8206
+            # Use credentials provided by the azure-inject-credentials container
+            - --cloud-config-secret-name=""
+            - --cloud-config-secret-namespace=""
+          env:
+            - name: AZURE_CREDENTIAL_FILE
+              value: "/etc/kubernetes/cloud.conf"
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: /etc/kubernetes/
+              readOnly: true
+              name: merged-cloud-config
+            - mountPath: /var/lib/waagent/ManagedIdentity-Settings
+              readOnly: true
+              name: msi
+            - mountPath: /dev
+              name: device-dir
+            - mountPath: /sys/bus/scsi/devices
+              name: sys-devices-dir
+            - mountPath: /sys/class/scsi_host/
+              name: scsi-host-dir
+            - name: etc-selinux
+              mountPath: /etc/selinux
+            - name: sys-fs
+              mountPath: /sys/fs
+          ports:
+            - name: healthz
+              # Due to hostNetwork, this port is open on all nodes!
+              containerPort: 10300
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+        - name: csi-node-driver-registrar
+          securityContext:
+            privileged: true
+          image: ${NODE_DRIVER_REGISTRAR_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --csi-address=$(ADDRESS)
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --v=${LOG_LEVEL}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "rm -rf /registration/disk.csi.azure.com-reg.sock /csi/csi.sock"]
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: /var/lib/kubelet/plugins/disk.csi.azure.com/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+        - name: csi-liveness-probe
+          image: ${LIVENESS_PROBE_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --csi-address=/csi/csi.sock
+            - --probe-timeout=3s
+            - --health-port=10300
+            - --v=${LOG_LEVEL}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins/disk.csi.azure.com
+            type: DirectoryOrCreate
+          name: socket-dir
+        - hostPath:
+            path: /var/lib/kubelet/
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: DirectoryOrCreate
+          name: registration-dir
+        - hostPath:
+            path: /etc/kubernetes/
+            type: Directory
+          name: host-cloud-config
+        - hostPath:
+            path: /var/lib/waagent/ManagedIdentity-Settings
+          name: msi
+        - hostPath:
+            path: /dev
+            type: Directory
+          name: device-dir
+        - hostPath:
+            path: /sys/bus/scsi/devices
+            type: Directory
+          name: sys-devices-dir
+        - hostPath:
+            path: /sys/class/scsi_host/
+            type: Directory
+          name: scsi-host-dir
+        - name: merged-cloud-config
+          emptydir:
+        - name: etc-selinux
+          hostPath:
+            path: /etc/selinux
+            type: DirectoryOrCreate
+        - name: sys-fs
+          hostPath:
+            path: /sys/fs
+            type: Directory
