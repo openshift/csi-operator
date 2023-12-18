@@ -15,6 +15,7 @@ spec:
   fsGroupPolicy: File
   podInfoOnMount: false
   requiresRepublish: false
+  seLinuxMount: true
   storageCapacity: false
   volumeLifecycleModes:
   - Persistent
