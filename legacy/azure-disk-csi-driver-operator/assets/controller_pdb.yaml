@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: azure-disk-csi-driver-controller-pdb
+  namespace: openshift-cluster-csi-drivers
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: azure-disk-csi-driver-controller

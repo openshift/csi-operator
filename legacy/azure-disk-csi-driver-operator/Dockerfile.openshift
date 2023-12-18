@@ -1,0 +1,10 @@
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.21-openshift-4.16 AS builder
+WORKDIR /go/src/github.com/openshift/azure-disk-csi-driver-operator
+COPY . .
+RUN make
+
+FROM registry.ci.openshift.org/ocp/4.16:base
+COPY --from=builder /go/src/github.com/openshift/azure-disk-csi-driver-operator/azure-disk-csi-driver-operator /usr/bin/
+ENTRYPOINT ["/usr/bin/azure-disk-csi-driver-operator"]
+LABEL io.k8s.display-name="OpenShift Azure Disk CSI Driver Operator" \
+	io.k8s.description="The Azure Disk CSI Driver Operator installs and maintains the Azure Disk CSI Driver on a cluster."
