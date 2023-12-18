@@ -149,7 +149,7 @@ func (b *Builder) GetClient() *Clients {
 	return b.client
 }
 
-func (b *Builder) AddSnpshotClient(ctx context.Context) (snapshotclientset.Interface, error) {
+func (b *Builder) AddSnapshotClient(ctx context.Context) (snapshotclientset.Interface, error) {
 	var err error
 	b.client.SnapshotClient, err = snapshotclientset.NewForConfig(b.guestKubeConfig)
 	if err != nil {

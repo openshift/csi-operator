@@ -111,7 +111,7 @@ func (c *VolumeSnapshotClassController) Sync(ctx context.Context, syncCtx factor
 	}
 
 	if !c.foundSnapshotClassCRD && c.checkForVolumeSnapshotClassCRD(ctx) {
-		c.snapshotClient, err = c.builder.AddSnpshotClient(ctx)
+		c.snapshotClient, err = c.builder.AddSnapshotClient(ctx)
 		if err != nil {
 			return err
 		}
