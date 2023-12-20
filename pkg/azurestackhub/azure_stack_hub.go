@@ -47,7 +47,7 @@ func WithAzureStackHubDeploymentHook(runningOnAzureStackHub bool) deploymentcont
 
 func injectEnvAndMounts(spec *coreV1.PodSpec) {
 	containers := spec.Containers
-	for i, _ := range containers {
+	for i := range containers {
 		c := &spec.Containers[i]
 		if c.Name == "csi-driver" {
 			c.Env = append(c.Env, coreV1.EnvVar{
