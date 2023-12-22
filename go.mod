@@ -4,10 +4,10 @@ go 1.20
 
 require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
-	github.com/openshift/api v0.0.0-20231120183933-f872698b1c4e
+	github.com/openshift/api v0.0.0-20231129134630-a782d1c1541c
 	github.com/openshift/build-machinery-go v0.0.0-20230824093055-6a18da01283c
 	github.com/openshift/client-go v0.0.0-20231110140829-a6ca51f6d5ba
-	github.com/openshift/library-go v0.0.0-20231120141757-bd996d74a24c
+	github.com/openshift/library-go v0.0.0-20231213173854-dc28c15393c9
 	github.com/prometheus/client_golang v1.17.0
 	github.com/spf13/cobra v1.7.0
 	gopkg.in/yaml.v2 v2.4.0
