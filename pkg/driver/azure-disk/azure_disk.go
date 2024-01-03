@@ -55,8 +55,8 @@ const (
 
 	diskEncryptionSetID = "diskEncryptionSetID"
 
-	// for azure hypershift install
-	hypershiftCloudConfigName = "azure-cloud-config"
+	// name of local cloud-config copied to openshift-cluster-csi-driver namespace.
+	localCloudConfigName = "azure-cloud-config"
 
 	incremetalSnapshotKey = "incremental"
 )
@@ -231,7 +231,6 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 	}
 
 	if insideStackHub {
-		klog.Infof("Running inside stackhub code")
 		cfg.StorageClassHooks = append(cfg.StorageClassHooks, getStackHubStorageClassHook())
 		cfg.VolumeSnapshotClassHooks = append(cfg.VolumeSnapshotClassHooks, getVolumeSnapshotHook())
 	}
@@ -272,24 +271,13 @@ func injectEnvAndMounts(spec *coreV1.PodSpec) {
 				Value: azureStackCloudConfig,
 			})
 			c.VolumeMounts = append(c.VolumeMounts, coreV1.VolumeMount{
-				Name:      azureCfgName,
+				Name:      localCloudConfigName,
 				MountPath: azureStackCloudConfig,
 				SubPath:   "endpoints",
 			})
 			break
 		}
 	}
-
-	spec.Volumes = append(spec.Volumes, coreV1.Volume{
-		Name: azureCfgName,
-		VolumeSource: coreV1.VolumeSource{
-			ConfigMap: &coreV1.ConfigMapVolumeSource{
-				LocalObjectReference: coreV1.LocalObjectReference{
-					Name: configMapName,
-				},
-			},
-		},
-	})
 }
 
 func syncCloudConfigGuest(c *clients.Clients) (factory.Controller, error) {
@@ -300,7 +288,7 @@ func syncCloudConfigGuest(c *clients.Clients) (factory.Controller, error) {
 	}
 	dstConfigMap := resourcesynccontroller.ResourceLocation{
 		Namespace: clients.CSIDriverNamespace,
-		Name:      hypershiftCloudConfigName,
+		Name:      localCloudConfigName,
 	}
 	cloudConfigSyncController := resourcesynccontroller.NewResourceSyncController(
 		c.OperatorClient,
@@ -318,6 +306,8 @@ func syncCloudConfigGuest(c *clients.Clients) (factory.Controller, error) {
 
 // useful in standalone clusters for syncing cloud-provider config from openshift-config
 // namespace to openshift-cluster-csi-drivers namespace
+// Please note although I am using c.ControlPlaneNamespace, strictly speaking this is not needed
+// in hypershift clusters because cloud-config is already synced there for external CCM and stuff.
 func syncCloudConfigStandAlone(c *clients.Clients) (factory.Controller, error) {
 	// sync config map with additional trust bundle to the operator namespace,
 	// so the operator can get it as a ConfigMap volume.
@@ -327,7 +317,7 @@ func syncCloudConfigStandAlone(c *clients.Clients) (factory.Controller, error) {
 	}
 	dstConfigMap := resourcesynccontroller.ResourceLocation{
 		Namespace: c.ControlPlaneNamespace,
-		Name:      hypershiftCloudConfigName,
+		Name:      localCloudConfigName,
 	}
 	cloudConfigSyncController := resourcesynccontroller.NewResourceSyncController(
 		c.OperatorClient,
