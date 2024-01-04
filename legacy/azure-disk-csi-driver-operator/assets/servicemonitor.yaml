@@ -1,0 +1,51 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: azure-disk-csi-driver-controller-monitor
+  namespace: openshift-cluster-csi-drivers
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    path: /metrics
+    port: driver-m
+    scheme: https
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: azure-disk-csi-driver-controller-metrics.openshift-cluster-csi-drivers.svc
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    path: /metrics
+    port: provisioner-m
+    scheme: https
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: azure-disk-csi-driver-controller-metrics.openshift-cluster-csi-drivers.svc
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    path: /metrics
+    port: attacher-m
+    scheme: https
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: azure-disk-csi-driver-controller-metrics.openshift-cluster-csi-drivers.svc
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    path: /metrics
+    port: resizer-m
+    scheme: https
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: azure-disk-csi-driver-controller-metrics.openshift-cluster-csi-drivers.svc
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    path: /metrics
+    port: snapshotter-m
+    scheme: https
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: azure-disk-csi-driver-controller-metrics.openshift-cluster-csi-drivers.svc
+  jobLabel: component
+  selector:
+    matchLabels:
+      app: azure-disk-csi-driver-controller-metrics
