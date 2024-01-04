@@ -52,6 +52,7 @@ spec:
       labels:
         app: aws-ebs-csi-driver-controller
         hypershift.openshift.io/hosted-control-plane: ${NAMESPACE}
+        hypershift.openshift.io/need-management-kas-access: "true"
     spec:
       affinity:
         nodeAffinity:
