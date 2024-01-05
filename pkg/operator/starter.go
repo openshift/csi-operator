@@ -2,14 +2,13 @@ package operator
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"time"
 
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
-	"github.com/openshift/csi-operator/pkg/generated-assets"
+	generated_assets "github.com/openshift/csi-operator/pkg/generated-assets"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -169,5 +168,5 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	<-ctx.Done()
 
-	return fmt.Errorf("stopped")
+	return nil
 }
