@@ -1,0 +1,27 @@
+version: 2
+updates:
+- package-ecosystem: gomod
+  directory: "/"
+  allow:
+  - dependency-type: "all"
+  schedule:
+    interval: daily
+  groups:
+    golang-dependencies:
+      patterns:
+        - "github.com/golang*"
+        - "golang.org/*"
+    k8s-dependencies:
+      patterns:
+        - "k8s.io*"
+        - "sigs.k8s.io*"
+        - "github.com/kubernetes-csi*"
+    opentelemetry-dependencies:
+      patterns:
+        - "go.opentelemetry.io*"
+  labels:
+    - "ok-to-test"
+    - "px-approved"
+    - "docs-approved"
+    - "qe-approved"
+  open-pull-requests-limit: 10
