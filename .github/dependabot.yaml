@@ -24,4 +24,5 @@ updates:
     - "px-approved"
     - "docs-approved"
     - "qe-approved"
+    - "jira/valid-reference"
   open-pull-requests-limit: 10
