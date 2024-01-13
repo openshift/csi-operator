@@ -2,7 +2,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"time"
 
@@ -169,5 +168,5 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	<-ctx.Done()
 
-	return fmt.Errorf("stopped")
+	return nil
 }
