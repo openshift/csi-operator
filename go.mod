@@ -1,6 +1,6 @@
 module github.com/openshift/csi-operator
 
-go 1.20
+go 1.21
 
 require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
