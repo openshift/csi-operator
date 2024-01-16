@@ -51,7 +51,8 @@ const (
 	// for azure stack hub
 	configEnvName         = "AZURE_ENVIRONMENT_FILEPATH"
 	azureStackCloudConfig = "/etc/azure/azurestackcloud.json"
-	azureCfgName          = "azure-cfg"
+	// name of volume that contains cloud-config in actual deployment or daemonset
+	podAzureCfgVolumeName = "cloud-config"
 
 	diskEncryptionSetID = "diskEncryptionSetID"
 
@@ -271,7 +272,7 @@ func injectEnvAndMounts(spec *coreV1.PodSpec) {
 				Value: azureStackCloudConfig,
 			})
 			c.VolumeMounts = append(c.VolumeMounts, coreV1.VolumeMount{
-				Name:      localCloudConfigName,
+				Name:      podAzureCfgVolumeName,
 				MountPath: azureStackCloudConfig,
 				SubPath:   "endpoints",
 			})

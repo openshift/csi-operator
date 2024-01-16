@@ -77,7 +77,7 @@ spec:
           mountPropagation: Bidirectional
           name: kubelet-dir
         - mountPath: /etc/kubernetes/
-          name: merged-cloud-config
+          name: cloud-config
           readOnly: true
         - mountPath: /dev
           name: device-dir
@@ -168,10 +168,10 @@ spec:
         name: azure-inject-credentials
         volumeMounts:
         - mountPath: /etc/cloud-config
-          name: cloud-config
+          name: src-cloud-config
           readOnly: true
         - mountPath: /etc/merged-cloud-config
-          name: merged-cloud-config
+          name: cloud-config
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
@@ -205,7 +205,7 @@ spec:
         name: sys-fs
       - configMap:
           name: azure-cloud-config
-        name: cloud-config
+        name: src-cloud-config
       - hostPath:
           path: /sys/bus/scsi/devices
           type: Directory
@@ -215,7 +215,7 @@ spec:
           type: Directory
         name: scsi-host-dir
       - emptydir: {}
-        name: merged-cloud-config
+        name: cloud-config
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 10%

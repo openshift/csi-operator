@@ -60,7 +60,7 @@ spec:
             name: kubelet-dir
           - mountPath: /etc/kubernetes/
             readOnly: true
-            name: merged-cloud-config
+            name: cloud-config
           - mountPath: /dev
             name: device-dir
           - mountPath: /sys/bus/scsi/devices
@@ -108,13 +108,13 @@ spec:
                   key: azure_federated_token_file
                   optional: true
           volumeMounts:
-            - name: cloud-config
+            - name: src-cloud-config
               mountPath: /etc/cloud-config
               readOnly: true
-            - name: merged-cloud-config
+            - name: cloud-config
               mountPath: /etc/merged-cloud-config
       volumes:
-        - name: cloud-config
+        - name: src-cloud-config
           configMap:
             name: azure-cloud-config
         - hostPath:
@@ -126,5 +126,5 @@ spec:
             type: Directory
           name: scsi-host-dir
         - emptydir: {}
-          name: merged-cloud-config
+          name: cloud-config
 
