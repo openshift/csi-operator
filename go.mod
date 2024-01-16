@@ -3,7 +3,7 @@ module github.com/openshift/csi-operator
 go 1.21
 
 require (
-	github.com/evanphx/json-patch v5.6.0+incompatible
+	github.com/evanphx/json-patch v5.8.0+incompatible
 	github.com/openshift/api v0.0.0-20231129134630-a782d1c1541c
 	github.com/openshift/build-machinery-go v0.0.0-20230824093055-6a18da01283c
 	github.com/openshift/client-go v0.0.0-20231110140829-a6ca51f6d5ba
