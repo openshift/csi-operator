@@ -1,9 +1,12 @@
 package config
 
 import (
+	"context"
+
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/generator"
+	"github.com/openshift/csi-operator/pkg/operator/volume_snapshot_class"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
@@ -22,7 +25,9 @@ type OperatorConfig struct {
 	AssetDir string
 	// Function that returns OperatorControllerConfig based on the cluster flavour and Clients.
 	// Clients are fully established when this builder is called, so it can create informers.
-	OperatorControllerConfigBuilder func(flavour generator.ClusterFlavour, c *clients.Clients) *OperatorControllerConfig
+	OperatorControllerConfigBuilder func(context.Context, generator.ClusterFlavour, *clients.Clients) (*OperatorControllerConfig, error)
+	// CloudConfigNamespace defines namespace in which cloud-configuration exists
+	CloudConfigNamespace string
 }
 
 // OperatorControllerConfig is configuration of controllers that are used to deploy CSI drivers.
@@ -40,6 +45,9 @@ type OperatorControllerConfig struct {
 	// will cause redeployment of the controller.
 	DeploymentWatchedSecretNames []string
 
+	// List of secrets that should be watched by daemonset controller
+	DaemonSetWatchedSecretNames []string
+
 	// List of library-go style controllers to run in the control-plane namespace.
 	ExtraControlPlaneControllers []factory.Controller
 
@@ -50,6 +58,11 @@ type OperatorControllerConfig struct {
 	// List of hooks should be run on the storage classes.
 	// No informers here, because StorageClassController does not accept any.
 	StorageClassHooks []csistorageclasscontroller.StorageClassHookFunc
+
+	VolumeSnapshotClassHooks []volume_snapshot_class.VolumeSnapshotClassHookFunc
+
+	// ExtraReplacements defines additional replacements that should be made to assets
+	ExtraReplacementsFunc func() []string
 }
 
 func (o *OperatorControllerConfig) AddDeploymentHook(hook deploymentcontroller.DeploymentHookFunc, informers ...factory.Informer) {

@@ -8,15 +8,16 @@ import (
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
-	"github.com/openshift/csi-operator/pkg/generated-assets"
+	generated_assets "github.com/openshift/csi-operator/pkg/generated-assets"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/openshift/csi-operator/pkg/operator/volume_snapshot_class"
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/csi/csicontrollerset"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 )
 
 type ConfigProvider func(flavour generator.ClusterFlavour, c *clients.Clients) *config.OperatorConfig
@@ -36,9 +37,19 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	}
 
 	// Create Clients
-	c := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), controllerConfig, resync).
-		WithHyperShiftGuest(guestKubeConfigString).
-		BuildOrDie(ctx)
+	builder := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), controllerConfig, resync).
+		WithHyperShiftGuest(guestKubeConfigString, opConfig.CloudConfigNamespace)
+
+	c := builder.BuildOrDie(ctx)
+
+	klog.Infof("Building clients is done")
+
+	// Build ControllerConfig
+	csiOperatorControllerConfig, err := opConfig.OperatorControllerConfigBuilder(ctx, flavour, c)
+	if err != nil {
+		klog.Errorf("error building operator config: %v", err)
+		return err
+	}
 
 	// Load generated assets.
 	assetDir := filepath.Join(opConfig.AssetDir, string(flavour))
@@ -46,10 +57,12 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if err != nil {
 		return err
 	}
-	a.SetReplacements(operator.DefaultReplacements(controlPlaneNamespace))
+	defaultReplacements := operator.DefaultReplacements(controlPlaneNamespace)
+	if csiOperatorControllerConfig.ExtraReplacementsFunc != nil {
+		defaultReplacements = append(defaultReplacements, csiOperatorControllerConfig.ExtraReplacementsFunc()...)
+	}
 
-	// Build ControllerConfig
-	csiOperatorControllerConfig := opConfig.OperatorControllerConfigBuilder(flavour, c)
+	a.SetReplacements(defaultReplacements)
 
 	// Start controllers that manage resources in the MANAGEMENT cluster.
 	controlPlaneControllerInformers := csiOperatorControllerConfig.DeploymentInformers
@@ -93,6 +106,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		return err
 	}
 
+	guestDaemonSetHooks := csiOperatorControllerConfig.GuestDaemonSetHooks
+	guestDaemonInformers := csiOperatorControllerConfig.GuestDaemonSetInformers
+
+	if len(csiOperatorControllerConfig.DaemonSetWatchedSecretNames) > 0 {
+		nodeSecretInformer := c.GetNodeSecretInformer(clients.CSIDriverNamespace)
+		for _, secretName := range csiOperatorControllerConfig.DaemonSetWatchedSecretNames {
+			guestDaemonSetHooks = append(guestDaemonSetHooks, csidrivernodeservicecontroller.WithSecretHashAnnotationHook(clients.CSIDriverNamespace, secretName, nodeSecretInformer))
+			guestDaemonInformers = append(guestDaemonInformers, nodeSecretInformer.Informer())
+		}
+	}
+
 	// Prepare controllers that manage resources in the GUEST cluster.
 	guestCSIControllerSet := csicontrollerset.NewCSIControllerSet(
 		c.OperatorClient,
@@ -110,8 +134,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		generated_assets.NodeDaemonSetAssetName,
 		c.KubeClient,
 		c.KubeInformers.InformersFor(clients.CSIDriverNamespace),
-		csiOperatorControllerConfig.GuestDaemonSetInformers,
-		csiOperatorControllerConfig.GuestDaemonSetHooks...,
+		guestDaemonInformers,
+		guestDaemonSetHooks...,
 	)
 
 	// Prepare StorageClassController when needed
@@ -128,26 +152,19 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		)
 	}
 
+	snapshotAssetNames := a.GetVolumeSnapshotClassAssetNames()
+
 	// Prepare static resource controller for VolumeSnapshotClasses when needed
-	if snapshotClassNames := a.GetVolumeSnapshotClassAssetNames(); len(snapshotClassNames) > 0 {
-		guestCSIControllerSet = guestCSIControllerSet.WithConditionalStaticResourcesController(
-			csiOperatorControllerConfig.GetControllerName("DriverConditionalStaticResourcesController"),
-			c.KubeClient,
-			c.DynamicClient,
-			c.KubeInformers,
+	if len(snapshotAssetNames) > 0 {
+		snapshotClassController := volume_snapshot_class.NewVolumeSnapshotClassController(
+			csiOperatorControllerConfig.GetControllerName("VolumeSnapshotController"),
 			a.GetAsset,
-			snapshotClassNames,
-			// Only install when snapshot CRD exists. It can be disabled with "snapshot" capability flag.
-			func() bool {
-				name := "volumesnapshotclasses.snapshot.storage.k8s.io"
-				_, err := c.APIExtClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
-				return err == nil
-			},
-			// Don't ever remove.
-			func() bool {
-				return false
-			},
+			snapshotAssetNames,
+			builder,
+			c.EventRecorder,
+			csiOperatorControllerConfig.VolumeSnapshotClassHooks...,
 		)
+		csiOperatorControllerConfig.ExtraControlPlaneControllers = append(csiOperatorControllerConfig.ExtraControlPlaneControllers, snapshotClassController)
 	}
 
 	// Start all informers

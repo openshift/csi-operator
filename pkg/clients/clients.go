@@ -3,6 +3,7 @@ package clients
 import (
 	"context"
 
+	snapshotclient "github.com/kubernetes-csi/external-snapshotter/client/v6/clientset/versioned"
 	cfgclientset "github.com/openshift/client-go/config/clientset/versioned"
 	cfginformers "github.com/openshift/client-go/config/informers/externalversions"
 	cfgv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
@@ -72,11 +73,18 @@ type Clients struct {
 	ConfigClientSet cfgclientset.Interface
 	// config.openshift.io informers. Always in the guest or standalone cluster.
 	ConfigInformers cfginformers.SharedInformerFactory
+
+	// VolumeSnapshotClass client
+	SnapshotClient snapshotclient.Interface
 }
 
 // GetControlPlaneSecretInformer returns a Secret informer for given control plane namespace.
 func (c *Clients) GetControlPlaneSecretInformer(namespace string) coreinformers.SecretInformer {
 	return c.ControlPlaneKubeInformers.InformersFor(namespace).Core().V1().Secrets()
+}
+
+func (c *Clients) GetNodeSecretInformer(namespace string) coreinformers.SecretInformer {
+	return c.KubeInformers.InformersFor(namespace).Core().V1().Secrets()
 }
 
 // GetControlPlaneConfigMapInformer returns a ConfigMap informer for given control plane namespace.

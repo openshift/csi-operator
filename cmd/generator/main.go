@@ -6,6 +6,7 @@ import (
 
 	"github.com/openshift/csi-operator/assets"
 	aws_ebs "github.com/openshift/csi-operator/pkg/driver/aws-ebs"
+	azure_disk "github.com/openshift/csi-operator/pkg/driver/azure-disk"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"k8s.io/klog/v2"
 )
@@ -40,5 +41,6 @@ func main() {
 func collectConfigs() []*generator.CSIDriverGeneratorConfig {
 	return []*generator.CSIDriverGeneratorConfig{
 		aws_ebs.GetAWSEBSGeneratorConfig(),
+		azure_disk.GetAzureDiskGeneratorConfig(),
 	}
 }

@@ -1,6 +1,7 @@
 package aws_ebs
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -129,7 +130,7 @@ func GetAWSEBSOperatorConfig() *config.OperatorConfig {
 
 // GetAWSEBSOperatorControllerConfig returns second half of runtime configuration of the CSI driver operator,
 // after a client connection + cluster flavour are established.
-func GetAWSEBSOperatorControllerConfig(flavour generator.ClusterFlavour, c *clients.Clients) *config.OperatorControllerConfig {
+func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEBS")
 
 	// Hooks to run on all clusters
@@ -159,7 +160,7 @@ func GetAWSEBSOperatorControllerConfig(flavour generator.ClusterFlavour, c *clie
 		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, ctrl)
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 // getCustomAWSCABundleBuilder executes the asset as a template to fill out the parts required when using a custom CA bundle.
@@ -427,8 +428,5 @@ func withKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHo
 		class.Parameters[kmsKeyID] = arn
 		return nil
 	}
-	// Explicitly instantiate ClusterCSIDriver informer, so it is synced during WaitForCacheSync
-	// and thus its lister is populated
-	_ = c.OperatorInformers.Operator().V1().ClusterCSIDrivers().Informer()
 	return hook
 }
