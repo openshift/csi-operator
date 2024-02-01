@@ -1,0 +1,22 @@
+# Test manifest for https://github.com/kubernetes/kubernetes/tree/master/test/e2e/storage/external
+ShortName: azurefile
+StorageClass:
+  FromExistingClassName: azurefile-csi
+SnapshotClass:
+  FromName: true
+DriverInfo:
+  Name: file.csi.azure.com
+  Capabilities:
+    persistence: true
+    exec: true
+    multipods: true
+    RWX: true
+    fsGroup: true
+    volumeMountGroup: true
+    topology: false
+    controllerExpansion: true
+    nodeExpansion: true
+    volumeLimits: false
+    # Snapshots are not supported in this release
+    snapshotDataSource: false
+    multiplePVsSameID: true
