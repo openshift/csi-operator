@@ -116,6 +116,8 @@ type GuestConfig struct {
 	// MetricsPorts               []MetricsPort
 	// Liveness probe TCP port number exposed by the driver itself, i.e. by DaemonSetTemplateAssetName.
 	LivenessProbePort uint16
+	// port where node-registrar will expose health check endpoint
+	NodeRegistrarHealthCheckPort uint16
 	// Configuration of all sidecars to inject into the guest DaemonSet.
 	Sidecars []SidecarConfig
 

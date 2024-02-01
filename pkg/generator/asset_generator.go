@@ -254,6 +254,10 @@ func (gen *AssetGenerator) generateDaemonSet() error {
 		extraReplacements = append(extraReplacements, "${LIVENESS_PROBE_PORT}", strconv.Itoa(int(cfg.LivenessProbePort)))
 	}
 
+	if cfg.NodeRegistrarHealthCheckPort > 0 {
+		extraReplacements = append(extraReplacements, "${NODE_DRIVER_REGISTRAR_HEALTH_PORT}", strconv.Itoa(int(cfg.NodeRegistrarHealthCheckPort)))
+	}
+
 	err = gen.applyAssetPatch(dsYAML, cfg.DaemonSetTemplateAssetName, extraReplacements)
 	if err != nil {
 		return err

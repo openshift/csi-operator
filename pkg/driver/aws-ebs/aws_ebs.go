@@ -99,8 +99,9 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		},
 
 		GuestConfig: &generator.GuestConfig{
-			DaemonSetTemplateAssetName: "overlays/aws-ebs/patches/node_add_driver.yaml",
-			LivenessProbePort:          10300,
+			DaemonSetTemplateAssetName:   "overlays/aws-ebs/patches/node_add_driver.yaml",
+			LivenessProbePort:            10300,
+			NodeRegistrarHealthCheckPort: 10302,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultNodeDriverRegistrar,
 				commongenerator.DefaultLivenessProbe.WithExtraArguments(

@@ -12,6 +12,7 @@ spec:
           args:
             - --csi-address=/csi/csi.sock
             - --kubelet-registration-path=/var/lib/kubelet/plugins/${DRIVER_NAME}/csi.sock
+            - --http-endpoint=:${NODE_DRIVER_REGISTRAR_HEALTH_PORT}
             - --v=${LOG_LEVEL}
           # Empty env. instead of nil for json patch to append new env. vars there
           env: []
@@ -24,6 +25,18 @@ spec:
               mountPath: /csi
             - name: registration-dir
               mountPath: /registration
+          ports:
+            - containerPort: ${NODE_DRIVER_REGISTRAR_HEALTH_PORT}
+              name: rhealthz
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: rhealthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
           resources:
             requests:
               memory: 50Mi
