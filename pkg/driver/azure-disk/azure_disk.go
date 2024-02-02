@@ -121,7 +121,7 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		GuestConfig: &generator.GuestConfig{
 			DaemonSetTemplateAssetName:   "overlays/azure-disk/patches/node_add_driver.yaml",
 			LivenessProbePort:            10300,
-			NodeRegistrarHealthCheckPort: 10302,
+			NodeRegistrarHealthCheckPort: 10303,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultNodeDriverRegistrar,
 				commongenerator.DefaultLivenessProbe.WithExtraArguments(
