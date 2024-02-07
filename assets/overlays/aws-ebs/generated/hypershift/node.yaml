@@ -75,6 +75,7 @@ spec:
       - args:
         - --csi-address=/csi/csi.sock
         - --kubelet-registration-path=/var/lib/kubelet/plugins/ebs.csi.aws.com/csi.sock
+        - --http-endpoint=:10304
         - --v=${LOG_LEVEL}
         env: []
         image: ${NODE_DRIVER_REGISTRAR_IMAGE}
@@ -86,7 +87,19 @@ spec:
               - /bin/sh
               - -c
               - rm -rf /registration/ebs.csi.aws.com-reg.sock /csi/csi.sock
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: rhealthz
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
         name: csi-node-driver-registrar
+        ports:
+        - containerPort: 10304
+          name: rhealthz
+          protocol: TCP
         resources:
           requests:
             cpu: 10m
