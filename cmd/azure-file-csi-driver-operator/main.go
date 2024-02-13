@@ -49,6 +49,6 @@ func NewOperatorCommand() *cobra.Command {
 }
 
 func runCSIDriverOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
-	opConfig := azure_file.GetAzureDiskOperatorConfig()
+	opConfig := azure_file.GetAzureFileOperatorConfig()
 	return operator.RunOperator(ctx, controllerConfig, *guestKubeconfig, opConfig)
 }

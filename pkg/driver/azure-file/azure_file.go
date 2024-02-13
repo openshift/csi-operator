@@ -6,17 +6,14 @@ import (
 	"os"
 	"time"
 
-	snapshotapi "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
-	"github.com/openshift/csi-operator/pkg/operator/volume_snapshot_class"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
-	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
@@ -25,10 +22,6 @@ import (
 	opv1 "github.com/openshift/api/operator/v1"
 	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	appsV1 "k8s.io/api/apps/v1"
-	coreV1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -48,18 +41,8 @@ const (
 	operatorImageVersionEnvVarName = "OPERATOR_IMAGE_VERSION"
 	ccmOperatorImageEnvName        = "CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE"
 
-	// for azure stack hub
-	configEnvName         = "AZURE_ENVIRONMENT_FILEPATH"
-	azureStackCloudConfig = "/etc/azure/azurestackcloud.json"
-	// name of volume that contains cloud-config in actual deployment or daemonset
-	podAzureCfgVolumeName = "cloud-config"
-
-	diskEncryptionSetID = "diskEncryptionSetID"
-
 	// name of local cloud-config copied to openshift-cluster-csi-driver namespace.
 	localCloudConfigName = "azure-cloud-config"
-
-	incremetalSnapshotKey = "incremental"
 )
 
 func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
@@ -71,33 +54,24 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 
 		ControllerConfig: &generator.ControlPlaneConfig{
 			DeploymentTemplateAssetName: "overlays/azure-file/patches/controller_add_driver.yaml",
-			LivenessProbePort:           10301,
+			LivenessProbePort:           10303,
 			MetricsPorts: []generator.MetricsPort{
 				{
-					LocalPort:           commongenerator.AzureDiskLoopbackMetricsPortStart,
+					LocalPort:           commongenerator.AzureFileLoopbackMetricsPortStart,
 					InjectKubeRBACProxy: true,
-					ExposedPort:         commongenerator.AzureDiskExposedMetricsPortStart,
+					ExposedPort:         commongenerator.AzureFileExposedMetricsPortStart,
 					Name:                "driver-m",
 				},
 			},
 			SidecarLocalMetricsPortStart:   commongenerator.AzureDiskLoopbackMetricsPortStart + 1,
 			SidecarExposedMetricsPortStart: commongenerator.AzureDiskExposedMetricsPortStart + 1,
 			Sidecars: []generator.SidecarConfig{
-				commongenerator.DefaultProvisionerWithSnapshots.WithExtraArguments(
-					"--default-fstype=ext4",
-					"--feature-gates=Topology=true",
+				commongenerator.DefaultProvisioner.WithExtraArguments(
 					"--extra-create-metadata=true",
-					"--strict-topology=true",
-					"--timeout=30s",
-					"--worker-threads=100",
-					"--kube-api-qps=50",
-					"--kube-api-burst=100",
+					"--timeout=300s",
 				),
 				commongenerator.DefaultAttacher.WithExtraArguments(
-					"--timeout=1200s",
-					"--worker-threads=1000",
-					"--kube-api-qps=200",
-					"--kube-api-burst=400",
+					"--timeout=120s",
 				),
 				commongenerator.DefaultResizer.WithExtraArguments(
 					"--timeout=240s",
@@ -120,9 +94,9 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 
 		GuestConfig: &generator.GuestConfig{
 			DaemonSetTemplateAssetName: "overlays/azure-file/patches/node_add_driver.yaml",
-			LivenessProbePort:          10300,
-			// 10303 port is taken by azurefile stuff and hence we must use 10304 here
-			NodeRegistrarHealthCheckPort: 10304,
+			LivenessProbePort:          10302,
+			// 10304 port is taken by azure disk
+			NodeRegistrarHealthCheckPort: 10305,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultNodeDriverRegistrar,
 				commongenerator.DefaultLivenessProbe.WithExtraArguments(
@@ -132,7 +106,6 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			Assets: commongenerator.DefaultNodeAssets.WithAssets(generator.AllFlavours,
 				"overlays/azure-file/base/csidriver.yaml",
 				"overlays/azure-file/base/storageclass.yaml",
-				"overlays/azure-file/base/volumesnapshotclass.yaml",
 			),
 		},
 	}
@@ -146,22 +119,14 @@ func GetAzureFileOperatorConfig() *config.OperatorConfig {
 		AssetReader:                     assets.ReadFile,
 		AssetDir:                        generatedAssetBase,
 		CloudConfigNamespace:            openshiftDefaultCloudConfigNamespace,
-		OperatorControllerConfigBuilder: GetAzureDiskOperatorControllerConfig,
+		OperatorControllerConfigBuilder: GetAzureFileOperatorControllerConfig,
 	}
 }
 
-// GetAzureDiskOperatorControllerConfig returns second half of runtime configuration of the CSI driver operator,
+// GetAzureFileOperatorControllerConfig returns second half of runtime configuration of the CSI driver operator,
 // after a client connection + cluster flavour are established.
-func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
+func GetAzureFileOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AzureFile")
-
-	infra, err := c.ConfigClientSet.ConfigV1().Infrastructures().Get(ctx, infrastructureName, metaV1.GetOptions{})
-	if err != nil {
-		klog.Errorf("unable to fetch infra object from guest cluster with: %v", err)
-		return nil, fmt.Errorf("unable to fetch infra object: %v", err)
-	}
-
-	insideStackHub := runningInAzureStackHub(infra)
 
 	// We need featuregate accessor made available to the operator pods
 	desiredVersion := os.Getenv(operatorImageVersionEnvVarName)
@@ -187,18 +152,13 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 	}
 
 	// Hooks for control plane start
-	cfg.AddDeploymentHookBuilders(c,
-		withCABundleDeploymentHook,
-	)
+	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook)
 
-	cfg.AddDeploymentHook(withAzureStackHubDeploymentHook(insideStackHub))
-	cfg.AddStorageClassHookBuilders(c, getKMSKeyHook)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
 
 	// Hooks for daemonset or on the node
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook)
 	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, cloudCredSecretName)
-	cfg.AddDaemonSetHook(withAzureStackHubDaemonSetHook(insideStackHub))
 
 	if flavour == generator.FlavourHyperShift {
 		configMapSyncer, err := syncCloudConfigGuest(c)
@@ -233,10 +193,6 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 		return pairs
 	}
 
-	if insideStackHub {
-		cfg.StorageClassHooks = append(cfg.StorageClassHooks, getStackHubStorageClassHook())
-		cfg.VolumeSnapshotClassHooks = append(cfg.VolumeSnapshotClassHooks, getVolumeSnapshotHook())
-	}
 	return cfg, nil
 }
 
@@ -251,36 +207,6 @@ func withCABundleDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []fa
 		c.GetControlPlaneConfigMapInformer(c.ControlPlaneNamespace).Informer(),
 	}
 	return hook, informers
-}
-
-func withAzureStackHubDeploymentHook(runningOnAzureStackHub bool) dc.DeploymentHookFunc {
-	hook := func(_ *opv1.OperatorSpec, deployment *appsV1.Deployment) error {
-		if runningOnAzureStackHub {
-			injectEnvAndMounts(&deployment.Spec.Template.Spec)
-		}
-		return nil
-	}
-	return hook
-}
-
-// TODO: fix references in the file
-func injectEnvAndMounts(spec *coreV1.PodSpec) {
-	containers := spec.Containers
-	for i := range containers {
-		c := &spec.Containers[i]
-		if c.Name == "csi-driver" {
-			c.Env = append(c.Env, coreV1.EnvVar{
-				Name:  configEnvName,
-				Value: azureStackCloudConfig,
-			})
-			c.VolumeMounts = append(c.VolumeMounts, coreV1.VolumeMount{
-				Name:      podAzureCfgVolumeName,
-				MountPath: azureStackCloudConfig,
-				SubPath:   "endpoints",
-			})
-			break
-		}
-	}
 }
 
 func syncCloudConfigGuest(c *clients.Clients) (factory.Controller, error) {
@@ -336,68 +262,6 @@ func syncCloudConfigStandAlone(c *clients.Clients) (factory.Controller, error) {
 	return cloudConfigSyncController, nil
 }
 
-func getStackHubStorageClassHook() csistorageclasscontroller.StorageClassHookFunc {
-	return func(_ *opv1.OperatorSpec, sc *storagev1.StorageClass) error {
-		sc.Parameters["skuname"] = "Premium_LRS"
-		return nil
-	}
-}
-
-func runningInAzureStackHub(infra *opCfgV1.Infrastructure) bool {
-	if infra.Status.PlatformStatus != nil &&
-		infra.Status.PlatformStatus.Azure != nil &&
-		infra.Status.PlatformStatus.Azure.CloudName == opCfgV1.AzureStackCloud {
-		return true
-	}
-	return false
-}
-
-// getKMSKeyHook checks for AzureCSIDriverConfigSpec in the ClusterCSIDriver object.
-// If it contains DiskEncryptionSet, it sets the corresponding parameter in the SC.
-// This allows the admin to specify a customer managed key to be used by default.
-func getKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHookFunc {
-	hook := func(_ *opv1.OperatorSpec, class *storagev1.StorageClass) error {
-		ccdLister := c.OperatorInformers.Operator().V1().ClusterCSIDrivers().Lister()
-		ccd, err := ccdLister.Get(class.Provisioner)
-		if err != nil {
-			return err
-		}
-
-		driverConfig := ccd.Spec.DriverConfig
-		if driverConfig.DriverType != opv1.AzureDriverType || driverConfig.Azure == nil {
-			klog.V(4).Infof("No AzureCSIDriverConfigSpec defined for %s", class.Provisioner)
-			return nil
-		}
-
-		encset := driverConfig.Azure.DiskEncryptionSet
-		if encset == nil {
-			klog.V(4).Infof("Not setting empty %s parameter in StorageClass %s", diskEncryptionSetID, class.Name)
-			return nil
-		}
-
-		if class.Parameters == nil {
-			class.Parameters = map[string]string{}
-		}
-		value := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/diskEncryptionSets/%s", encset.SubscriptionID, encset.ResourceGroup, encset.Name)
-		klog.V(4).Infof("Setting %s = %s in StorageClass %s", diskEncryptionSetID, value, class.Name)
-		class.Parameters[diskEncryptionSetID] = value
-		return nil
-	}
-
-	return hook
-}
-
-func getVolumeSnapshotHook() volume_snapshot_class.VolumeSnapshotClassHookFunc {
-	hook := func(_ *opv1.OperatorSpec, vsc *snapshotapi.VolumeSnapshotClass) error {
-		if vsc.Parameters == nil {
-			vsc.Parameters = map[string]string{}
-		}
-		vsc.Parameters[incremetalSnapshotKey] = "false"
-		return nil
-	}
-	return hook
-}
-
 // withCABundleDaemonSetHook projects custom CA bundle ConfigMap into the CSI driver container
 func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
 	hook := csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
@@ -409,13 +273,4 @@ func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroll
 		c.GetConfigMapInformer(clients.CSIDriverNamespace).Informer(),
 	}
 	return hook, informers
-}
-
-func withAzureStackHubDaemonSetHook(runningOnAzureStackHub bool) csidrivernodeservicecontroller.DaemonSetHookFunc {
-	return func(_ *opv1.OperatorSpec, ds *appsV1.DaemonSet) error {
-		if runningOnAzureStackHub {
-			injectEnvAndMounts(&ds.Spec.Template.Spec)
-		}
-		return nil
-	}
 }
