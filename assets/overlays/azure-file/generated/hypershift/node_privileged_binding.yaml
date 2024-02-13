@@ -1,0 +1,18 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/rbac/node_privileged_binding.yaml
+#
+#
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: azure-file-node-privileged-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: azure-file-privileged-role
+subjects:
+- kind: ServiceAccount
+  name: azure-file-csi-driver-node-sa
+  namespace: openshift-cluster-csi-drivers

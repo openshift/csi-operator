@@ -1,0 +1,21 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/azure-file/base/csidriver.yaml
+#
+#
+
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  annotations:
+    csi.openshift.io/managed: "true"
+  labels:
+    security.openshift.io/csi-ephemeral-volume-profile: privileged
+  name: file.csi.azure.com
+spec:
+  attachRequired: false
+  fsGroupPolicy: None
+  podInfoOnMount: true
+  volumeLifecycleModes:
+  - Persistent
+  - Ephemeral
