@@ -1,4 +1,4 @@
-package azure_disk
+package azure_file
 
 import (
 	"context"
@@ -63,8 +63,8 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					Name:                "driver-m",
 				},
 			},
-			SidecarLocalMetricsPortStart:   commongenerator.AzureDiskLoopbackMetricsPortStart + 1,
-			SidecarExposedMetricsPortStart: commongenerator.AzureDiskExposedMetricsPortStart + 1,
+			SidecarLocalMetricsPortStart:   commongenerator.AzureFileLoopbackMetricsPortStart + 1,
+			SidecarExposedMetricsPortStart: commongenerator.AzureFileExposedMetricsPortStart + 1,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultProvisioner.WithExtraArguments(
 					"--extra-create-metadata=true",
@@ -111,7 +111,7 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 	}
 }
 
-// GetAzureDiskOperatorConfig returns runtime configuration of the CSI driver operator.
+// GetAzureFileOperatorConfig returns runtime configuration of the CSI driver operator.
 func GetAzureFileOperatorConfig() *config.OperatorConfig {
 	return &config.OperatorConfig{
 		CSIDriverName:                   opv1.AzureFileCSIDriver,
