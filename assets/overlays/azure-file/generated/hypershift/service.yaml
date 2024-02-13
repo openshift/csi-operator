@@ -21,19 +21,19 @@ metadata:
 spec:
   ports:
   - name: provisioner-m
-    port: 9202
+    port: 9212
     protocol: TCP
     targetPort: provisioner-m
   - name: attacher-m
-    port: 9203
+    port: 9213
     protocol: TCP
     targetPort: attacher-m
   - name: resizer-m
-    port: 9204
+    port: 9214
     protocol: TCP
     targetPort: resizer-m
   - name: snapshotter-m
-    port: 9205
+    port: 9215
     protocol: TCP
     targetPort: snapshotter-m
   - name: driver-m
