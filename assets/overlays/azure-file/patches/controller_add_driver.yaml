@@ -1,0 +1,60 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+spec:
+  template:
+    spec:
+      hostNetwork: true # although not needed for other drivers, this is required for the Azure File driver
+      containers:
+        - name: csi-driver
+          image: ${DRIVER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --enable-vhd=false
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --metrics-address=localhost:8211
+            - --v=${LOG_LEVEL}
+            # Use credentials provided by the azure-inject-credentials container
+            - --cloud-config-secret-name=""
+            - --cloud-config-secret-namespace=""
+            # TODO: make sure this is needed. Taken from upstream
+            - --user-agent-suffix=OSS-kubectl
+          env:
+            - name: AZURE_CREDENTIAL_FILE
+              value: "/etc/kubernetes/cloud.conf"
+            - name: CSI_ENDPOINT
+              value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+          ports:
+            - name: healthz
+              containerPort: 10301
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+            - name: cloud-config
+              mountPath: /etc/kubernetes/
+              readOnly: true
+            - name: bound-sa-token
+              mountPath: /var/run/secrets/openshift/serviceaccount
+              readOnly: true
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+      volumes:
+        - name: metrics-serving-cert
+          secret:
+            secretName: azure-file-csi-driver-controller-metrics-serving-cert
+
