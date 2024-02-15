@@ -84,7 +84,7 @@ spec:
           timeoutSeconds: 3
         name: csi-driver
         ports:
-        - containerPort: 10301
+        - containerPort: 10303
           name: healthz
           protocol: TCP
         resources:
@@ -312,7 +312,6 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
-      hostNetwork: true
       initContainers:
       - args:
         - --cloud-config-file-path=/etc/cloud-config/config

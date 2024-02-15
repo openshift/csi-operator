@@ -7,7 +7,8 @@ metadata:
 spec:
   template:
     spec:
-      hostNetwork: true # although not needed for other drivers, this is required for the Azure File driver
+      ## Removing this for now
+      # hostNetwork: true # although not needed for other drivers, this is required for the Azure File driver
       containers:
         - name: csi-driver
           image: ${DRIVER_IMAGE}
@@ -30,7 +31,7 @@ spec:
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
           ports:
             - name: healthz
-              containerPort: 10301
+              containerPort: 10303
               protocol: TCP
           livenessProbe:
             httpGet:

@@ -61,7 +61,7 @@ spec:
           timeoutSeconds: 3
         name: csi-driver
         ports:
-        - containerPort: 10300
+        - containerPort: 10302
           name: healthz
           protocol: TCP
         resources:

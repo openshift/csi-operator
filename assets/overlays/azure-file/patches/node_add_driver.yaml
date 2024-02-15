@@ -40,7 +40,7 @@ spec:
           ports:
             - name: healthz
               # Due to hostNetwork, this port is open on all nodes!
-              containerPort: 10300
+              containerPort: 10302
               protocol: TCP
           livenessProbe:
             httpGet:
