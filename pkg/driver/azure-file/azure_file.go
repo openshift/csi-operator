@@ -106,6 +106,8 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			Assets: commongenerator.DefaultNodeAssets.WithAssets(generator.AllFlavours,
 				"overlays/azure-file/base/csidriver.yaml",
 				"overlays/azure-file/base/storageclass.yaml",
+				"overlays/azure-file/base/csi-driver-cluster-role.yaml",
+				"overlays/azure-file/base/csi-driver-cluster-role-binding.yaml",
 			),
 		},
 	}

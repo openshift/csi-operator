@@ -10,6 +10,8 @@ controllerStaticAssetNames:
 - service.yaml
 - servicemonitor.yaml
 guestStaticAssetNames:
+- csi-driver-cluster-role-binding.yaml
+- csi-driver-cluster-role.yaml
 - csidriver.yaml
 - lease_leader_election_binding.yaml
 - lease_leader_election_role.yaml
