@@ -87,6 +87,7 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			Assets: commongenerator.DefaultControllerAssets,
 			AssetPatches: commongenerator.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
 				"controller.yaml", "overlays/azure-file/patches/controller_add_hypershift_controller.yaml",
+				"controller.yaml", "overlays/azure-file/patches/controller_add_driver_kubeconfig_hypershift.yaml.patch",
 			).WithPatches(generator.StandaloneOnly,
 				"controller.yaml", "overlays/azure-file/patches/controller_add_standalone_injector.yaml",
 			),
