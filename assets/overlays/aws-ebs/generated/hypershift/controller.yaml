@@ -48,6 +48,7 @@ spec:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: bound-sa-token,socket-dir
+        openshift.io/required-scc: restricted-v2
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
       labels:
         app: aws-ebs-csi-driver-controller

@@ -9,6 +9,7 @@ spec:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: bound-sa-token,socket-dir
+        openshift.io/required-scc: restricted-v2
     spec:
       containers:
         - name: csi-driver
