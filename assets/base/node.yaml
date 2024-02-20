@@ -23,6 +23,8 @@ spec:
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
         # This annotation prevents eviction from the cluster-autoscaler
         cluster-autoscaler.kubernetes.io/enable-ds-eviction: "false"
+        # This annotation prevents potential custom SCCs of taking over
+        openshift.io/required-scc: privileged
       labels:
         app: ${ASSET_PREFIX}-node
     spec:

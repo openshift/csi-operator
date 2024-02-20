@@ -22,6 +22,7 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: bound-sa-token,socket-dir
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        openshift.io/required-scc: restricted-v2
       labels:
         app: aws-ebs-csi-driver-controller
         hypershift.openshift.io/hosted-control-plane: clusters-test
