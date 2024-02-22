@@ -10,11 +10,8 @@
 # attacher.yaml: Added arguments [--timeout=120s]
 # Applied strategic merge patch attacher.yaml
 # resizer.yaml: Loaded from common/sidecars/resizer.yaml
-# resizer.yaml: Added arguments [--timeout=240s -handle-volume-inuse-error=false]
+# resizer.yaml: Added arguments [--timeout=120s -handle-volume-inuse-error=false]
 # Applied strategic merge patch resizer.yaml
-# snapshotter.yaml: Loaded from common/sidecars/snapshotter.yaml
-# snapshotter.yaml: Added arguments [--timeout=600s]
-# Applied strategic merge patch snapshotter.yaml
 # livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
 # livenessprobe.yaml: Added arguments [--probe-timeout=3s]
 # Applied strategic merge patch livenessprobe.yaml
@@ -218,7 +215,7 @@ spec:
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
         - --leader-election-namespace=openshift-cluster-csi-drivers
         - --v=${LOG_LEVEL}
-        - --timeout=240s
+        - --timeout=120s
         - -handle-volume-inuse-error=false
         env: []
         image: ${RESIZER_IMAGE}
@@ -245,49 +242,6 @@ spec:
         ports:
         - containerPort: 9215
           name: resizer-m
-          protocol: TCP
-        resources:
-          requests:
-            cpu: 10m
-            memory: 20Mi
-        volumeMounts:
-        - mountPath: /etc/tls/private
-          name: metrics-serving-cert
-      - args:
-        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --metrics-address=localhost:8216
-        - --leader-election
-        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
-        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
-        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
-        - --v=${LOG_LEVEL}
-        - --timeout=600s
-        env: []
-        image: ${SNAPSHOTTER_IMAGE}
-        imagePullPolicy: IfNotPresent
-        name: csi-snapshotter
-        resources:
-          requests:
-            cpu: 10m
-            memory: 50Mi
-        volumeMounts:
-        - mountPath: /var/lib/csi/sockets/pluginproxy/
-          name: socket-dir
-      - args:
-        - --secure-listen-address=0.0.0.0:9216
-        - --upstream=http://127.0.0.1:8216/
-        - --tls-cert-file=/etc/tls/private/tls.crt
-        - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
-        - --tls-min-version=${TLS_MIN_VERSION}
-        - --logtostderr=true
-        image: ${KUBE_RBAC_PROXY_IMAGE}
-        imagePullPolicy: IfNotPresent
-        name: snapshotter-kube-rbac-proxy
-        ports:
-        - containerPort: 9216
-          name: snapshotter-m
           protocol: TCP
         resources:
           requests:

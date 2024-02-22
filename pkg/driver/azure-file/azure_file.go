@@ -74,11 +74,8 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--timeout=120s",
 				),
 				commongenerator.DefaultResizer.WithExtraArguments(
-					"--timeout=240s",
+					"--timeout=120s",
 					"-handle-volume-inuse-error=false",
-				),
-				commongenerator.DefaultSnapshotter.WithExtraArguments(
-					"--timeout=600s",
 				),
 				commongenerator.DefaultLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
