@@ -1,0 +1,335 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller.yaml
+# Applied strategic merge patch overlays/azure-file/patches/controller_add_driver.yaml
+# Applied strategic merge patch common/sidecars/driver_kube_rbac_proxy.yaml
+# provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
+# provisioner.yaml: Added arguments [--extra-create-metadata=true --timeout=300s]
+# Applied strategic merge patch provisioner.yaml
+# attacher.yaml: Loaded from common/sidecars/attacher.yaml
+# attacher.yaml: Added arguments [--timeout=120s]
+# Applied strategic merge patch attacher.yaml
+# resizer.yaml: Loaded from common/sidecars/resizer.yaml
+# resizer.yaml: Added arguments [--timeout=120s -handle-volume-inuse-error=false]
+# Applied strategic merge patch resizer.yaml
+# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
+# livenessprobe.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch livenessprobe.yaml
+# Applied strategic merge patch common/standalone/controller_add_affinity.yaml
+# Applied strategic merge patch overlays/azure-file/patches/controller_add_standalone_injector.yaml
+#
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+  name: azure-file-csi-driver-controller
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: azure-file-csi-driver-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: socket-dir
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        app: azure-file-csi-driver-controller
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: azure-file-csi-driver-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - --enable-vhd=false
+        - --endpoint=$(CSI_ENDPOINT)
+        - --logtostderr
+        - --metrics-address=localhost:8211
+        - --v=${LOG_LEVEL}
+        - --cloud-config-secret-name=""
+        - --cloud-config-secret-namespace=""
+        - --user-agent-suffix=OSS-kubectl
+        env:
+        - name: AZURE_CREDENTIAL_FILE
+          value: /etc/kubernetes/cloud.conf
+        - name: CSI_ENDPOINT
+          value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+        image: ${DRIVER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+        name: csi-driver
+        ports:
+        - containerPort: 10303
+          name: healthz
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+        - mountPath: /etc/kubernetes/
+          name: cloud-config
+          readOnly: true
+        - mountPath: /var/run/secrets/openshift/serviceaccount
+          name: bound-sa-token
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:9211
+        - --upstream=http://127.0.0.1:8211/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: kube-rbac-proxy-8211
+        ports:
+        - containerPort: 9211
+          name: driver-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8213
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --v=${LOG_LEVEL}
+        - --extra-create-metadata=true
+        - --timeout=300s
+        env: []
+        image: ${PROVISIONER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-provisioner
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9213
+        - --upstream=http://127.0.0.1:8213/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: provisioner-kube-rbac-proxy
+        ports:
+        - containerPort: 9213
+          name: provisioner-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8214
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --v=${LOG_LEVEL}
+        - --timeout=120s
+        env: []
+        image: ${ATTACHER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-attacher
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9214
+        - --upstream=http://127.0.0.1:8214/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: attacher-kube-rbac-proxy
+        ports:
+        - containerPort: 9214
+          name: attacher-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8215
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --v=${LOG_LEVEL}
+        - --timeout=120s
+        - -handle-volume-inuse-error=false
+        env: []
+        image: ${RESIZER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-resizer
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9215
+        - --upstream=http://127.0.0.1:8215/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: resizer-kube-rbac-proxy
+        ports:
+        - containerPort: 9215
+          name: resizer-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --health-port=10303
+        - --v=${LOG_LEVEL}
+        - --probe-timeout=3s
+        env: []
+        image: ${LIVENESS_PROBE_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-liveness-probe
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+      initContainers:
+      - args:
+        - --cloud-config-file-path=/etc/cloud-config/config
+        - --output-file-path=/etc/kubernetes/cloud.conf
+        - --disable-identity-extension-auth
+        - --enable-azure-workload-identity=${ENABLE_AZURE_WORKLOAD_IDENTITY}
+        command:
+        - /azure-config-credentials-injector
+        env:
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              key: azure_client_id
+              name: azure-file-credentials
+        - name: AZURE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: azure_client_secret
+              name: azure-file-credentials
+              optional: true
+        - name: AZURE_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              key: azure_tenant_id
+              name: azure-file-credentials
+              optional: true
+        - name: AZURE_FEDERATED_TOKEN_FILE
+          valueFrom:
+            secretKeyRef:
+              key: azure_federated_token_file
+              name: azure-file-credentials
+              optional: true
+        image: ${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}
+        name: azure-inject-credentials
+        volumeMounts:
+        - mountPath: /etc/cloud-config
+          name: src-cloud-config
+          readOnly: true
+        - mountPath: /etc/kubernetes
+          name: cloud-config
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      priorityClassName: system-cluster-critical
+      serviceAccount: azure-file-csi-driver-controller-sa
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      volumes:
+      - emptyDir: {}
+        name: socket-dir
+      - name: metrics-serving-cert
+        secret:
+          secretName: azure-file-csi-driver-controller-metrics-serving-cert
+      - configMap:
+          name: azure-cloud-config
+        name: src-cloud-config
+      - emptyDir: {}
+        name: cloud-config
+      - name: bound-sa-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: openshift
+              path: token

@@ -1,0 +1,64 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+spec:
+  template:
+    spec:
+      initContainers:
+        # Merge /etc/kubernetes/cloud.conf (on the host) with secret "azure-file-credentials" into "merged-cloud-config" emptydir.
+        - name: azure-inject-credentials
+          image: ${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}
+          command:
+            - /azure-config-credentials-injector
+          args:
+            - --cloud-config-file-path=/etc/cloud-config/config
+            - --output-file-path=/etc/kubernetes/cloud.conf
+            # Force disable node's managed identity, azure-file-credentials Secret should be used.
+            - --disable-identity-extension-auth
+            - --enable-azure-workload-identity=${ENABLE_AZURE_WORKLOAD_IDENTITY}
+          env:
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-file-credentials
+                  key: azure_client_id
+            - name: AZURE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: azure-file-credentials
+                  key: azure_client_secret
+                  optional: true
+            - name: AZURE_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-file-credentials
+                  key: azure_tenant_id
+                  optional: true
+            - name: AZURE_FEDERATED_TOKEN_FILE
+              valueFrom:
+                secretKeyRef:
+                  name: azure-file-credentials
+                  key: azure_federated_token_file
+                  optional: true
+          volumeMounts:
+            - name: src-cloud-config
+              mountPath: /etc/cloud-config
+              readOnly: true
+            - name: cloud-config
+              mountPath: /etc/kubernetes
+      volumes:
+        - name: src-cloud-config
+          configMap:
+            name: azure-cloud-config
+        - emptyDir: {}
+          name: cloud-config
+        - name: bound-sa-token
+          projected:
+            sources:
+            - serviceAccountToken:
+                path: token
+                audience: openshift
+

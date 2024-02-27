@@ -1,0 +1,137 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+spec:
+  template:
+    spec:
+      hostNetwork: true
+      containers:
+        - name: csi-driver
+          securityContext:
+            privileged: true
+          image: ${DRIVER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --nodeid=$(KUBE_NODE_NAME)
+            - --user-agent-suffix=OSS-kubectl
+            - --v=${LOG_LEVEL}
+            # Use credentials provided by the azure-inject-credentials container
+            - --cloud-config-secret-name=""
+            - --cloud-config-secret-namespace=""
+          env:
+            - name: AZURE_CREDENTIAL_FILE
+              value: "/etc/kubernetes/cloud.conf"
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+          ports:
+            - name: healthz
+              # Due to hostNetwork, this port is open on all nodes!
+              containerPort: 10302
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          volumeMounts:
+          - mountPath: /csi
+            name: socket-dir
+          - mountPath: /var/lib/kubelet
+            mountPropagation: Bidirectional
+            name: kubelet-dir
+          - mountPath: /etc/kubernetes/
+            readOnly: true
+            name: cloud-config
+          - mountPath: /dev
+            name: device-dir
+          - mountPath: /sys/bus/scsi/devices
+            name: sys-devices-dir
+          - mountPath: /sys/class/scsi_host/
+            name: scsi-host-dir
+          - mountPath: /etc/selinux
+            name: etc-selinux
+          - mountPath: /sys/fs
+            name: sys-fs
+          - name: bound-sa-token
+            mountPath: /var/run/secrets/openshift/serviceaccount
+            readOnly: true
+      initContainers:
+        # Merge /etc/kubernetes/cloud.conf (on the host) with secret "azure-file-credentials" into "merged-cloud-config" emptydir.
+        - name: azure-inject-credentials
+          image: ${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}
+          command:
+            - /azure-config-credentials-injector
+          args:
+            - --cloud-config-file-path=/etc/cloud-config/config
+            - --output-file-path=/etc/merged-cloud-config/cloud.conf
+            # Force disable node's managed identity, azure-file-credentials Secret should be used.
+            - --disable-identity-extension-auth
+            - --enable-azure-workload-identity=${ENABLE_AZURE_WORKLOAD_IDENTITY}
+          env:
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-file-credentials
+                  key: azure_client_id
+            - name: AZURE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: azure-file-credentials
+                  key: azure_client_secret
+                  optional: true
+            - name: AZURE_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-file-credentials
+                  key: azure_tenant_id
+                  optional: true
+            - name: AZURE_FEDERATED_TOKEN_FILE
+              valueFrom:
+                secretKeyRef:
+                  name: azure-file-credentials
+                  key: azure_federated_token_file
+                  optional: true
+          volumeMounts:
+            - name: src-cloud-config
+              mountPath: /etc/cloud-config
+              readOnly: true
+            - name: cloud-config
+              mountPath: /etc/merged-cloud-config
+      volumes:
+        - name: src-cloud-config
+          configMap:
+            name: azure-cloud-config
+        - hostPath:
+            path: /sys/bus/scsi/devices
+            type: Directory
+          name: sys-devices-dir
+        - hostPath:
+            path: /sys/class/scsi_host/
+            type: Directory
+          name: scsi-host-dir
+        - emptydir: {}
+          name: cloud-config
+        - name: bound-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: openshift
+
