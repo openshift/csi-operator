@@ -106,6 +106,8 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/azure-file/base/storageclass.yaml",
 				"overlays/azure-file/base/csi-driver-cluster-role.yaml",
 				"overlays/azure-file/base/csi-driver-cluster-role-binding.yaml",
+				"overlays/azure-file/base/csi-driver-cluster-role-binding-node.yaml",
+				"overlays/azure-file/base/csi-driver-cluster-role-node.yaml",
 			),
 		},
 	}
