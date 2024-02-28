@@ -127,6 +127,7 @@ func GetAzureFileOperatorConfig() *config.OperatorConfig {
 // after a client connection + cluster flavour are established.
 func GetAzureFileOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AzureFile")
+	klog.Infof("Running using new csi-operator")
 
 	// We need featuregate accessor made available to the operator pods
 	desiredVersion := os.Getenv(operatorImageVersionEnvVarName)
