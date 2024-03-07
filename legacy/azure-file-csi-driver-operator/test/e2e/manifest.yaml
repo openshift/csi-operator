@@ -20,3 +20,4 @@ DriverInfo:
     # Snapshots are not supported in this release
     snapshotDataSource: false
     multiplePVsSameID: true
+    readWriteOncePod: true

@@ -29,6 +29,7 @@ DriverInfo:
     topology: true
     multipods: true
     multiplePVsSameID: true
+    readWriteOncePod: true
 Timeouts:
   PodStart: 15m
   PodDelete: 15m
