@@ -19,6 +19,7 @@ spec:
             - --endpoint=$(CSI_ENDPOINT)
             - --logtostderr
             - --v=${LOG_LEVEL}
+            - --reserved-volume-attachments=1
           env:
             - name: CSI_ENDPOINT
               value: unix:/csi/csi.sock
