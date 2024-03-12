@@ -25,4 +25,7 @@ updates:
     - "docs-approved"
     - "qe-approved"
     - "jira/valid-reference"
-  open-pull-requests-limit: 10
+  # 0 means that only security updates are allowed.
+  # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#open-pull-requests-limit
+  # https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates#overriding-the-default-behavior-with-a-configuration-file
+  open-pull-requests-limit: 0
