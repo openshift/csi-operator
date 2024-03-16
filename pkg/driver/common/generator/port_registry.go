@@ -8,7 +8,4 @@ const (
 	// expect to deploy azure-disk and EBS driver on same clusters
 	AzureDiskLoopbackMetricsPortStart = 8201
 	AzureDiskExposedMetricsPortStart  = 9201
-
-	AzureFileLoopbackMetricsPortStart = 8211
-	AzureFileExposedMetricsPortStart  = 9211
 )
