@@ -69,6 +69,10 @@ spec:
           value: /etc/kubernetes/cloud.conf
         - name: CSI_ENDPOINT
           value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+        - name: AZCOPY_LOG_LOCATION
+          value: /tmp/azcopy
+        - name: AZCOPY_JOB_PLAN_LOCATION
+          value: /tmp/azcopy
         image: ${DRIVER_IMAGE}
         imagePullPolicy: IfNotPresent
         livenessProbe:
