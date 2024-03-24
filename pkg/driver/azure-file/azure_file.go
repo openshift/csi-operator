@@ -106,6 +106,8 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/azure-file/base/storageclass.yaml",
 				"overlays/azure-file/base/csi-driver-cluster-role.yaml",
 				"overlays/azure-file/base/csi-driver-cluster-role-binding.yaml",
+				"overlays/azure-file/base/csi-driver-cluster-role-binding-node.yaml",
+				"overlays/azure-file/base/csi-driver-cluster-role-node.yaml",
 			),
 		},
 	}
@@ -127,6 +129,7 @@ func GetAzureFileOperatorConfig() *config.OperatorConfig {
 // after a client connection + cluster flavour are established.
 func GetAzureFileOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AzureFile")
+	klog.Infof("Running using new csi-operator")
 
 	// We need featuregate accessor made available to the operator pods
 	desiredVersion := os.Getenv(operatorImageVersionEnvVarName)
