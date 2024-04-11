@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: csi-smb-node-privileged-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: smb-privileged-role
+subjects:
+- kind: ServiceAccount
+  name: csi-smb-node-sa
+  namespace: openshift-cluster-csi-drivers

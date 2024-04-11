@@ -1,0 +1,15 @@
+controllerStaticAssetNames:
+- controller.yaml
+- controller_pdb.yaml
+- controller_sa.yaml
+guestStaticAssetNames:
+- configmap_and_secret_reader_provisioner_binding.yaml
+- controller_privileged_binding.yaml
+- csidriver.yaml
+- lease_leader_election_binding.yaml
+- lease_leader_election_role.yaml
+- main_provisioner_binding.yaml
+- node.yaml
+- node_privileged_binding.yaml
+- node_sa.yaml
+- privileged_role.yaml
