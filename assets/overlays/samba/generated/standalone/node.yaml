@@ -1,7 +1,7 @@
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: csi-smb-node
+  name: smb-csi-driver-node
   namespace: openshift-cluster-csi-drivers
 spec:
   updateStrategy:
@@ -10,15 +10,15 @@ spec:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: csi-smb-node
+      app: smb-csi-driver-node
   template:
     metadata:
       labels:
-        app: csi-smb-node
+        app: smb-csi-driver-node
     spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet  # available values: Default, ClusterFirstWithHostNet, ClusterFirst
-      serviceAccountName: csi-smb-node-sa
+      serviceAccountName: smb-csi-driver-node-sa
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
