@@ -1,0 +1,24 @@
+StorageClass:
+  FromExistingClassName: samba
+SnapshotClass:
+  FromName: true
+DriverInfo:
+  Name: smb.csi.k8s.io
+  SupportedSizeRange:
+    Min: 1Gi
+    Max: 64Ti
+  Capabilities:
+    persistence: true
+    fsGroup: true
+    block: false
+    exec: true
+    volumeLimits: false
+    controllerExpansion: false
+    nodeExpansion: false
+    snapshotDataSource: false
+    RWX: true
+    pvcDataSource: true
+    volumeMountGroup: true
+    topology: false
+    multiplePVsSameID: true
+    readWriteOncePod: true

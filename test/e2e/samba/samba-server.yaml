@@ -1,0 +1,202 @@
+# A simple samba server in OCP in namespace samba-server.
+# It needs a default StorageClass to create a persistent storage for the samba share.
+#
+# It exposes a share //samba-server.samba-server.svc.cluster.local/share
+# Use user 'sambauser' with password 'samba2'.
+# Use "samba" StorageClass + dynamic provisioning.
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: samba-server
+  labels:
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
+spec: {}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: samba-server-privileged-role
+rules:
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - privileged
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: samba-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: samba-server-privileged-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: samba-server
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: samba-container-config
+  namespace: samba-server
+data:
+  config.json: |
+    {
+      "samba-container-config": "v0",
+      "configs": {
+        "demo": {
+          "shares": [
+            "share"
+          ],
+          "globals": [
+            "default"
+          ],
+          "instance_name": "SAMBA"
+        }
+      },
+      "shares": {
+        "share": {
+          "options": {
+            "path": "/share",
+            "read only": "no",
+            "valid users": "sambauser"
+          }
+        }
+      },
+      "globals": {
+        "default": {
+          "options": {
+            "security": "user",
+            "server min protocol": "SMB2",
+            "load printers": "no",
+            "printing": "bsd",
+            "printcap name": "/dev/null",
+            "disable spoolss": "yes",
+            "guest ok": "no"
+          }
+        }
+      },
+      "users": {
+        "all_entries": [
+          {
+            "name": "sambauser",
+            "password": "samba2"
+          }
+        ]
+      },
+      "_footer": 1
+    }
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: samba
+  namespace: samba-server
+spec:
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Delete
+  selector:
+    matchLabels:
+      app: samba-server
+  template:
+    metadata:
+      labels:
+        app: samba-server
+    spec:
+      containers:
+        - name: mycontainer
+          image: quay.io/samba.org/samba-server:latest
+          args:
+            - "--samba-debug-level=2"
+            - "run"
+            - "smbd"
+          env:
+            - name: SAMBACC_CONFIG
+              value: /etc/samba-container/config.json
+          securityContext:
+            privileged: true
+          ports:
+            - containerPort: 445
+              name: "samba445"
+          volumeMounts:
+            - mountPath: "/share"
+              name: data
+            - mountPath: "/etc/samba-container"
+              name: cfg
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: cfg
+          configMap:
+            name: samba-container-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data2
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: samba-server
+  namespace: samba-server
+spec:
+  ports:
+    - name: samba
+      port: 445
+  selector:
+    app: samba-server
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: smbcreds
+  namespace: samba-server
+stringData:
+  username: sambauser
+  password: samba2
+
+---
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: samba
+provisioner: smb.csi.k8s.io
+parameters:
+  source: //samba-server.samba-server.svc.cluster.local/share
+  csi.storage.k8s.io/provisioner-secret-name: smbcreds
+  csi.storage.k8s.io/provisioner-secret-namespace: samba-server
+  csi.storage.k8s.io/node-stage-secret-name: smbcreds
+  csi.storage.k8s.io/node-stage-secret-namespace: samba-server
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+mountOptions:
+  - mfsymlinks
