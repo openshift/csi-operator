@@ -21,3 +21,4 @@ DriverInfo:
     snapshotDataSource: false
     multiplePVsSameID: true
     readWriteOncePod: true
+    pvcDataSource: true
