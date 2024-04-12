@@ -147,6 +147,7 @@ func GetAzureDiskOperatorConfig() *config.OperatorConfig {
 		AssetDir:                        generatedAssetBase,
 		CloudConfigNamespace:            openshiftDefaultCloudConfigNamespace,
 		OperatorControllerConfigBuilder: GetAzureDiskOperatorControllerConfig,
+		Removable:                       false,
 	}
 }
 

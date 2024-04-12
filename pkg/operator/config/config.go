@@ -28,6 +28,8 @@ type OperatorConfig struct {
 	OperatorControllerConfigBuilder func(context.Context, generator.ClusterFlavour, *clients.Clients) (*OperatorControllerConfig, error)
 	// CloudConfigNamespace defines namespace in which cloud-configuration exists
 	CloudConfigNamespace string
+	// Removable should be true if the operator and its operand can be removed
+	Removable bool
 }
 
 // OperatorControllerConfig is configuration of controllers that are used to deploy CSI drivers.
