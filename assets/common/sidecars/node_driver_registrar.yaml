@@ -41,3 +41,4 @@ spec:
             requests:
               memory: 50Mi
               cpu: 10m
+          terminationMessagePolicy: FallbackToLogsOnError

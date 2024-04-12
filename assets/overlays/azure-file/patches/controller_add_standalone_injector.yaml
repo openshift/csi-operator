@@ -43,6 +43,7 @@ spec:
                   name: azure-file-credentials
                   key: azure_federated_token_file
                   optional: true
+          terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - name: src-cloud-config
               mountPath: /etc/cloud-config

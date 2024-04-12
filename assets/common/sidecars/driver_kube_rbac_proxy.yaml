@@ -25,6 +25,7 @@ spec:
             requests:
               memory: 20Mi
               cpu: 10m
+          terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
           - mountPath: /etc/tls/private
             name: metrics-serving-cert
