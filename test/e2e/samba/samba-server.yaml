@@ -123,6 +123,13 @@ spec:
       labels:
         app: samba-server
     spec:
+      initContainers:
+        - name: make-writable
+          image: quay.io/centos/centos:stream9
+          command: [ "chmod", "777", "/share" ]
+          volumeMounts:
+          - mountPath: "/share"
+            name: data
       containers:
         - name: mycontainer
           image: quay.io/samba.org/samba-server:latest
@@ -144,14 +151,12 @@ spec:
             - mountPath: "/etc/samba-container"
               name: cfg
       volumes:
-        - name: data
-          emptyDir: {}
         - name: cfg
           configMap:
             name: samba-container-config
   volumeClaimTemplates:
     - metadata:
-        name: data2
+        name: data
       spec:
         accessModes: [ "ReadWriteOnce" ]
         resources:
