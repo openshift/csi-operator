@@ -1,0 +1,18 @@
+updates:
+  - file: "preview/smb-csi-driver-operator.clusterserviceversion.yaml" # relative to this file
+    update_list:
+    # replace metadata.name value
+    - search: "smb-csi-driver-operator.v{MAJOR}.{MINOR}.0"
+      replace: "smb-csi-driver-operator.v{FULL_VER}"
+    # replace entire version line, otherwise would replace 4.3.0 anywhere
+    - search: "version: {MAJOR}.{MINOR}.0"
+      replace: "version: {FULL_VER}"
+    - search: 'olm.skipRange: ">=4.16.0-0 <{MAJOR}.{MINOR}.0"'
+      replace: 'olm.skipRange: ">=4.16.0-0 <{FULL_VER}"'
+    # Update links in the CSV description to exact OCP version
+    - search: 'https://docs.openshift.com/container-platform/latest/'
+      replace: 'https://docs.openshift.com/container-platform/{MAJOR}.{MINOR}/'
+  - file: "smb-csi-driver-operator.package.yaml"
+    update_list:
+    - search: "currentCSV: smb-csi-driver-operator.v{MAJOR}.{MINOR}.0"
+      replace: "currentCSV: smb-csi-driver-operator.{FULL_VER}"

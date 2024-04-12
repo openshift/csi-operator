@@ -1,0 +1,29 @@
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+spec:
+  tags:
+  - name: smb-csi-driver-rhel9-operator
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-smb-csi-driver-operator:latest
+  - name: smb-csi-driver-container-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-csi-driver-smb:latest
+  - name: csi-external-provisioner
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-csi-external-provisioner:latest
+  - name: csi-node-driver-registrar
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-csi-node-driver-registrar:latest
+  - name: csi-livenessprobe
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-csi-livenessprobe:latest
+  - name: kube-rbac-proxy
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-kube-rbac-proxy:latest
