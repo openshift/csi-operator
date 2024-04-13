@@ -66,6 +66,7 @@ spec:
             requests:
               memory: 50Mi
               cpu: 10m
+          terminationMessagePolicy: FallbackToLogsOnError
       volumes:
         - name: aws-credentials
           secret:

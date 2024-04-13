@@ -70,6 +70,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
@@ -126,6 +127,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
@@ -182,6 +184,7 @@ spec:
               optional: true
         image: ${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}
         name: azure-inject-credentials
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /etc/cloud-config
           name: src-cloud-config
