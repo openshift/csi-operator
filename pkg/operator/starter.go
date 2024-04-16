@@ -20,6 +20,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -79,6 +80,20 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controlPlaneControllerInformers = append(controlPlaneControllerInformers, controlPlaneSecretInformer.Informer())
 	}
 
+	// Only removable operators use conditional static resources.
+	// If the operator is not removable, leave these functions nil
+	// to unconditionally sync static resources.
+	var shouldCreateFn resourceapply.ConditionalFunction = nil
+	var shouldDeleteFn resourceapply.ConditionalFunction = nil
+	if opConfig.Removable {
+		shouldCreateFn = func() bool {
+			return getOperatorSyncState(c.OperatorClient) == opv1.Managed
+		}
+		shouldDeleteFn = func() bool {
+			return getOperatorSyncState(c.OperatorClient) == opv1.Removed
+		}
+	}
+
 	controlPlaneCSIControllerSet := csicontrollerset.NewCSIControllerSet(
 		c.OperatorClient,
 		c.EventRecorder,
@@ -92,12 +107,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		c.ControlPlaneKubeInformers,
 		a.GetAsset,
 		a.GetControllerStaticAssetNames(),
-		func() bool {
-			return getOperatorSyncState(c.OperatorClient) == opv1.Managed
-		},
-		func() bool {
-			return getOperatorSyncState(c.OperatorClient) == opv1.Removed
-		},
+		shouldCreateFn,
+		shouldDeleteFn,
 	).WithCSIConfigObserverController(
 		csiOperatorControllerConfig.GetControllerName("DriverCSIConfigObserverController"),
 		c.ConfigInformers,
@@ -137,12 +148,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		c.KubeInformers,
 		a.GetAsset,
 		a.GetGuestStaticAssetNames(),
-		func() bool {
-			return getOperatorSyncState(c.OperatorClient) == opv1.Managed
-		},
-		func() bool {
-			return getOperatorSyncState(c.OperatorClient) == opv1.Removed
-		},
+		shouldCreateFn,
+		shouldDeleteFn,
 	).WithCSIDriverNodeService(
 		csiOperatorControllerConfig.GetControllerName("DriverNodeServiceController"),
 		a.GetAsset,
@@ -218,16 +225,15 @@ func getOperatorSyncState(operatorClient v1helpers.OperatorClientWithFinalizers)
 		klog.Errorf("Failed to get operator state: %v", err)
 		return opv1.Unmanaged
 	}
-	// return the state from the operator if it's not managed
 	if opSpec.ManagementState != opv1.Managed {
-		return opSpec.ManagementState
+		klog.Infof("Operator is not managed, skipping conditional resource sync")
+		return opv1.Unmanaged
 	}
 	meta, err := operatorClient.GetObjectMeta()
 	if err != nil {
 		klog.Errorf("Failed to get operator object meta: %v", err)
 		return opv1.Unmanaged
 	}
-	// deletion timestamp is treated the same as the state being removed
 	if management.IsOperatorRemovable() && meta.DeletionTimestamp != nil {
 		klog.Infof("Operator deletion timestamp is set, removing conditional resources")
 		return opv1.Removed
