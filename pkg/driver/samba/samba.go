@@ -26,6 +26,7 @@ func GetSambaOperatorConfig() *config.OperatorConfig {
 		AssetReader:                     assets.ReadFile,
 		AssetDir:                        generatedAssetBase,
 		OperatorControllerConfigBuilder: GetSambaOperatorControllerConfig,
+		Removable:                       true,
 	}
 }
 

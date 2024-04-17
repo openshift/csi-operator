@@ -120,6 +120,7 @@ func GetAzureFileOperatorConfig() *config.OperatorConfig {
 		AssetDir:                        generatedAssetBase,
 		CloudConfigNamespace:            openshiftDefaultCloudConfigNamespace,
 		OperatorControllerConfigBuilder: GetAzureFileOperatorControllerConfig,
+		Removable:                       false,
 	}
 }
 

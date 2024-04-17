@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
+	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
@@ -18,6 +19,9 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csicontrollerset"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
+	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type ConfigProvider func(flavour generator.ClusterFlavour, c *clients.Clients) *config.OperatorConfig
@@ -76,19 +80,35 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controlPlaneControllerInformers = append(controlPlaneControllerInformers, controlPlaneSecretInformer.Informer())
 	}
 
+	// Only removable operators use conditional static resources.
+	// If the operator is not removable, leave these functions nil
+	// to unconditionally sync static resources.
+	var shouldCreateFn resourceapply.ConditionalFunction = nil
+	var shouldDeleteFn resourceapply.ConditionalFunction = nil
+	if opConfig.Removable {
+		shouldCreateFn = func() bool {
+			return getOperatorSyncState(c.OperatorClient) == opv1.Managed
+		}
+		shouldDeleteFn = func() bool {
+			return getOperatorSyncState(c.OperatorClient) == opv1.Removed
+		}
+	}
+
 	controlPlaneCSIControllerSet := csicontrollerset.NewCSIControllerSet(
 		c.OperatorClient,
 		c.EventRecorder,
 	).WithLogLevelController().WithManagementStateController(
 		csiOperatorControllerConfig.GetControllerName("CSIDriver"),
-		false,
-	).WithStaticResourcesController(
+		opConfig.Removable, // true if the operator is removable
+	).WithConditionalStaticResourcesController(
 		csiOperatorControllerConfig.GetControllerName("DriverControlPlaneStaticResourcesController"),
 		c.ControlPlaneKubeClient,
 		c.ControlPlaneDynamicClient,
 		c.ControlPlaneKubeInformers,
 		a.GetAsset,
 		a.GetControllerStaticAssetNames(),
+		shouldCreateFn,
+		shouldDeleteFn,
 	).WithCSIConfigObserverController(
 		csiOperatorControllerConfig.GetControllerName("DriverCSIConfigObserverController"),
 		c.ConfigInformers,
@@ -121,13 +141,15 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	guestCSIControllerSet := csicontrollerset.NewCSIControllerSet(
 		c.OperatorClient,
 		c.EventRecorder,
-	).WithStaticResourcesController(
+	).WithConditionalStaticResourcesController(
 		csiOperatorControllerConfig.GetControllerName("DriverGuestStaticResourcesController"),
 		c.KubeClient,
 		c.DynamicClient,
 		c.KubeInformers,
 		a.GetAsset,
 		a.GetGuestStaticAssetNames(),
+		shouldCreateFn,
+		shouldDeleteFn,
 	).WithCSIDriverNodeService(
 		csiOperatorControllerConfig.GetControllerName("DriverNodeServiceController"),
 		a.GetAsset,
@@ -186,4 +208,35 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	<-ctx.Done()
 
 	return nil
+}
+
+// getOperatorSyncState returns the management state of the operator to determine
+// how to sync conditional resources. It returns one of the following states:
+//
+//	Managed: resources should be synced
+//	Unmanaged: resources should NOT be synced
+//	Removed: resources should be deleted
+//
+// Errors fetching the operator state will log an error and return Unmanaged
+// to avoid syncing resources when the actual state is unknown.
+func getOperatorSyncState(operatorClient v1helpers.OperatorClientWithFinalizers) opv1.ManagementState {
+	opSpec, _, _, err := operatorClient.GetOperatorState()
+	if err != nil {
+		klog.Errorf("Failed to get operator state: %v", err)
+		return opv1.Unmanaged
+	}
+	if opSpec.ManagementState != opv1.Managed {
+		klog.Infof("Operator is not managed, skipping conditional resource sync")
+		return opv1.Unmanaged
+	}
+	meta, err := operatorClient.GetObjectMeta()
+	if err != nil {
+		klog.Errorf("Failed to get operator object meta: %v", err)
+		return opv1.Unmanaged
+	}
+	if management.IsOperatorRemovable() && meta.DeletionTimestamp != nil {
+		klog.Infof("Operator deletion timestamp is set, removing conditional resources")
+		return opv1.Removed
+	}
+	return opv1.Managed
 }
