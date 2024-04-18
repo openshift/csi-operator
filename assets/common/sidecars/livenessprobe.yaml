@@ -6,6 +6,7 @@ spec:
         - name: csi-liveness-probe
           image: ${LIVENESS_PROBE_IMAGE}
           imagePullPolicy: IfNotPresent
+          terminationMessagePolicy: FallbackToLogsOnError
           args:
             - --csi-address=/csi/csi.sock
             - --health-port=${LIVENESS_PROBE_PORT}
