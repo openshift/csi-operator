@@ -8,6 +8,7 @@ import (
 	aws_ebs "github.com/openshift/csi-operator/pkg/driver/aws-ebs"
 	azure_disk "github.com/openshift/csi-operator/pkg/driver/azure-disk"
 	azure_file "github.com/openshift/csi-operator/pkg/driver/azure-file"
+	samba "github.com/openshift/csi-operator/pkg/driver/samba"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"k8s.io/klog/v2"
 )
@@ -23,7 +24,14 @@ func main() {
 
 	cfgs := collectConfigs()
 	for _, cfg := range cfgs {
-		for _, flavour := range []generator.ClusterFlavour{generator.FlavourStandalone, generator.FlavourHyperShift} {
+		var flavours []generator.ClusterFlavour
+		// We want "standalone" dir to be populated for all cases
+		flavours = append(flavours, generator.FlavourStandalone)
+		// In most cases we want "hypershift" to be populated as well
+		if !cfg.StandaloneOnly {
+			flavours = append(flavours, generator.FlavourHyperShift)
+		}
+		for _, flavour := range flavours {
 			gen := generator.NewAssetGenerator(generator.ClusterFlavour(flavour), cfg, assets.ReadFile)
 			a, err := gen.GenerateAssets()
 			if err != nil {
@@ -44,5 +52,6 @@ func collectConfigs() []*generator.CSIDriverGeneratorConfig {
 		aws_ebs.GetAWSEBSGeneratorConfig(),
 		azure_disk.GetAzureDiskGeneratorConfig(),
 		azure_file.GetAzureFileGeneratorConfig(),
+		samba.GetSambaGeneratorConfig(),
 	}
 }
