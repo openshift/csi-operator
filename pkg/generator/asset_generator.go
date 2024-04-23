@@ -131,8 +131,8 @@ func (gen *AssetGenerator) generateDeployment() error {
 			"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(port.ExposedPort)),
 			"${PORT_NAME}", port.Name,
 		)
-		localPortIndex++
-		exposedPortIndex++
+		port.LocalPort++
+		port.ExposedPort++
 		err = gen.applyAssetPatch(deploymentYAML, "common/sidecars/driver_kube_rbac_proxy.yaml", extraReplacements)
 		if err != nil {
 			return err

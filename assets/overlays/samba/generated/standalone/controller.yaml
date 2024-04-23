@@ -103,7 +103,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --http-endpoint=localhost:8223
+        - --http-endpoint=localhost:8222
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
@@ -125,7 +125,7 @@ spec:
           name: socket-dir
       - args:
         - --secure-listen-address=0.0.0.0:9222
-        - --upstream=http://127.0.0.1:8223/
+        - --upstream=http://127.0.0.1:8222/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
