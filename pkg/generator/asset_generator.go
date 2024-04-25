@@ -8,6 +8,8 @@ import (
 	generated_assets "github.com/openshift/csi-operator/pkg/generated-assets"
 )
 
+// DUMMY CHANGE
+
 // AssetGenerator generates assets for CSI driver operators.
 type AssetGenerator struct {
 	flavour          ClusterFlavour
