@@ -11,12 +11,75 @@ import (
 	"github.com/openshift/csi-operator/pkg/operator/config"
 
 	opv1 "github.com/openshift/api/operator/v1"
+	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
 	"k8s.io/klog/v2"
 )
 
 const (
 	generatedAssetBase = "overlays/samba/generated"
 )
+
+func GetSambaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
+	return &generator.CSIDriverGeneratorConfig{
+		AssetPrefix:      "smb-csi-driver",
+		AssetShortPrefix: "smb",
+		DriverName:       "smb.csi.k8s.io",
+		StandaloneOnly:   true,
+		OutputDir:        generatedAssetBase,
+
+		ControllerConfig: &generator.ControlPlaneConfig{
+			DeploymentTemplateAssetName: "overlays/samba/patches/controller_add_driver.yaml",
+			LivenessProbePort:           10307,
+			MetricsPorts: []generator.MetricsPort{
+				{
+					LocalPort:           commongenerator.SambaLoopbackMetricsPortStart,
+					InjectKubeRBACProxy: true,
+					ExposedPort:         commongenerator.SambaExposedMetricsPortStart,
+					Name:                "driver-m",
+				},
+			},
+			SidecarLocalMetricsPortStart:   commongenerator.SambaLoopbackMetricsPortStart + 1,
+			SidecarExposedMetricsPortStart: commongenerator.SambaExposedMetricsPortStart + 1,
+			Sidecars: []generator.SidecarConfig{
+				commongenerator.DefaultProvisioner.WithExtraArguments(
+					"--extra-create-metadata=true",
+				),
+				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+					"--probe-timeout=3s",
+				),
+			},
+			Assets: generator.NewAssets(generator.StandaloneOnly,
+				"base/controller_sa.yaml",
+				"base/controller_pdb.yaml",
+			).WithAssets(generator.StandaloneOnly,
+				"base/rbac/kube_rbac_proxy_role.yaml",
+				"base/rbac/kube_rbac_proxy_binding.yaml",
+				"base/rbac/prometheus_role.yaml",
+				"base/rbac/prometheus_binding.yaml",
+			),
+			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
+				"controller.yaml", "common/standalone/controller_add_affinity.yaml",
+			),
+		},
+
+		GuestConfig: &generator.GuestConfig{
+			DaemonSetTemplateAssetName:   "overlays/samba/patches/node_add_driver.yaml",
+			LivenessProbePort:            10306,
+			NodeRegistrarHealthCheckPort: 10308,
+			Sidecars: []generator.SidecarConfig{
+				commongenerator.DefaultNodeDriverRegistrar,
+				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+					"--probe-timeout=3s",
+				),
+			},
+			Assets: commongenerator.DefaultNodeAssets.WithAssets(generator.AllFlavours,
+				"overlays/samba/base/configmap_and_secret_reader_provisioner_binding.yaml",
+				"overlays/samba/base/controller_privileged_binding.yaml",
+				"overlays/samba/base/csidriver.yaml",
+			),
+		},
+	}
+}
 
 // GetSambaOperatorConfig returns runtime configuration of the CSI driver operator.
 func GetSambaOperatorConfig() *config.OperatorConfig {

@@ -11,4 +11,7 @@ const (
 
 	AzureFileLoopbackMetricsPortStart = 8211
 	AzureFileExposedMetricsPortStart  = 9211
+
+	SambaLoopbackMetricsPortStart = 8221
+	SambaExposedMetricsPortStart  = 9221
 )

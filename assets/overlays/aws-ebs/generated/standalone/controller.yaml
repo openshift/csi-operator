@@ -139,7 +139,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --http-endpoint=localhost:8203
+        - --http-endpoint=localhost:8202
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
@@ -166,8 +166,8 @@ spec:
         - mountPath: /var/lib/csi/sockets/pluginproxy/
           name: socket-dir
       - args:
-        - --secure-listen-address=0.0.0.0:9203
-        - --upstream=http://127.0.0.1:8203/
+        - --secure-listen-address=0.0.0.0:9202
+        - --upstream=http://127.0.0.1:8202/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
@@ -177,7 +177,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: provisioner-kube-rbac-proxy
         ports:
-        - containerPort: 9203
+        - containerPort: 9202
           name: provisioner-m
           protocol: TCP
         resources:
@@ -190,7 +190,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --http-endpoint=localhost:8204
+        - --http-endpoint=localhost:8203
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
@@ -214,8 +214,8 @@ spec:
         - mountPath: /var/lib/csi/sockets/pluginproxy/
           name: socket-dir
       - args:
-        - --secure-listen-address=0.0.0.0:9204
-        - --upstream=http://127.0.0.1:8204/
+        - --secure-listen-address=0.0.0.0:9203
+        - --upstream=http://127.0.0.1:8203/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
@@ -225,7 +225,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: attacher-kube-rbac-proxy
         ports:
-        - containerPort: 9204
+        - containerPort: 9203
           name: attacher-m
           protocol: TCP
         resources:
@@ -238,7 +238,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --http-endpoint=localhost:8205
+        - --http-endpoint=localhost:8204
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
@@ -262,8 +262,8 @@ spec:
         - mountPath: /var/lib/csi/sockets/pluginproxy/
           name: socket-dir
       - args:
-        - --secure-listen-address=0.0.0.0:9205
-        - --upstream=http://127.0.0.1:8205/
+        - --secure-listen-address=0.0.0.0:9204
+        - --upstream=http://127.0.0.1:8204/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
@@ -273,7 +273,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: resizer-kube-rbac-proxy
         ports:
-        - containerPort: 9205
+        - containerPort: 9204
           name: resizer-m
           protocol: TCP
         resources:
@@ -286,7 +286,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --metrics-address=localhost:8206
+        - --metrics-address=localhost:8205
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
@@ -310,8 +310,8 @@ spec:
         - mountPath: /var/lib/csi/sockets/pluginproxy/
           name: socket-dir
       - args:
-        - --secure-listen-address=0.0.0.0:9206
-        - --upstream=http://127.0.0.1:8206/
+        - --secure-listen-address=0.0.0.0:9205
+        - --upstream=http://127.0.0.1:8205/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
@@ -321,7 +321,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: snapshotter-kube-rbac-proxy
         ports:
-        - containerPort: 9206
+        - containerPort: 9205
           name: snapshotter-m
           protocol: TCP
         resources:

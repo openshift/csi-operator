@@ -1,9 +1,3 @@
-# Generated file. Do not edit. Update using "make update".
-#
-# Loaded from overlays/samba/base/csidriver.yaml
-#
-#
-
 apiVersion: storage.k8s.io/v1
 kind: CSIDriver
 metadata:

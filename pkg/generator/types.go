@@ -38,6 +38,8 @@ type CSIDriverGeneratorConfig struct {
 	ControllerConfig *ControlPlaneConfig
 	// Configuration of guest components. They will always be installed in openshift-cluster-csi-drivers namespace.
 	GuestConfig *GuestConfig
+	// Set this flag if only "standalone" subdirectory to be populated
+	StandaloneOnly bool
 
 	// Directory where to save generated assets. "standalone" and "hypershift" subdirectories will be created there.
 	OutputDir string

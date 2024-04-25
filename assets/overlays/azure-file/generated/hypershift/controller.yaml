@@ -162,7 +162,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --http-endpoint=localhost:8213
+        - --http-endpoint=localhost:8212
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
@@ -190,8 +190,8 @@ spec:
           name: hosted-kubeconfig
           readOnly: true
       - args:
-        - --secure-listen-address=0.0.0.0:9213
-        - --upstream=http://127.0.0.1:8213/
+        - --secure-listen-address=0.0.0.0:9212
+        - --upstream=http://127.0.0.1:8212/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
@@ -201,7 +201,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: provisioner-kube-rbac-proxy
         ports:
-        - containerPort: 9213
+        - containerPort: 9212
           name: provisioner-m
           protocol: TCP
         resources:
@@ -214,7 +214,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --http-endpoint=localhost:8214
+        - --http-endpoint=localhost:8213
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
@@ -241,8 +241,8 @@ spec:
           name: hosted-kubeconfig
           readOnly: true
       - args:
-        - --secure-listen-address=0.0.0.0:9214
-        - --upstream=http://127.0.0.1:8214/
+        - --secure-listen-address=0.0.0.0:9213
+        - --upstream=http://127.0.0.1:8213/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
@@ -252,7 +252,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: attacher-kube-rbac-proxy
         ports:
-        - containerPort: 9214
+        - containerPort: 9213
           name: attacher-m
           protocol: TCP
         resources:
@@ -265,7 +265,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --http-endpoint=localhost:8215
+        - --http-endpoint=localhost:8214
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
@@ -293,8 +293,8 @@ spec:
           name: hosted-kubeconfig
           readOnly: true
       - args:
-        - --secure-listen-address=0.0.0.0:9215
-        - --upstream=http://127.0.0.1:8215/
+        - --secure-listen-address=0.0.0.0:9214
+        - --upstream=http://127.0.0.1:8214/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
@@ -304,7 +304,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: resizer-kube-rbac-proxy
         ports:
-        - containerPort: 9215
+        - containerPort: 9214
           name: resizer-m
           protocol: TCP
         resources:
