@@ -161,15 +161,34 @@ func (gen *AssetGenerator) generateDeployment() error {
 	return nil
 }
 
-func (gen *AssetGenerator) generateMonitoringService() error {
-	ctrlCfg := gen.operatorConfig.ControllerConfig
-	serviceYAML := gen.mustReadBaseAsset("base/controller_metrics_service.yaml", nil)
-	serviceMonitorYAML := gen.mustReadBaseAsset("base/controller_metrics_servicemonitor.yaml", nil)
+// Add driver's MetricsPorts to the metrics Service and ServiceMonitor.
+func (gen *AssetGenerator) generateDriverMetricsService(serviceYAML, serviceMonitorYAML *YAMLWithHistory, metricsPorts []MetricsPort) error {
+	for i := 0; i < len(metricsPorts); i++ {
+		port := metricsPorts[i]
+		extraReplacements := []string{
+			"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(port.ExposedPort)),
+			"${LOCAL_METRICS_PORT}", strconv.Itoa(int(port.LocalPort)),
+			"${PORT_NAME}", port.Name,
+		}
+		var err error
+		err = gen.applyAssetPatch(serviceYAML, "common/metrics/service_add_port.yaml", extraReplacements)
+		if err != nil {
+			return err
+		}
+		err = gen.applyAssetPatch(serviceMonitorYAML, "common/metrics/service_monitor_add_port.yaml.patch", extraReplacements)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	localPortIndex := int(ctrlCfg.SidecarLocalMetricsPortStart)
-	exposedPortIndex := int(ctrlCfg.SidecarExposedMetricsPortStart)
-	for i := 0; i < len(ctrlCfg.Sidecars); i++ {
-		sidecar := ctrlCfg.Sidecars[i]
+func (gen *AssetGenerator) generateSidecarMetricsServices(serviceYAML, serviceMonitorYAML *YAMLWithHistory, localPortStart, exposedPortStart int, sidecars []SidecarConfig) error {
+	localPortIndex := localPortStart
+	exposedPortIndex := exposedPortStart
+
+	for i := 0; i < len(sidecars); i++ {
+		sidecar := sidecars[i]
 		if !sidecar.HasMetricsPort {
 			continue
 		}
@@ -191,23 +210,19 @@ func (gen *AssetGenerator) generateMonitoringService() error {
 			return err
 		}
 	}
+	return nil
+}
 
-	for i := 0; i < len(ctrlCfg.MetricsPorts); i++ {
-		port := ctrlCfg.MetricsPorts[i]
-		extraReplacements := []string{
-			"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(port.ExposedPort)),
-			"${LOCAL_METRICS_PORT}", strconv.Itoa(int(port.LocalPort)),
-			"${PORT_NAME}", port.Name,
-		}
-		var err error
-		err = gen.applyAssetPatch(serviceYAML, "common/metrics/service_add_port.yaml", extraReplacements)
-		if err != nil {
-			return err
-		}
-		err = gen.applyAssetPatch(serviceMonitorYAML, "common/metrics/service_monitor_add_port.yaml.patch", extraReplacements)
-		if err != nil {
-			return err
-		}
+func (gen *AssetGenerator) generateMonitoringService() error {
+	ctrlCfg := gen.operatorConfig.ControllerConfig
+	serviceYAML := gen.mustReadBaseAsset("base/controller_metrics_service.yaml", nil)
+	serviceMonitorYAML := gen.mustReadBaseAsset("base/controller_metrics_servicemonitor.yaml", nil)
+
+	if err := gen.generateSidecarMetricsServices(serviceYAML, serviceMonitorYAML, int(ctrlCfg.SidecarLocalMetricsPortStart), int(ctrlCfg.SidecarExposedMetricsPortStart), ctrlCfg.Sidecars); err != nil {
+		return err
+	}
+	if err := gen.generateDriverMetricsService(serviceYAML, serviceMonitorYAML, ctrlCfg.MetricsPorts); err != nil {
+		return err
 	}
 
 	gen.controllerAssets[generated_assets.MetricServiceAssetName] = serviceYAML
