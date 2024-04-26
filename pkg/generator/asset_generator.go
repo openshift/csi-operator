@@ -133,7 +133,7 @@ func (gen *AssetGenerator) generateDeployment() error {
 		)
 		port.LocalPort++
 		port.ExposedPort++
-		err = gen.applyAssetPatch(deploymentYAML, "common/sidecars/driver_kube_rbac_proxy.yaml", extraReplacements)
+		err = gen.applyAssetPatch(deploymentYAML, "common/sidecars/controller_driver_kube_rbac_proxy.yaml", extraReplacements)
 		if err != nil {
 			return err
 		}

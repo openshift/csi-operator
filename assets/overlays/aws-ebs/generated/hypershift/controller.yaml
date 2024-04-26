@@ -2,7 +2,7 @@
 #
 # Loaded from base/controller.yaml
 # Applied strategic merge patch overlays/aws-ebs/patches/controller_add_driver.yaml
-# Applied strategic merge patch common/sidecars/driver_kube_rbac_proxy.yaml
+# Applied strategic merge patch common/sidecars/controller_driver_kube_rbac_proxy.yaml
 # provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
 # provisioner.yaml: Added arguments [--default-fstype=ext4 --feature-gates=Topology=true --extra-create-metadata=true --timeout=60s --kube-api-qps=20 --kube-api-burst=100 --worker-threads=100]
 # provisioner.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
