@@ -69,7 +69,7 @@ func (gen *AssetGenerator) generateController() error {
 		return err
 	}
 
-	if err := gen.generateMonitoringService(); err != nil {
+	if err := gen.generateControllerMonitoringService(); err != nil {
 		return err
 	}
 
@@ -143,7 +143,7 @@ func (gen *AssetGenerator) generateDeployment() error {
 		baseExtraReplacements = append(baseExtraReplacements, "${LIVENESS_PROBE_PORT}", strconv.Itoa(int(ctrlCfg.LivenessProbePort)))
 	}
 
-	err = gen.addDriverRBACProxyContainers(deploymentYAML, "common/metrics/deployment_add_proxy.yaml", ctrlCfg.MetricsPorts, baseExtraReplacements)
+	err = gen.addDriverRBACProxyContainers(deploymentYAML, "common/sidecars/controller_driver_kube_rbac_proxy.yaml", ctrlCfg.MetricsPorts, baseExtraReplacements)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func (gen *AssetGenerator) generateSidecarMetricsServices(serviceYAML, serviceMo
 	return nil
 }
 
-func (gen *AssetGenerator) generateMonitoringService() error {
+func (gen *AssetGenerator) generateControllerMonitoringService() error {
 	ctrlCfg := gen.operatorConfig.ControllerConfig
 	serviceYAML := gen.mustReadBaseAsset("base/controller_metrics_service.yaml", nil)
 	serviceMonitorYAML := gen.mustReadBaseAsset("base/controller_metrics_servicemonitor.yaml", nil)
@@ -231,13 +231,14 @@ func (gen *AssetGenerator) generateMonitoringService() error {
 		return err
 	}
 	if err := gen.generateDriverMetricsService(serviceYAML, serviceMonitorYAML, ctrlCfg.MetricsPorts); err != nil {
+		err = gen.generateDriverMetricsService(serviceYAML, serviceMonitorYAML, ctrlCfg.MetricsPorts)
 		return err
 	}
 
-	gen.controllerAssets[generated_assets.MetricServiceAssetName] = serviceYAML
+	gen.controllerAssets[generated_assets.ControllerMetricServiceAssetName] = serviceYAML
 	if gen.flavour != FlavourHyperShift {
 		// TODO: figure out monitoring on HyperShift. The operator does not have RBAC for ServiceMonitors now.
-		gen.controllerAssets[generated_assets.MetricServiceMonitorAssetName] = serviceMonitorYAML
+		gen.controllerAssets[generated_assets.ControllerMetricServiceMonitorAssetName] = serviceMonitorYAML
 	}
 	return nil
 }
@@ -257,6 +258,9 @@ func (gen *AssetGenerator) generateGuest() error {
 	gen.guestAssets = make(map[string]*YAMLWithHistory)
 
 	if err := gen.generateDaemonSet(); err != nil {
+		return err
+	}
+	if err := gen.generateGuestMonitoringService(); err != nil {
 		return err
 	}
 	if err := gen.collectGuestAssets(); err != nil {
@@ -287,6 +291,11 @@ func (gen *AssetGenerator) generateDaemonSet() error {
 		return err
 	}
 
+	err = gen.addDriverRBACProxyContainers(dsYAML, "common/sidecars/node_driver_kube_rbac_proxy.yaml", cfg.MetricsPorts, extraReplacements)
+	if err != nil {
+		return err
+	}
+
 	for i := 0; i < len(cfg.Sidecars); i++ {
 		sidecar := cfg.Sidecars[i]
 		err = gen.addSidecar(dsYAML, sidecar.TemplateAssetName, extraReplacements, sidecar.ExtraArguments, gen.flavour, sidecar.AssetPatches)
@@ -295,6 +304,27 @@ func (gen *AssetGenerator) generateDaemonSet() error {
 		}
 	}
 	gen.guestAssets[generated_assets.NodeDaemonSetAssetName] = dsYAML
+	return nil
+}
+
+func (gen *AssetGenerator) generateGuestMonitoringService() error {
+	cfg := gen.operatorConfig.GuestConfig
+
+	if len(cfg.MetricsPorts) == 0 {
+		// Do not add metrics service if driver does not expose any metrics.
+		// There is no node-level sidecar that would export one.
+		return nil
+	}
+	serviceYAML := gen.mustReadBaseAsset("base/node_metrics_service.yaml", nil)
+	serviceMonitorYAML := gen.mustReadBaseAsset("base/node_metrics_servicemonitor.yaml", nil)
+
+	err := gen.generateDriverMetricsService(serviceYAML, serviceMonitorYAML, cfg.MetricsPorts)
+	if err != nil {
+		return err
+	}
+
+	gen.guestAssets[generated_assets.NodeMetricServiceAssetName] = serviceYAML
+	gen.guestAssets[generated_assets.NodeMetricServiceMonitorAssetName] = serviceMonitorYAML
 	return nil
 }
 

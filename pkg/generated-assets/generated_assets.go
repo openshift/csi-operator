@@ -16,11 +16,13 @@ import (
 )
 
 const (
-	manifestFileName              = "manifests.yaml"
-	ControllerDeploymentAssetName = "controller.yaml"
-	NodeDaemonSetAssetName        = "node.yaml"
-	MetricServiceAssetName        = "service.yaml"
-	MetricServiceMonitorAssetName = "servicemonitor.yaml"
+	manifestFileName                        = "manifests.yaml"
+	ControllerDeploymentAssetName           = "controller.yaml"
+	NodeDaemonSetAssetName                  = "node.yaml"
+	ControllerMetricServiceAssetName        = "service.yaml"
+	ControllerMetricServiceMonitorAssetName = "servicemonitor.yaml"
+	NodeMetricServiceAssetName              = "node_service.yaml"
+	NodeMetricServiceMonitorAssetName       = "node_servicemonitor.yaml"
 )
 
 const (

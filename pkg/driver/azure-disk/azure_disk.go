@@ -120,7 +120,15 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 
 		GuestConfig: &generator.GuestConfig{
 			DaemonSetTemplateAssetName: "overlays/azure-disk/patches/node_add_driver.yaml",
-			LivenessProbePort:          10300,
+			MetricsPorts: []generator.MetricsPort{
+				{
+					LocalPort:           8201,
+					ExposedPort:         9201,
+					Name:                "driver-m",
+					InjectKubeRBACProxy: true,
+				},
+			},
+			LivenessProbePort: 10300,
 			// 10303 port is taken by azurefile stuff and hence we must use 10304 here
 			NodeRegistrarHealthCheckPort: 10304,
 			Sidecars: []generator.SidecarConfig{

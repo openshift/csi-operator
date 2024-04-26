@@ -114,8 +114,8 @@ type SidecarConfig struct {
 type GuestConfig struct {
 	// Name of the template asset that contains DaemonSet of the guest components.
 	DaemonSetTemplateAssetName string
-	// TODO: add node Service and ServiceMonitor for metrics
-	// MetricsPorts               []MetricsPort
+	// List of metric ports exposed by the driver itself and any containers defined in DeploymentTemplateAssetName.
+	MetricsPorts []MetricsPort
 	// Liveness probe TCP port number exposed by the driver itself, i.e. by DaemonSetTemplateAssetName.
 	LivenessProbePort uint16
 	// port where node-registrar will expose health check endpoint
