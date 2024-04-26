@@ -1,0 +1,26 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/node_metrics_servicemonitor.yaml
+# Applied JSON patch common/metrics/service_monitor_add_port.yaml.patch
+#
+#
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: azure-disk-csi-driver-node-monitor
+  namespace: openshift-cluster-csi-drivers
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    path: /metrics
+    port: driver-m
+    scheme: https
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: azure-disk-csi-driver-controller-metrics.${NAMESPACE}.svc
+  jobLabel: component
+  selector:
+    matchLabels:
+      app: azure-disk-csi-driver-node-metrics

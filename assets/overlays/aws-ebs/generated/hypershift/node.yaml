@@ -164,6 +164,9 @@ spec:
           path: /sys/fs
           type: Directory
         name: sys-fs
+      - name: metrics-serving-cert
+        secret:
+          secretName: aws-ebs-csi-driver-node-metrics-serving-cert
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 10%

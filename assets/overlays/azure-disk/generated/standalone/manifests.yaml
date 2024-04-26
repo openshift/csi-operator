@@ -20,6 +20,8 @@ guestStaticAssetNames:
 - node.yaml
 - node_privileged_binding.yaml
 - node_sa.yaml
+- node_service.yaml
+- node_servicemonitor.yaml
 - privileged_role.yaml
 - storageclass.yaml
 - storageclass_reader_resizer_binding.yaml
