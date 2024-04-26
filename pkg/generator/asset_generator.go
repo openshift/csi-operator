@@ -102,6 +102,30 @@ func (gen *AssetGenerator) patchController() error {
 	return nil
 }
 
+// Inject kube-rbac-proxy container for all metrics ports into yamlFile. The yamlFile can be a Deployment or a
+// DaemonSet. proxyPatchFile is the path to Deployment / DaemonSet patch file that adds the proxy container.
+func (gen *AssetGenerator) addDriverRBACProxyContainers(yamlFile *YAMLWithHistory, proxyPatchFile string, metricPorts []MetricsPort, baseExtraReplacements []string) error {
+	for i := 0; i < len(metricPorts); i++ {
+		port := metricPorts[i]
+		if !port.InjectKubeRBACProxy {
+			continue
+		}
+		extraReplacements := append([]string{}, baseExtraReplacements...) // Poor man's copy of the array.
+		extraReplacements = append(extraReplacements,
+			"${LOCAL_METRICS_PORT}", strconv.Itoa(int(port.LocalPort)),
+			"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(port.ExposedPort)),
+			"${PORT_NAME}", port.Name,
+		)
+		port.LocalPort++
+		port.ExposedPort++
+		err := gen.applyAssetPatch(yamlFile, proxyPatchFile, extraReplacements)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (gen *AssetGenerator) generateDeployment() error {
 	ctrlCfg := gen.operatorConfig.ControllerConfig
 	deploymentYAML := gen.mustReadBaseAsset("base/controller.yaml", nil)
@@ -119,24 +143,9 @@ func (gen *AssetGenerator) generateDeployment() error {
 		baseExtraReplacements = append(baseExtraReplacements, "${LIVENESS_PROBE_PORT}", strconv.Itoa(int(ctrlCfg.LivenessProbePort)))
 	}
 
-	// Inject kube-rbac-proxy for all metrics ports.
-	for i := 0; i < len(ctrlCfg.MetricsPorts); i++ {
-		port := ctrlCfg.MetricsPorts[i]
-		if !port.InjectKubeRBACProxy {
-			continue
-		}
-		extraReplacements := append([]string{}, baseExtraReplacements...) // Poor man's copy of the array.
-		extraReplacements = append(extraReplacements,
-			"${LOCAL_METRICS_PORT}", strconv.Itoa(int(port.LocalPort)),
-			"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(port.ExposedPort)),
-			"${PORT_NAME}", port.Name,
-		)
-		port.LocalPort++
-		port.ExposedPort++
-		err = gen.applyAssetPatch(deploymentYAML, "common/sidecars/controller_driver_kube_rbac_proxy.yaml", extraReplacements)
-		if err != nil {
-			return err
-		}
+	err = gen.addDriverRBACProxyContainers(deploymentYAML, "common/metrics/deployment_add_proxy.yaml", ctrlCfg.MetricsPorts, baseExtraReplacements)
+	if err != nil {
+		return err
 	}
 
 	// Inject sidecars and their kube-rbac-proxies.
