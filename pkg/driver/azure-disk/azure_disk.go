@@ -219,18 +219,7 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 	cfg.ExtraReplacementsFunc = func() []string {
 		pairs := []string{}
 		pairs = append(pairs, []string{"${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}", os.Getenv(ccmOperatorImageEnvName)}...)
-		workloadIdentity := "false"
-		featureGates, err := featureGateAccessor.CurrentFeatureGates()
-		if err != nil {
-			klog.Errorf("unable to read feature gatess")
-			return []string{}
-		}
-
-		if featureGates.Enabled(opCfgV1.FeatureGateAzureWorkloadIdentity) {
-			workloadIdentity = "true"
-		}
-
-		pairs = append(pairs, []string{"${ENABLE_AZURE_WORKLOAD_IDENTITY}", workloadIdentity}...)
+		pairs = append(pairs, []string{"${ENABLE_AZURE_WORKLOAD_IDENTITY}", "true"}...)
 		return pairs
 	}
 
