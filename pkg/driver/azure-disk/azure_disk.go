@@ -74,14 +74,14 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			LivenessProbePort:           10301,
 			MetricsPorts: []generator.MetricsPort{
 				{
-					LocalPort:           commongenerator.AzureDiskLoopbackMetricsPortStart,
+					LocalPort:           commongenerator.AzureDiskControllerLoopbackMetricsPortStart,
 					InjectKubeRBACProxy: true,
-					ExposedPort:         commongenerator.AzureDiskExposedMetricsPortStart,
+					ExposedPort:         commongenerator.AzureDiskControllerExposedMetricsPortStart,
 					Name:                "driver-m",
 				},
 			},
-			SidecarLocalMetricsPortStart:   commongenerator.AzureDiskLoopbackMetricsPortStart + 1,
-			SidecarExposedMetricsPortStart: commongenerator.AzureDiskExposedMetricsPortStart + 1,
+			SidecarLocalMetricsPortStart:   commongenerator.AzureDiskControllerLoopbackMetricsPortStart + 1,
+			SidecarExposedMetricsPortStart: commongenerator.AzureDiskControllerExposedMetricsPortStart + 1,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultProvisionerWithSnapshots.WithExtraArguments(
 					"--default-fstype=ext4",
@@ -122,8 +122,8 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			DaemonSetTemplateAssetName: "overlays/azure-disk/patches/node_add_driver.yaml",
 			MetricsPorts: []generator.MetricsPort{
 				{
-					LocalPort:           8201,
-					ExposedPort:         9201,
+					LocalPort:           commongenerator.AzureDiskNodeLoopbackMetricsPortStart,
+					ExposedPort:         commongenerator.AzureDiskNodeExposedMetricsPortStart,
 					Name:                "driver-m",
 					InjectKubeRBACProxy: true,
 				},

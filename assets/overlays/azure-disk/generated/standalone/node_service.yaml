@@ -17,7 +17,7 @@ metadata:
 spec:
   ports:
   - name: driver-m
-    port: 9201
+    port: 9206
     protocol: TCP
     targetPort: driver-m
   selector:

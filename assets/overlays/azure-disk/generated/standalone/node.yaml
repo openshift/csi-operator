@@ -93,8 +93,8 @@ spec:
         - mountPath: /sys/fs
           name: sys-fs
       - args:
-        - --secure-listen-address=0.0.0.0:9201
-        - --upstream=http://127.0.0.1:8201/
+        - --secure-listen-address=0.0.0.0:9206
+        - --upstream=http://127.0.0.1:8206/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
@@ -102,9 +102,9 @@ spec:
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
         imagePullPolicy: IfNotPresent
-        name: kube-rbac-proxy-8201
+        name: kube-rbac-proxy-8206
         ports:
-        - containerPort: 9201
+        - containerPort: 9206
           name: driver-m
           protocol: TCP
         resources:

@@ -19,8 +19,6 @@ spec:
             - --logtostderr
             - --v=${LOG_LEVEL}
             - --nodeid=$(KUBE_NODE_NAME)
-            # Set localhost port to avoid exposing to whole
-            # network. We don't scrape metrics on node
             - --metrics-address=localhost:8206
             # Use credentials provided by the azure-inject-credentials container
             - --cloud-config-secret-name=""
