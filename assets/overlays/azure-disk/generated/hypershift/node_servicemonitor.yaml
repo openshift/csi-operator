@@ -19,7 +19,7 @@ spec:
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
-      serverName: azure-disk-csi-driver-controller-metrics.${NAMESPACE}.svc
+      serverName: azure-disk-csi-driver-node-metrics.${NAMESPACE}.svc
   jobLabel: component
   selector:
     matchLabels:
