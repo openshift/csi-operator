@@ -326,6 +326,11 @@ func (gen *AssetGenerator) generateGuestMonitoringService() error {
 
 	gen.guestAssets[generated_assets.NodeMetricServiceAssetName] = serviceYAML
 	gen.guestAssets[generated_assets.NodeMetricServiceMonitorAssetName] = serviceMonitorYAML
+
+	// Add metrics RBACs for node service monitor
+	gen.guestAssets["node_kube_rbac_proxy_role.yaml"] = gen.mustReadBaseAsset("base/rbac/node_kube_rbac_proxy_role.yaml", nil)
+	gen.guestAssets["node_kube_rbac_proxy_binding.yaml"] = gen.mustReadBaseAsset("base/rbac/node_kube_rbac_proxy_binding.yaml", nil)
+
 	return nil
 }
 
