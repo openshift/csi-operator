@@ -12,7 +12,11 @@ import (
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorinformer "github.com/openshift/client-go/operator/informers/externalversions"
+	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	deploymentworkloadcontroller "github.com/openshift/csi-operator/pkg/operator/workload"
+	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	"github.com/openshift/library-go/pkg/operator/csi/credentialsrequestcontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
@@ -39,6 +43,7 @@ type CSIControllerSet struct {
 	credentialsRequestController         factory.Controller
 	csiConfigObserverController          factory.Controller
 	csiDriverControllerServiceController factory.Controller
+	csiDriverWorkloadControllerServiceController factory.Controller
 	csiDriverNodeServiceController       factory.Controller
 	serviceMonitorController             factory.Controller
 	csiStorageclassController            factory.Controller
@@ -57,6 +62,7 @@ func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
 		c.credentialsRequestController,
 		c.csiConfigObserverController,
 		c.csiDriverControllerServiceController,
+		c.csiDriverWorkloadControllerServiceController,
 		c.csiDriverNodeServiceController,
 		c.serviceMonitorController,
 		c.csiStorageclassController,
@@ -197,6 +203,58 @@ func (c *CSIControllerSet) WithCSIDriverControllerService(
 		optionalInformers,
 		optionalDeploymentHooks...,
 	)
+	return c
+}
+
+func (c *CSIControllerSet) WithCSIDriverWorkloadControllerService(
+	name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix, conditionsPrefix string,
+	manifests resourceapply.AssetFunc,
+	assetName string,
+	versionGetter status.VersionGetter,
+	operatorClient v1helpers.OperatorClientWithFinalizers,
+	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	kubeClient kubernetes.Interface,
+	namespacedInformerFactory informers.SharedInformerFactory,
+	configInformer configinformers.SharedInformerFactory,
+	optionalInformers []factory.Informer,
+	optionalDeploymentHooks ...deploymentcontroller.DeploymentHookFunc,
+) *CSIControllerSet {
+	
+	informers := append(
+		optionalInformers,
+		c.operatorClient.Informer(),
+		namespacedInformerFactory.Apps().V1().Deployments().Informer(),
+	)
+
+	delegate := deploymentworkloadcontroller.NewDeploymentControllerWorkload(
+		"csi-driver-controller",
+		manifests,
+		assetName,
+		kubeClient,
+		operatorClient,
+		configInformer,
+		optionalDeploymentHooks...,
+	)
+	
+	workloadController := workload.NewController(
+		name,
+		operatorNamespace,
+		targetNamespace,
+		targetOperandVersion,
+		operandNamePrefix,
+		conditionsPrefix,
+		c.operatorClient,
+		kubeClient,
+		kubeInformersForNamespaces.PodLister(),
+		informers,
+		[]factory.Informer{kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Namespaces().Informer()},
+		delegate,
+		openshiftClusterConfigClient,
+		c.eventRecorder,
+		versionGetter)
+	
+	c.csiDriverWorkloadControllerServiceController = workloadController
 	return c
 }
 
