@@ -6,10 +6,10 @@ require (
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/google/go-cmp v0.6.0
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
-	github.com/openshift/api v0.0.0-20240215110531-750a3e21ebaf
+	github.com/openshift/api v0.0.0-20240424142232-29a704bf5aa2
 	github.com/openshift/build-machinery-go v0.0.0-20231128094528-1e9b1b0595c8
-	github.com/openshift/client-go v0.0.0-20240125160436-aa5df63097c4
-	github.com/openshift/library-go v0.0.0-20240130085015-2ad786549f07
+	github.com/openshift/client-go v0.0.0-20240405120947-c67c8325cdd8
+	github.com/openshift/library-go v0.0.0-20240517131709-d72e84d1d42e
 	github.com/prometheus/client_golang v1.18.0
 	github.com/spf13/cobra v1.8.0
 	gopkg.in/yaml.v2 v2.4.0
