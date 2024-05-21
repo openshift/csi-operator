@@ -74,14 +74,14 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			LivenessProbePort:           10301,
 			MetricsPorts: []generator.MetricsPort{
 				{
-					LocalPort:           commongenerator.AzureDiskLoopbackMetricsPortStart,
+					LocalPort:           commongenerator.AzureDiskControllerLoopbackMetricsPortStart,
 					InjectKubeRBACProxy: true,
-					ExposedPort:         commongenerator.AzureDiskExposedMetricsPortStart,
+					ExposedPort:         commongenerator.AzureDiskControllerExposedMetricsPortStart,
 					Name:                "driver-m",
 				},
 			},
-			SidecarLocalMetricsPortStart:   commongenerator.AzureDiskLoopbackMetricsPortStart + 1,
-			SidecarExposedMetricsPortStart: commongenerator.AzureDiskExposedMetricsPortStart + 1,
+			SidecarLocalMetricsPortStart:   commongenerator.AzureDiskControllerLoopbackMetricsPortStart + 1,
+			SidecarExposedMetricsPortStart: commongenerator.AzureDiskControllerExposedMetricsPortStart + 1,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultProvisionerWithSnapshots.WithExtraArguments(
 					"--default-fstype=ext4",
@@ -120,7 +120,15 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 
 		GuestConfig: &generator.GuestConfig{
 			DaemonSetTemplateAssetName: "overlays/azure-disk/patches/node_add_driver.yaml",
-			LivenessProbePort:          10300,
+			MetricsPorts: []generator.MetricsPort{
+				{
+					LocalPort:           commongenerator.AzureDiskNodeLoopbackMetricsPortStart,
+					ExposedPort:         commongenerator.AzureDiskNodeExposedMetricsPortStart,
+					Name:                "driver-m",
+					InjectKubeRBACProxy: true,
+				},
+			},
+			LivenessProbePort: 10300,
 			// 10303 port is taken by azurefile stuff and hence we must use 10304 here
 			NodeRegistrarHealthCheckPort: 10304,
 			Sidecars: []generator.SidecarConfig{
@@ -219,18 +227,7 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 	cfg.ExtraReplacementsFunc = func() []string {
 		pairs := []string{}
 		pairs = append(pairs, []string{"${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}", os.Getenv(ccmOperatorImageEnvName)}...)
-		workloadIdentity := "false"
-		featureGates, err := featureGateAccessor.CurrentFeatureGates()
-		if err != nil {
-			klog.Errorf("unable to read feature gatess")
-			return []string{}
-		}
-
-		if featureGates.Enabled(opCfgV1.FeatureGateAzureWorkloadIdentity) {
-			workloadIdentity = "true"
-		}
-
-		pairs = append(pairs, []string{"${ENABLE_AZURE_WORKLOAD_IDENTITY}", workloadIdentity}...)
+		pairs = append(pairs, []string{"${ENABLE_AZURE_WORKLOAD_IDENTITY}", "true"}...)
 		return pairs
 	}
 

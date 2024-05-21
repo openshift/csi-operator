@@ -1,0 +1,26 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/node_metrics_service.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+#
+#
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: azure-disk-csi-driver-node-metrics-serving-cert
+  labels:
+    app: azure-disk-csi-driver-node-metrics
+  name: azure-disk-csi-driver-node-metrics
+  namespace: ${NAMESPACE}
+spec:
+  ports:
+  - name: driver-m
+    port: 9206
+    protocol: TCP
+    targetPort: driver-m
+  selector:
+    app: azure-disk-csi-driver-node
+  sessionAffinity: None
+  type: ClusterIP

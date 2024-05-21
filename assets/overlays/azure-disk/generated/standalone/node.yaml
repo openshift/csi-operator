@@ -2,6 +2,7 @@
 #
 # Loaded from base/node.yaml
 # Applied strategic merge patch overlays/azure-disk/patches/node_add_driver.yaml
+# Applied strategic merge patch common/sidecars/node_driver_kube_rbac_proxy.yaml
 # node_driver_registrar.yaml: Loaded from common/sidecars/node_driver_registrar.yaml
 # Applied strategic merge patch node_driver_registrar.yaml
 # livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
@@ -91,6 +92,29 @@ spec:
           name: etc-selinux
         - mountPath: /sys/fs
           name: sys-fs
+      - args:
+        - --secure-listen-address=0.0.0.0:9206
+        - --upstream=http://127.0.0.1:8206/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: kube-rbac-proxy-8206
+        ports:
+        - containerPort: 9206
+          name: driver-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
       - args:
         - --csi-address=/csi/csi.sock
         - --kubelet-registration-path=/var/lib/kubelet/plugins/disk.csi.azure.com/csi.sock
@@ -221,6 +245,9 @@ spec:
           path: /sys/fs
           type: Directory
         name: sys-fs
+      - name: metrics-serving-cert
+        secret:
+          secretName: azure-disk-csi-driver-node-metrics-serving-cert
       - configMap:
           name: azure-cloud-config
         name: src-cloud-config

@@ -2,7 +2,7 @@
 #
 # Loaded from base/controller.yaml
 # Applied strategic merge patch overlays/azure-disk/patches/controller_add_driver.yaml
-# Applied strategic merge patch common/sidecars/driver_kube_rbac_proxy.yaml
+# Applied strategic merge patch common/sidecars/controller_driver_kube_rbac_proxy.yaml
 # provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
 # provisioner.yaml: Added arguments [--default-fstype=ext4 --feature-gates=Topology=true --extra-create-metadata=true --strict-topology=true --timeout=30s --worker-threads=100 --kube-api-qps=50 --kube-api-burst=100]
 # Applied strategic merge patch provisioner.yaml

@@ -2,7 +2,7 @@
 #
 # Loaded from base/controller.yaml
 # Applied strategic merge patch overlays/samba/patches/controller_add_driver.yaml
-# Applied strategic merge patch common/sidecars/driver_kube_rbac_proxy.yaml
+# Applied strategic merge patch common/sidecars/controller_driver_kube_rbac_proxy.yaml
 # provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
 # provisioner.yaml: Added arguments [--extra-create-metadata=true]
 # Applied strategic merge patch provisioner.yaml

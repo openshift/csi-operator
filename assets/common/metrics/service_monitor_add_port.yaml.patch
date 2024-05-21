@@ -10,4 +10,4 @@
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
-      serverName: ${ASSET_PREFIX}-controller-metrics.${NAMESPACE}.svc
+      serverName: ${ASSET_PREFIX}-${SERVICE_PREFIX}-metrics.${NAMESPACE}.svc

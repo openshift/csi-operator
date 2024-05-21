@@ -60,3 +60,6 @@ spec:
           hostPath:
             path: /sys/fs
             type: Directory
+        - name: metrics-serving-cert
+          secret:
+            secretName: ${ASSET_PREFIX}-node-metrics-serving-cert
