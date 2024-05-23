@@ -2,6 +2,7 @@ package operator
 
 import (
 	"context"
+	"github.com/openshift/library-go/pkg/operator/status"
 	"path/filepath"
 	"time"
 
@@ -112,10 +113,19 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	).WithCSIConfigObserverController(
 		csiOperatorControllerConfig.GetControllerName("DriverCSIConfigObserverController"),
 		c.ConfigInformers,
-	).WithCSIDriverControllerService(
+	).WithCSIDriverWorkloadControllerService(
 		csiOperatorControllerConfig.GetControllerName("DriverControllerServiceController"),
+		c.ControlPlaneNamespace,
+		c.ControlPlaneNamespace,
+		status.VersionForOperandFromEnv(),
+		"", //Not needed.
+		"", //Not needed.
 		a.GetAsset,
 		generated_assets.ControllerDeploymentAssetName,
+		status.NewVersionGetter(),
+		c.OperatorClient,
+		c.ConfigClientSet.ConfigV1().ClusterOperators(),
+		c.ControlPlaneKubeInformers,
 		c.ControlPlaneKubeClient,
 		c.ControlPlaneKubeInformers.InformersFor(controlPlaneNamespace),
 		c.ConfigInformers,
