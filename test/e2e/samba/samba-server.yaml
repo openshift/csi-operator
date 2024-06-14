@@ -204,4 +204,9 @@ parameters:
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 mountOptions:
+  - dir_mode=0777
+  - file_mode=0777
+  - noperm
   - mfsymlinks
+  - cache=strict
+  - noserverino
