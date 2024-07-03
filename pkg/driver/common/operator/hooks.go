@@ -8,14 +8,14 @@ import (
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
+	hypev1beta1api "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hypev1beta1listers "github.com/openshift/hypershift/client/listers/hypershift/v1beta1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
 
@@ -76,7 +76,7 @@ func withHyperShiftNodeSelector(c *clients.Clients) (dc.DeploymentHookFunc, []fa
 		podSpec := &deployment.Spec.Template.Spec
 		// Add nodeSelector
 		nodeSelector, err := getHostedControlPlaneNodeSelector(
-			c.ControlPlaneDynamicInformer.ForResource(hostedControlPlaneGVR).Lister(),
+			c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Lister(),
 			c.ControlPlaneNamespace)
 		if err != nil {
 			return err
@@ -86,31 +86,28 @@ func withHyperShiftNodeSelector(c *clients.Clients) (dc.DeploymentHookFunc, []fa
 		return nil
 	}
 	informers := []factory.Informer{
-		c.ControlPlaneDynamicInformer.ForResource(hostedControlPlaneGVR).Informer(),
+		c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Informer(),
 	}
 	return hook, informers
 }
 
 // getHostedControlPlaneNodeSelector returns the node selector from the HostedControlPlane CR.
-func getHostedControlPlaneNodeSelector(hostedControlPlaneLister cache.GenericLister, namespace string) (map[string]string, error) {
+func getHostedControlPlaneNodeSelector(hostedControlPlaneLister hypev1beta1listers.HostedControlPlaneLister, namespace string) (map[string]string, error) {
 	hcp, err := getHostedControlPlane(hostedControlPlaneLister, namespace)
 	if err != nil {
 		return nil, err
 	}
-	nodeSelector, exists, err := unstructured.NestedStringMap(hcp.UnstructuredContent(), "spec", "nodeSelector")
-	if !exists {
+	nodeSelector := hcp.Spec.NodeSelector
+	if len(nodeSelector) == 0 {
 		return nil, nil
-	}
-	if err != nil {
-		return nil, err
 	}
 	klog.V(4).Infof("Using node selector %v", nodeSelector)
 	return nodeSelector, nil
 }
 
 // getHostedControlPlane returns the HostedControlPlane CR.
-func getHostedControlPlane(hostedControlPlaneLister cache.GenericLister, namespace string) (*unstructured.Unstructured, error) {
-	list, err := hostedControlPlaneLister.ByNamespace(namespace).List(labels.Everything())
+func getHostedControlPlane(hostedControlPlaneLister hypev1beta1listers.HostedControlPlaneLister, namespace string) (*hypev1beta1api.HostedControlPlane, error) {
+	list, err := hostedControlPlaneLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +118,7 @@ func getHostedControlPlane(hostedControlPlaneLister cache.GenericLister, namespa
 		return nil, fmt.Errorf("more than one HostedControlPlane found in namespace %s", namespace)
 	}
 
-	hcp := list[0].(*unstructured.Unstructured)
-	if hcp == nil {
-		return nil, fmt.Errorf("unknown type of HostedControlPlane found in namespace %s", namespace)
-	}
+	hcp := list[0]
 	return hcp, nil
 }
 
