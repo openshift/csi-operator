@@ -137,6 +137,18 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		}
 	}
 
+	// Prepare credentials request controller when needed
+	if credentialsRequestAssetNames := a.GetCredentialsRequestAssetNames(); len(credentialsRequestAssetNames) > 0 {
+		controlPlaneCSIControllerSet.WithCredentialsRequestController(
+			csiOperatorControllerConfig.GetControllerName("CredentialsRequestController"),
+			clients.CSIDriverNamespace,
+			a.GetAsset,
+			generated_assets.CredentialRequestControllerAssetName,
+			c.ControlPlaneDynamicClient,
+			c.OperatorInformers,
+		)
+	}
+
 	// Prepare controllers that manage resources in the GUEST cluster.
 	guestCSIControllerSet := csicontrollerset.NewCSIControllerSet(
 		c.OperatorClient,

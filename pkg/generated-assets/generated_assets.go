@@ -23,6 +23,7 @@ const (
 	ControllerMetricServiceMonitorAssetName = "servicemonitor.yaml"
 	NodeMetricServiceAssetName              = "node_service.yaml"
 	NodeMetricServiceMonitorAssetName       = "node_servicemonitor.yaml"
+	CredentialRequestControllerAssetName    = "credentials.yaml"
 )
 
 const (
@@ -30,10 +31,11 @@ const (
 	daemonSetKind           = "DaemonSet.apps"
 	storageClassKind        = "StorageClass.storage.k8s.io"
 	volumeSnapshotClassKind = "VolumeSnapshotClass.snapshot.storage.k8s.io"
+	credentialsRequestKind  = "CredentialsRequest.cloudcredential.openshift.io"
 )
 
 var (
-	notStaticControllerAssets = sets.NewString(deploymentKind)
+	notStaticControllerAssets = sets.NewString(deploymentKind, credentialsRequestKind)
 	notStaticGuestAssets      = sets.NewString(daemonSetKind, storageClassKind, volumeSnapshotClassKind)
 )
 
@@ -146,6 +148,21 @@ func (a *CSIDriverAssets) GetVolumeSnapshotClassAssetNames() []string {
 			panic(err)
 		}
 		if kind == volumeSnapshotClassKind {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// GetCredentialsRequestAssetNames returns the names of all generated CredentialRequest assets.
+func (a *CSIDriverAssets) GetCredentialsRequestAssetNames() []string {
+	var names []string
+	for name, yaml := range a.ControllerAssets {
+		kind, err := getYAMLKind(yaml)
+		if err != nil {
+			panic(err)
+		}
+		if kind == credentialsRequestKind {
 			names = append(names, name)
 		}
 	}
