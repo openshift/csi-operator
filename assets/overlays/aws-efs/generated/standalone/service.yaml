@@ -1,0 +1,31 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller_metrics_service.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+#
+#
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: aws-efs-csi-driver-controller-metrics-serving-cert
+  labels:
+    app: aws-efs-csi-driver-controller-metrics
+  name: aws-efs-csi-driver-controller-metrics
+  namespace: ${NAMESPACE}
+spec:
+  ports:
+  - name: provisioner-m
+    port: 9212
+    protocol: TCP
+    targetPort: provisioner-m
+  - name: driver-m
+    port: 9211
+    protocol: TCP
+    targetPort: driver-m
+  selector:
+    app: aws-efs-csi-driver-controller
+  sessionAffinity: None
+  type: ClusterIP
