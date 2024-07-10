@@ -1,0 +1,4 @@
+packageName: aws-efs-csi-driver-operator
+channels:
+- name: stable
+  currentCSV: aws-efs-csi-driver-operator.v4.16.0
