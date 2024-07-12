@@ -1,4 +1,4 @@
 packageName: smb-csi-driver-operator
 channels:
 - name: preview
-  currentCSV: smb-csi-driver-operator.v4.16.0
+  currentCSV: smb-csi-driver-operator.v4.17.0
