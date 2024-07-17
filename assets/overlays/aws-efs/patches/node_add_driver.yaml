@@ -47,7 +47,7 @@ spec:
             - name: kubelet-dir
               mountPath: /var/lib/kubelet
               mountPropagation: "Bidirectional"
-            - name: plugin-dir
+            - name: socket-dir
               mountPath: /csi
             - name: efs-state-dir
               mountPath: /var/run/efs
@@ -105,7 +105,7 @@ spec:
             periodSeconds: 10
             failureThreshold: 5
           volumeMounts:
-            - name: plugin-dir
+            - name: socket-dir
               mountPath: /csi
             - name: registration-dir
               mountPath: /registration
@@ -132,10 +132,6 @@ spec:
           hostPath:
             path: /var/lib/kubelet
             type: Directory
-        - name: plugin-dir
-          hostPath:
-            path: /var/lib/kubelet/plugins/efs.csi.aws.com/
-            type: DirectoryOrCreate
         - name: registration-dir
           hostPath:
             path: /var/lib/kubelet/plugins_registry/

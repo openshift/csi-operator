@@ -66,7 +66,7 @@ spec:
           mountPropagation: Bidirectional
           name: kubelet-dir
         - mountPath: /csi
-          name: plugin-dir
+          name: socket-dir
         - mountPath: /var/run/efs
           name: efs-state-dir
         - mountPath: /var/amazon/efs
@@ -170,10 +170,6 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: aws-efs-csi-driver-node-metrics-serving-cert
-      - hostPath:
-          path: /var/lib/kubelet/plugins/efs.csi.aws.com/
-          type: DirectoryOrCreate
-        name: plugin-dir
       - hostPath:
           path: /var/run/efs
           type: DirectoryOrCreate
