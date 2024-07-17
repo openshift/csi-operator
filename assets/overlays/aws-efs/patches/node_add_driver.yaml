@@ -85,19 +85,13 @@ spec:
             privileged: true
           image: ${NODE_DRIVER_REGISTRAR_IMAGE}
           args:
-            - --csi-address=$(ADDRESS)
-            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --csi-address=/csi/csi.sock
             - --http-endpoint=:10305
             - --v=${LOG_LEVEL}
           lifecycle:
             preStop:
               exec:
                 command: ["/bin/sh", "-c", "rm -rf /registration/efs.csi.aws.com-reg.sock /csi/csi.sock"]
-          env:
-            - name: ADDRESS
-              value: /csi/csi.sock
-            - name: DRIVER_REG_SOCK_PATH
-              value: /var/lib/kubelet/plugins/efs.csi.aws.com/csi.sock
           ports:
             - containerPort: 10305
               name: rhealthz

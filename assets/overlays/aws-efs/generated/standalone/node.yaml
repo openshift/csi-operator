@@ -82,11 +82,7 @@ spec:
         - --kubelet-registration-path=/var/lib/kubelet/plugins/efs.csi.aws.com/csi.sock
         - --http-endpoint=:10305
         - --v=${LOG_LEVEL}
-        env:
-        - name: ADDRESS
-          value: /csi/csi.sock
-        - name: DRIVER_REG_SOCK_PATH
-          value: /var/lib/kubelet/plugins/efs.csi.aws.com/csi.sock
+        env: []
         image: ${NODE_DRIVER_REGISTRAR_IMAGE}
         imagePullPolicy: IfNotPresent
         lifecycle:
