@@ -1,6 +1,7 @@
 # Generated file. Do not edit. Update using "make update".
 #
 # Loaded from base/rbac/lease_leader_election_binding.yaml
+# Applied strategic merge patch overlays/aws-efs/patches/binding_with_namespace_placeholder.yaml
 #
 #
 # Grant controller access to leases
@@ -17,4 +18,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: aws-efs-csi-driver-controller-sa
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NAMESPACE}

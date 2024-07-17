@@ -2,6 +2,7 @@
 #
 # Loaded from base/rbac/main_provisioner_binding.yaml
 #   because it's needed by controller sidecar common/sidecars/provisioner.yaml
+# Applied strategic merge patch overlays/aws-efs/patches/binding_with_namespace_placeholder.yaml
 #
 #
 
@@ -16,4 +17,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: aws-efs-csi-driver-controller-sa
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NAMESPACE}

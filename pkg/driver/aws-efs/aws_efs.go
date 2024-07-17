@@ -75,6 +75,11 @@ func GetAWSEFSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			Assets: commongenerator.DefaultNodeAssets.WithAssets(generator.StandaloneOnly,
 				"overlays/aws-efs/base/csidriver.yaml",
 			),
+			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
+				// Any role or cluster role bindings should not hardcode service account namespace because this operator is OLM based and can be installed into a custom namespace.
+				"main_provisioner_binding.yaml", "overlays/aws-efs/patches/binding_with_namespace_placeholder.yaml",
+				"lease_leader_election_binding.yaml", "overlays/aws-efs/patches/binding_with_namespace_placeholder.yaml",
+			),
 		},
 	}
 }
