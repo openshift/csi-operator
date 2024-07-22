@@ -1,0 +1,158 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: aws-efs-csi-driver-node
+  namespace: ${NAMESPACE}
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+spec:
+  selector:
+    matchLabels:
+      app: aws-efs-csi-driver-node
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+  template:
+    metadata:
+      labels:
+        app: aws-efs-csi-driver-node
+      annotations:
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        # This annotation prevents eviction from the cluster-autoscaler
+        cluster-autoscaler.kubernetes.io/enable-ds-eviction: "false"
+    spec:
+      hostNetwork: true
+      serviceAccount: aws-efs-csi-driver-node-sa
+      priorityClassName: system-node-critical
+      dnsPolicy: ClusterFirstWithHostNet
+      tolerations:
+        - operator: Exists
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: csi-driver
+          securityContext:
+            privileged: true
+          image: ${DRIVER_IMAGE}
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --v=${LOG_LEVEL}
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:/csi/csi.sock
+          volumeMounts:
+            - name: kubelet-dir
+              mountPath: /var/lib/kubelet
+              mountPropagation: "Bidirectional"
+            - name: socket-dir
+              mountPath: /csi
+            - name: efs-state-dir
+              mountPath: /var/run/efs
+            - name: efs-utils-config
+              mountPath: /var/amazon/efs
+            - name: efs-utils-config-legacy
+              mountPath: /etc/amazon/efs-legacy
+            - name: etc-selinux
+              mountPath: /etc/selinux
+            - name: sys-fs
+              mountPath: /sys/fs
+          ports:
+            - name: healthz
+              # Due to hostNetwork, this port is open on all nodes!
+              containerPort: 10303
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+            # The CSI driver can consume a lot of memory if many volumes are created at once. This is
+            # intended to prevent the driver from adding undue stress to control-plane nodes.
+            limits:
+              memory: 1Gi
+        - name: csi-node-driver-registrar
+          securityContext:
+            privileged: true
+          image: ${NODE_DRIVER_REGISTRAR_IMAGE}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --http-endpoint=:10305
+            - --v=${LOG_LEVEL}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "rm -rf /registration/efs.csi.aws.com-reg.sock /csi/csi.sock"]
+          ports:
+            - containerPort: 10305
+              name: rhealthz
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: rhealthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+        - name: csi-liveness-probe
+          image: ${LIVENESS_PROBE_IMAGE}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --probe-timeout=3s
+            - --health-port=10303
+            - --v=${LOG_LEVEL}
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+      volumes:
+        - name: kubelet-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+        - name: efs-state-dir
+          hostPath:
+            path: /var/run/efs
+            type: DirectoryOrCreate
+        - name: efs-utils-config
+          hostPath:
+            path: /var/amazon/efs
+            type: DirectoryOrCreate
+        - name: efs-utils-config-legacy
+          hostPath:
+            path: /etc/amazon/efs
+            type: DirectoryOrCreate
+        - name: etc-selinux
+          hostPath:
+            path: /etc/selinux
+            type: DirectoryOrCreate
+        - name: sys-fs
+          hostPath:
+            path: /sys/fs
+            type: Directory

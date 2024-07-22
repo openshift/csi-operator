@@ -104,6 +104,18 @@ spec:
             - servicemonitors
             verbs:
             - '*'
+          - apiGroups:
+            - policy
+            resources:
+            - poddisruptionbudgets
+            verbs:
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           serviceAccountName: aws-efs-csi-driver-operator
       clusterPermissions:
         - rules:

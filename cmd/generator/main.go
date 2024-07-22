@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	aws_efs "github.com/openshift/csi-operator/pkg/driver/aws-efs"
 	"path/filepath"
 
 	"github.com/openshift/csi-operator/assets"
@@ -50,6 +51,7 @@ func main() {
 func collectConfigs() []*generator.CSIDriverGeneratorConfig {
 	return []*generator.CSIDriverGeneratorConfig{
 		aws_ebs.GetAWSEBSGeneratorConfig(),
+		aws_efs.GetAWSEFSGeneratorConfig(),
 		azure_disk.GetAzureDiskGeneratorConfig(),
 		azure_file.GetAzureFileGeneratorConfig(),
 		samba.GetSambaGeneratorConfig(),

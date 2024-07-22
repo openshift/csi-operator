@@ -1,0 +1,188 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/node.yaml
+# Applied strategic merge patch overlays/aws-efs/patches/node_add_driver.yaml
+# node_driver_registrar.yaml: Loaded from common/sidecars/node_driver_registrar.yaml
+# Applied strategic merge patch node_driver_registrar.yaml
+# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
+# livenessprobe.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch livenessprobe.yaml
+#
+#
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+  name: aws-efs-csi-driver-node
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: aws-efs-csi-driver-node
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/enable-ds-eviction: "false"
+        openshift.io/required-scc: privileged
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        app: aws-efs-csi-driver-node
+    spec:
+      containers:
+      - args:
+        - --endpoint=$(CSI_ENDPOINT)
+        - --logtostderr
+        - --v=${LOG_LEVEL}
+        env:
+        - name: CSI_ENDPOINT
+          value: unix:/csi/csi.sock
+        image: ${DRIVER_IMAGE}
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+        name: csi-driver
+        ports:
+        - containerPort: 10303
+          name: healthz
+          protocol: TCP
+        resources:
+          limits:
+            memory: 1Gi
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /var/lib/kubelet
+          mountPropagation: Bidirectional
+          name: kubelet-dir
+        - mountPath: /csi
+          name: socket-dir
+        - mountPath: /var/run/efs
+          name: efs-state-dir
+        - mountPath: /var/amazon/efs
+          name: efs-utils-config
+        - mountPath: /etc/amazon/efs-legacy
+          name: efs-utils-config-legacy
+        - mountPath: /etc/selinux
+          name: etc-selinux
+        - mountPath: /sys/fs
+          name: sys-fs
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --kubelet-registration-path=/var/lib/kubelet/plugins/efs.csi.aws.com/csi.sock
+        - --http-endpoint=:10305
+        - --v=${LOG_LEVEL}
+        env: []
+        image: ${NODE_DRIVER_REGISTRAR_IMAGE}
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - rm -rf /registration/efs.csi.aws.com-reg.sock /csi/csi.sock
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: rhealthz
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+        name: csi-node-driver-registrar
+        ports:
+        - containerPort: 10305
+          name: rhealthz
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+        - mountPath: /registration
+          name: registration-dir
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --health-port=10303
+        - --v=${LOG_LEVEL}
+        - --probe-timeout=3s
+        env: []
+        image: ${LIVENESS_PROBE_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-liveness-probe
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      serviceAccount: aws-efs-csi-driver-node-sa
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/lib/kubelet
+          type: Directory
+        name: kubelet-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins/efs.csi.aws.com/
+          type: DirectoryOrCreate
+        name: socket-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins_registry/
+          type: Directory
+        name: registration-dir
+      - hostPath:
+          path: /dev
+          type: Directory
+        name: device-dir
+      - hostPath:
+          path: /etc/selinux
+          type: DirectoryOrCreate
+        name: etc-selinux
+      - hostPath:
+          path: /sys/fs
+          type: Directory
+        name: sys-fs
+      - name: metrics-serving-cert
+        secret:
+          secretName: aws-efs-csi-driver-node-metrics-serving-cert
+      - hostPath:
+          path: /var/run/efs
+          type: DirectoryOrCreate
+        name: efs-state-dir
+      - hostPath:
+          path: /var/amazon/efs
+          type: DirectoryOrCreate
+        name: efs-utils-config
+      - hostPath:
+          path: /etc/amazon/efs
+          type: DirectoryOrCreate
+        name: efs-utils-config-legacy
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate
