@@ -39,6 +39,8 @@ spec:
         env:
         - name: CSI_ENDPOINT
           value: unix:/csi/csi.sock
+        - name: FIPS_ENABLED
+          value: ${FIPS_ENABLED}
         image: ${DRIVER_IMAGE}
         livenessProbe:
           failureThreshold: 5

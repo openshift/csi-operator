@@ -72,6 +72,8 @@ spec:
               value: '1'
             - name: AWS_CONFIG_FILE
               value: /var/run/secrets/aws/credentials
+            - name: FIPS_ENABLED
+              value: ${FIPS_ENABLED}
           ports:
             - name: healthz
               # Due to hostNetwork, this port is open on a node!

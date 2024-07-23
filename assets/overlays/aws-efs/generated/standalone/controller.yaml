@@ -72,6 +72,8 @@ spec:
           value: "1"
         - name: AWS_CONFIG_FILE
           value: /var/run/secrets/aws/credentials
+        - name: FIPS_ENABLED
+          value: ${FIPS_ENABLED}
         image: ${DRIVER_IMAGE}
         imagePullPolicy: IfNotPresent
         livenessProbe:
