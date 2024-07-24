@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -136,6 +137,13 @@ func GetAWSEBSOperatorConfig() *config.OperatorConfig {
 func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEBS")
 
+	// Define precondition functions
+	cfg.AddPreconditions(c,
+		dummyAWSPrecondition,
+		dummyAWSPreconditionSecond,
+		dummyAWSPreconditionThird,
+	)
+
 	// Hooks to run on all clusters
 	cfg.AddDeploymentHookBuilders(c,
 		withAWSRegion,
@@ -164,6 +172,27 @@ func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 	}
 
 	return cfg, nil
+}
+
+func dummyAWSPrecondition(ctx context.Context, c *clients.Clients) (bool, error) {
+	var cmList *corev1.ConfigMap
+	var err error
+	if cmList, err = c.KubeClient.CoreV1().ConfigMaps(c.ControlPlaneNamespace).Get(context.TODO(), "testcm", metav1.GetOptions{}); err != nil {
+		klog.V(4).ErrorS(err, "Precondition 1 - failed to list config maps in namespace", "namespace", c.ControlPlaneNamespace)
+		return false, err
+	}
+
+	klog.V(4).Infof("Precondition 1 - config maps in namespace: %s available : %v ", c.ControlPlaneNamespace, cmList)
+
+	return true, nil
+}
+
+func dummyAWSPreconditionSecond(ctx context.Context, c *clients.Clients) (bool, error) {
+	return true, fmt.Errorf("dummy error 2")
+}
+
+func dummyAWSPreconditionThird(ctx context.Context, c *clients.Clients) (bool, error) {
+	return true, fmt.Errorf("dummy error 3")
 }
 
 // getCustomAWSCABundleBuilder executes the asset as a template to fill out the parts required when using a custom CA bundle.
