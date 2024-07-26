@@ -42,7 +42,7 @@ spec:
   template:
     metadata:
       annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: bound-sa-token,socket-dir
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: aws-auth,aws-keys,bound-sa-token,socket-dir
         openshift.io/required-scc: restricted-v2
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
       labels:
@@ -72,7 +72,7 @@ spec:
         - name: AWS_SDK_LOAD_CONFIG
           value: "1"
         - name: AWS_CONFIG_FILE
-          value: /var/run/secrets/aws/credentials
+          value: /var/run/aws/auth/credentials
         image: ${DRIVER_IMAGE}
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -94,8 +94,11 @@ spec:
             memory: 50Mi
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
-        - mountPath: /var/run/secrets/aws
-          name: aws-credentials
+        - mountPath: /var/run/aws/keys
+          name: aws-keys
+          readOnly: true
+        - mountPath: /var/run/aws/auth
+          name: aws-auth
           readOnly: true
         - mountPath: /var/run/secrets/openshift/serviceaccount
           name: bound-sa-token
@@ -337,6 +340,24 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - |
+          cat <<EOF > /var/run/aws/auth/credentials
+          [default]
+          aws_access_key_id=$(cat /var/run/aws/keys/aws_access_key_id)
+          aws_secret_access_key=$(cat /var/run/aws/keys/aws_secret_access_key)
+          EOF
+        image: ${TOOLS_IMAGE}
+        name: init-aws-credentials-file
+        volumeMounts:
+        - mountPath: /var/run/aws/keys
+          name: aws-keys
+          readOnly: true
+        - mountPath: /var/run/aws/auth
+          name: aws-auth
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical
@@ -353,9 +374,11 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: aws-ebs-csi-driver-controller-metrics-serving-cert
-      - name: aws-credentials
+      - name: aws-keys
         secret:
           secretName: ebs-cloud-credentials
+      - emptyDir: {}
+        name: aws-auth
       - name: bound-sa-token
         projected:
           sources:
