@@ -88,7 +88,7 @@ func Test_WithCustomEndPoint(t *testing.T) {
 			name:           "no endpoint",
 			infrastructure: infraNoEndpoint,
 			expectedEnvVars: map[string]string{
-				"AWS_CONFIG_FILE":     "/var/run/secrets/aws/credentials",
+				"AWS_CONFIG_FILE":     "/var/run/aws/auth/credentials",
 				"AWS_SDK_LOAD_CONFIG": "1",
 				"CSI_ENDPOINT":        "unix:///var/lib/csi/sockets/pluginproxy/csi.sock",
 			},
@@ -97,7 +97,7 @@ func Test_WithCustomEndPoint(t *testing.T) {
 			name:           "EC2 endpoint set",
 			infrastructure: infraWithEC2Endpoint,
 			expectedEnvVars: map[string]string{
-				"AWS_CONFIG_FILE":     "/var/run/secrets/aws/credentials",
+				"AWS_CONFIG_FILE":     "/var/run/aws/auth/credentials",
 				"AWS_SDK_LOAD_CONFIG": "1",
 				"CSI_ENDPOINT":        "unix:///var/lib/csi/sockets/pluginproxy/csi.sock",
 				"AWS_EC2_ENDPOINT":    "https://my-endpoint.org",
@@ -107,7 +107,7 @@ func Test_WithCustomEndPoint(t *testing.T) {
 			name:           "non-EC2 endpoints set",
 			infrastructure: infraWithoutEC2Endpoint,
 			expectedEnvVars: map[string]string{
-				"AWS_CONFIG_FILE":     "/var/run/secrets/aws/credentials",
+				"AWS_CONFIG_FILE":     "/var/run/aws/auth/credentials",
 				"AWS_SDK_LOAD_CONFIG": "1",
 				"CSI_ENDPOINT":        "unix:///var/lib/csi/sockets/pluginproxy/csi.sock",
 			},
@@ -244,7 +244,7 @@ func Test_WithCustomRegion(t *testing.T) {
 			name:           "no region",
 			infrastructure: infraNoRegion,
 			expectedEnvVars: map[string]string{
-				"AWS_CONFIG_FILE":     "/var/run/secrets/aws/credentials",
+				"AWS_CONFIG_FILE":     "/var/run/aws/auth/credentials",
 				"AWS_SDK_LOAD_CONFIG": "1",
 				"CSI_ENDPOINT":        "unix:///var/lib/csi/sockets/pluginproxy/csi.sock",
 			},
@@ -253,7 +253,7 @@ func Test_WithCustomRegion(t *testing.T) {
 			name:           "region set",
 			infrastructure: infraWithRegion,
 			expectedEnvVars: map[string]string{
-				"AWS_CONFIG_FILE":     "/var/run/secrets/aws/credentials",
+				"AWS_CONFIG_FILE":     "/var/run/aws/auth/credentials",
 				"AWS_SDK_LOAD_CONFIG": "1",
 				"CSI_ENDPOINT":        "unix:///var/lib/csi/sockets/pluginproxy/csi.sock",
 				"AWS_REGION":          "us-east-1",

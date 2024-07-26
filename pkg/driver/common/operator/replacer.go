@@ -12,6 +12,7 @@ const (
 	snapshotterImageEnvName   = "SNAPSHOTTER_IMAGE"
 	livenessProbeImageEnvName = "LIVENESS_PROBE_IMAGE"
 	kubeRBACProxyImageEnvName = "KUBE_RBAC_PROXY_IMAGE"
+	toolsImageEnvName         = "TOOLS_IMAGE"
 	hyperShiftImageEnvName    = "HYPERSHIFT_IMAGE"
 )
 
@@ -52,6 +53,11 @@ func DefaultReplacements(controlPlaneNamespace string) []string {
 	kubeRBACProxy := os.Getenv(kubeRBACProxyImageEnvName)
 	if kubeRBACProxy != "" {
 		pairs = append(pairs, []string{"${KUBE_RBAC_PROXY_IMAGE}", kubeRBACProxy}...)
+	}
+
+	tools := os.Getenv(toolsImageEnvName)
+	if tools != "" {
+		pairs = append(pairs, []string{"${TOOLS_IMAGE}", tools}...)
 	}
 
 	hyperShiftImage := os.Getenv(hyperShiftImageEnvName)

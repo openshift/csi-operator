@@ -8,9 +8,46 @@ spec:
   template:
     metadata:
       annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: bound-sa-token,socket-dir
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: aws-auth,aws-keys,bound-sa-token,socket-dir
         openshift.io/required-scc: restricted-v2
     spec:
+      initContainers:
+        - name: init-aws-credentials-file
+          image: ${TOOLS_IMAGE}
+          command:
+          - sh
+          - -c
+          - |
+            # Define file path variables
+            CREDENTIALS_FILE=/var/run/aws/keys/credentials
+            AUTH_CREDENTIALS_FILE=/var/run/aws/auth/credentials
+            AWS_ACCESS_KEY_ID_FILE=/var/run/aws/keys/aws_access_key_id
+            AWS_SECRET_ACCESS_KEY_FILE=/var/run/aws/keys/aws_secret_access_key
+
+            # If credentials key exists in ebs-cloud-credentials secret, then use it as the auth file
+            if [ -e "$CREDENTIALS_FILE" ]; then
+                cp "$CREDENTIALS_FILE" "$AUTH_CREDENTIALS_FILE"
+                exit 0
+            fi
+
+            # Otherwise, make sure the access keys are mounted in the pod...
+            if [ ! -e "$AWS_ACCESS_KEY_ID_FILE" ] || [ ! -e "$AWS_SECRET_ACCESS_KEY_FILE" ]; then
+                echo "AWS keys not found"
+                exit 1
+            fi
+
+            # And create an auth file based on those keys
+            cat <<-EOF > "$AUTH_CREDENTIALS_FILE"
+            [default]
+            aws_access_key_id=$(cat "$AWS_ACCESS_KEY_ID_FILE")
+            aws_secret_access_key=$(cat "$AWS_SECRET_ACCESS_KEY_FILE")
+            EOF
+          volumeMounts:
+            - name: aws-keys
+              mountPath: /var/run/aws/keys
+              readOnly: true
+            - name: aws-auth
+              mountPath: /var/run/aws/auth
       containers:
         - name: csi-driver
           image: ${DRIVER_IMAGE}
@@ -29,7 +66,7 @@ spec:
             - name: AWS_SDK_LOAD_CONFIG
               value: '1'
             - name: AWS_CONFIG_FILE
-              value: /var/run/secrets/aws/credentials
+              value: /var/run/aws/auth/credentials
           ports:
             - name: healthz
               containerPort: 10301
@@ -43,8 +80,11 @@ spec:
             periodSeconds: 10
             failureThreshold: 5
           volumeMounts:
-            - name: aws-credentials
-              mountPath: /var/run/secrets/aws
+            - name: aws-keys
+              mountPath: /var/run/aws/keys
+              readOnly: true
+            - name: aws-auth
+              mountPath: /var/run/aws/auth
               readOnly: true
             - name: bound-sa-token
               mountPath: /var/run/secrets/openshift/serviceaccount
@@ -57,9 +97,11 @@ spec:
               cpu: 10m
           terminationMessagePolicy: FallbackToLogsOnError
       volumes:
-        - name: aws-credentials
+        - name: aws-keys
           secret:
             secretName: ebs-cloud-credentials
+        - name: aws-auth
+          emptyDir: {}
         # This service account token can be used to provide identity outside the cluster.
         # For example, this token can be used with AssumeRoleWithWebIdentity to authenticate with AWS using IAM OIDC provider and STS.
         - name: bound-sa-token
