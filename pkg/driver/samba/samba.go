@@ -77,6 +77,14 @@ func GetSambaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/samba/base/controller_privileged_binding.yaml",
 				"overlays/samba/base/csidriver.yaml",
 			),
+			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
+				// Any role or cluster role bindings should not hardcode service account namespace because this operator is OLM based and can be installed into a custom namespace.
+				"main_provisioner_binding.yaml", "overlays/samba/patches/binding_with_namespace_placeholder_controller.yaml",
+				"lease_leader_election_binding.yaml", "overlays/samba/patches/binding_with_namespace_placeholder_controller.yaml",
+				"configmap_and_secret_reader_provisioner_binding.yaml", "overlays/samba/patches/binding_with_namespace_placeholder_controller.yaml",
+				"controller_privileged_binding.yaml", "overlays/samba/patches/binding_with_namespace_placeholder_controller.yaml",
+				"node_privileged_binding.yaml", "overlays/samba/patches/binding_with_namespace_placeholder_node.yaml",
+			),
 		},
 	}
 }
