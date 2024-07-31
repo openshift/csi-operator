@@ -9,6 +9,8 @@ import (
 	cfginformers "github.com/openshift/client-go/config/informers/externalversions"
 	fakeop "github.com/openshift/client-go/operator/clientset/versioned/fake"
 	opinformers "github.com/openshift/client-go/operator/informers/externalversions"
+	fakehype "github.com/openshift/hypershift/client/clientset/clientset/fake"
+	hypextinformers "github.com/openshift/hypershift/client/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +39,9 @@ func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clie
 	scheme := runtime.NewScheme()
 	controlPlaneDynamicClient := fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind)
 	controlPlaneDynamicInformer := dynamicinformer.NewDynamicSharedInformerFactory(controlPlaneDynamicClient, 0)
+
+	controlPlaneHypeClient := fakehype.NewSimpleClientset()
+	controlPlaneHypeInformers := hypextinformers.NewSharedInformerFactory(controlPlaneHypeClient, 0)
 
 	guestKubeClient := fakecore.NewSimpleClientset()
 	guestKubeInformers := v1helpers.NewKubeInformersForNamespaces(guestKubeClient, controllerNamespace, "", CSIDriverNamespace)
@@ -75,6 +80,8 @@ func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clie
 		ControlPlaneKubeInformers:   controlPlaneKubeInformers,
 		ControlPlaneDynamicClient:   controlPlaneDynamicClient,
 		ControlPlaneDynamicInformer: controlPlaneDynamicInformer,
+		ControlPlaneHypeClient:      controlPlaneHypeClient,
+		ControlPlaneHypeInformer:    controlPlaneHypeInformers,
 
 		KubeClient:        guestKubeClient,
 		KubeInformers:     guestKubeInformers,
