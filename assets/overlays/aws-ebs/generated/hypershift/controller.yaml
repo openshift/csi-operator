@@ -422,10 +422,29 @@ spec:
         - sh
         - -c
         - |
-          cat <<EOF > /var/run/aws/auth/credentials
+          # Define file path variables
+          CREDENTIALS_FILE=/var/run/aws/keys/credentials
+          AUTH_CREDENTIALS_FILE=/var/run/aws/auth/credentials
+          AWS_ACCESS_KEY_ID_FILE=/var/run/aws/keys/aws_access_key_id
+          AWS_SECRET_ACCESS_KEY_FILE=/var/run/aws/keys/aws_secret_access_key
+
+          # If credentials key exists in ebs-cloud-credentials secret, then use it as the auth file
+          if [ -e "$CREDENTIALS_FILE" ]; then
+              cp "$CREDENTIALS_FILE" "$AUTH_CREDENTIALS_FILE"
+              exit 0
+          fi
+
+          # Otherwise, make sure the access keys are mounted in the pod...
+          if [ ! -e "$AWS_ACCESS_KEY_ID_FILE" ] || [ ! -e "$AWS_SECRET_ACCESS_KEY_FILE" ]; then
+              echo "AWS keys not found"
+              exit 1
+          fi
+
+          # And create an auth file based on those keys
+          cat <<-EOF > "$AUTH_CREDENTIALS_FILE"
           [default]
-          aws_access_key_id=$(cat /var/run/aws/keys/aws_access_key_id)
-          aws_secret_access_key=$(cat /var/run/aws/keys/aws_secret_access_key)
+          aws_access_key_id=$(cat "$AWS_ACCESS_KEY_ID_FILE")
+          aws_secret_access_key=$(cat "$AWS_SECRET_ACCESS_KEY_FILE")
           EOF
         image: ${TOOLS_IMAGE}
         name: init-aws-credentials-file
