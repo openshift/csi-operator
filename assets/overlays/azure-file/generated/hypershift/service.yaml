@@ -5,6 +5,7 @@
 # Applied strategic merge patch common/metrics/service_add_port.yaml
 # Applied strategic merge patch common/metrics/service_add_port.yaml
 # Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
 #
 #
 
@@ -31,6 +32,10 @@ spec:
     port: 9214
     protocol: TCP
     targetPort: resizer-m
+  - name: snapshotter-m
+    port: 9215
+    protocol: TCP
+    targetPort: snapshotter-m
   - name: driver-m
     port: 9211
     protocol: TCP

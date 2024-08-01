@@ -1,0 +1,12 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/azure-file/base/volumesnapshotclass.yaml
+#
+#
+
+apiVersion: snapshot.storage.k8s.io/v1
+deletionPolicy: Delete
+driver: file.csi.azure.com
+kind: VolumeSnapshotClass
+metadata:
+  name: csi-azurefile-vsc
