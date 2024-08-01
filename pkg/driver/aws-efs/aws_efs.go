@@ -3,6 +3,8 @@ package aws_efs
 import (
 	"context"
 	opv1 "github.com/openshift/api/operator/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
@@ -22,6 +24,8 @@ const (
 	cloudCredSecretName   = "aws-efs-cloud-credentials"
 	metricsCertSecretName = "aws-efs-csi-driver-controller-metrics-serving-cert"
 	trustedCAConfigMap    = "aws-efs-csi-driver-trusted-ca-bundle"
+	stsIAMRoleARNEnvVar   = "ROLEARN"
+	cloudTokenPath        = "/var/run/secrets/openshift/serviceaccount/token"
 
 	generatedAssetBase = "overlays/aws-efs/generated"
 )
@@ -107,6 +111,7 @@ func GetAWSEFSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withFIPSDeploymentHook)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
 	cfg.AddDaemonSetHookBuilders(c, withFIPSDaemonSetHook)
+	cfg.AddCredentialsRequestHook(stsCredentialsRequestHook)
 
 	return cfg, nil
 }
@@ -172,4 +177,20 @@ func withFIPSDaemonSetHookInternal(fipsEnbaled string) (csidrivernodeservicecont
 
 func withFIPSDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
 	return withFIPSDaemonSetHookInternal(getFIPSEnabled())
+}
+
+func stsCredentialsRequestHook(spec *opv1.OperatorSpec, cr *unstructured.Unstructured) error {
+	stsRoleARN := os.Getenv(stsIAMRoleARNEnvVar)
+	if stsRoleARN == "" {
+		// Not in STS mode
+		return nil
+	}
+
+	if err := unstructured.SetNestedField(cr.Object, cloudTokenPath, "spec", "cloudTokenPath"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(cr.Object, stsRoleARN, "spec", "providerSpec", "stsIAMRoleARN"); err != nil {
+		return err
+	}
+	return nil
 }
