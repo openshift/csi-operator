@@ -350,6 +350,8 @@ spec:
                       value: aws-efs-csi-driver-operator
                     - name: KUBE_RBAC_PROXY_IMAGE
                       value: quay.io/openshift/origin-kube-rbac-proxy:latest
+                    - name: TOOLS_IMAGE
+                      value: quay.io/openshift/origin-tools:latest
                   resources:
                     requests:
                       memory: 50Mi
