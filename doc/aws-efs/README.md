@@ -31,6 +31,7 @@ export LIVENESS_PROBE_IMAGE=quay.io/openshift/origin-csi-livenessprobe:latest
 export OPERATOR_NAME=aws-efs-csi-driver-operator
 export PROVISIONER_IMAGE=quay.io/openshift/origin-csi-external-provisioner:latest
 export KUBE_RBAC_PROXY_IMAGE=quay.io/openshift/origin-kube-rbac-proxy:latest
+export TOOLS_IMAGE=quay.io/openshift/origin-tools:latest
 
 # Run the operator via CLI
 ./bin/aws-efs-csi-driver-operator start --kubeconfig $KUBECONFIG --namespace openshift-cluster-csi-drivers
