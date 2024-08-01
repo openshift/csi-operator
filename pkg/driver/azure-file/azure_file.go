@@ -65,9 +65,11 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			SidecarLocalMetricsPortStart:   commongenerator.AzureFileLoopbackMetricsPortStart + 1,
 			SidecarExposedMetricsPortStart: commongenerator.AzureFileExposedMetricsPortStart + 1,
 			Sidecars: []generator.SidecarConfig{
-				commongenerator.DefaultProvisioner.WithExtraArguments(
+				commongenerator.DefaultProvisionerWithSnapshots.WithExtraArguments(
 					"--extra-create-metadata=true",
 					"--timeout=300s",
+					"--kube-api-qps=50",
+					"--kube-api-burst=100",
 				),
 				commongenerator.DefaultAttacher.WithExtraArguments(
 					"--timeout=120s",
@@ -75,6 +77,9 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				commongenerator.DefaultResizer.WithExtraArguments(
 					"--timeout=120s",
 					"-handle-volume-inuse-error=false",
+				),
+				commongenerator.DefaultSnapshotter.WithExtraArguments(
+					"--timeout=600s",
 				),
 				commongenerator.DefaultLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
@@ -105,6 +110,7 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/azure-file/base/storageclass.yaml",
 				"overlays/azure-file/base/csi-driver-cluster-role.yaml",
 				"overlays/azure-file/base/csi-driver-cluster-role-binding.yaml",
+				"overlays/azure-file/base/volumesnapshotclass.yaml",
 			),
 		},
 	}
