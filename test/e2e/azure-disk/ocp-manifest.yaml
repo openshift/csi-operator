@@ -1,0 +1,4 @@
+Driver: disk.csi.azure.com
+LUNStressTest:
+  PodsTotal: 260
+  Timeout: "60m" # The test needs ~40 min in ideal conditions.
