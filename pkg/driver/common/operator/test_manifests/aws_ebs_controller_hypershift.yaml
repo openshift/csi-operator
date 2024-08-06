@@ -74,7 +74,7 @@ spec:
         - name: AWS_SDK_LOAD_CONFIG
           value: "1"
         - name: AWS_CONFIG_FILE
-          value: /var/run/secrets/aws/credentials
+          value: /var/run/aws/auth/credentials
         image: ${DRIVER_IMAGE}
         imagePullPolicy: IfNotPresent
         livenessProbe:

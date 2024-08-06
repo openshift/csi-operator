@@ -47,7 +47,7 @@ spec:
   template:
     metadata:
       annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: bound-sa-token,socket-dir
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: aws-auth,aws-keys,bound-sa-token,socket-dir
         openshift.io/required-scc: restricted-v2
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
       labels:
@@ -102,7 +102,7 @@ spec:
         - name: AWS_SDK_LOAD_CONFIG
           value: "1"
         - name: AWS_CONFIG_FILE
-          value: /var/run/secrets/aws/credentials
+          value: /var/run/aws/auth/credentials
         image: ${DRIVER_IMAGE}
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -124,8 +124,11 @@ spec:
             memory: 50Mi
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
-        - mountPath: /var/run/secrets/aws
-          name: aws-credentials
+        - mountPath: /var/run/aws/keys
+          name: aws-keys
+          readOnly: true
+        - mountPath: /var/run/aws/auth
+          name: aws-auth
           readOnly: true
         - mountPath: /var/run/secrets/openshift/serviceaccount
           name: bound-sa-token
@@ -414,6 +417,45 @@ spec:
         - mountPath: /etc/hosted-kubernetes
           name: hosted-kubeconfig
           readOnly: true
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - |
+          # Define file path variables
+          CREDENTIALS_FILE=/var/run/aws/keys/credentials
+          AUTH_CREDENTIALS_FILE=/var/run/aws/auth/credentials
+          AWS_ACCESS_KEY_ID_FILE=/var/run/aws/keys/aws_access_key_id
+          AWS_SECRET_ACCESS_KEY_FILE=/var/run/aws/keys/aws_secret_access_key
+
+          # If credentials key exists in ebs-cloud-credentials secret, then use it as the auth file
+          if [ -e "$CREDENTIALS_FILE" ]; then
+              cp "$CREDENTIALS_FILE" "$AUTH_CREDENTIALS_FILE"
+              echo "Kubernetes Secret already contains credentials file, copied to the right place: $AUTH_CREDENTIALS_FILE"
+              exit 0
+          fi
+
+          # Otherwise, make sure the access keys are mounted in the pod...
+          if [ ! -e "$AWS_ACCESS_KEY_ID_FILE" ] || [ ! -e "$AWS_SECRET_ACCESS_KEY_FILE" ]; then
+              echo "AWS keys not found"
+              exit 1
+          fi
+
+          # And create an auth file based on those keys
+          cat <<-EOF > "$AUTH_CREDENTIALS_FILE"
+          [default]
+          aws_access_key_id=$(cat "$AWS_ACCESS_KEY_ID_FILE")
+          aws_secret_access_key=$(cat "$AWS_SECRET_ACCESS_KEY_FILE")
+          EOF
+          echo "Kubernetes Secret does not have credentials file, created a fresh one at $AUTH_CREDENTIALS_FILE"
+        image: ${TOOLS_IMAGE}
+        name: init-aws-credentials-file
+        volumeMounts:
+        - mountPath: /var/run/aws/keys
+          name: aws-keys
+          readOnly: true
+        - mountPath: /var/run/aws/auth
+          name: aws-auth
       priorityClassName: hypershift-control-plane
       serviceAccount: aws-ebs-csi-driver-controller-sa
       tolerations:
@@ -431,9 +473,11 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: aws-ebs-csi-driver-controller-metrics-serving-cert
-      - name: aws-credentials
+      - name: aws-keys
         secret:
           secretName: ebs-cloud-credentials
+      - emptyDir: {}
+        name: aws-auth
       - emptyDir:
           medium: Memory
         name: bound-sa-token
