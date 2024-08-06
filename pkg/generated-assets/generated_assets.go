@@ -36,7 +36,7 @@ const (
 
 var (
 	notStaticControllerAssets = sets.NewString(deploymentKind, credentialsRequestKind)
-	notStaticGuestAssets      = sets.NewString(daemonSetKind, storageClassKind, volumeSnapshotClassKind)
+	notStaticGuestAssets      = sets.NewString(daemonSetKind, storageClassKind, volumeSnapshotClassKind, credentialsRequestKind)
 )
 
 // CSIDriverAssets contains all the assets required to deploy the CSI driver in runtime.

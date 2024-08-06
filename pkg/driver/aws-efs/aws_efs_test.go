@@ -1,6 +1,8 @@
 package aws_efs
 
 import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"os"
 	"reflect"
 	"testing"
 
@@ -24,6 +26,14 @@ func getTestDaemonSet() *appsv1.DaemonSet {
 		panic(err)
 	}
 	return resourceread.ReadDaemonSetV1OrDie(data)
+}
+
+func getTestCredentialsRequest() *unstructured.Unstructured {
+	data, err := assets.ReadFile("overlays/aws-efs/generated/standalone/credentials.yaml")
+	if err != nil {
+		panic(err)
+	}
+	return resourceread.ReadUnstructuredOrDie(data)
 }
 
 func Test_WithFIPSDeploymentHook(t *testing.T) {
@@ -141,6 +151,82 @@ func Test_WithFIPSDaemonSetHook(t *testing.T) {
 			}
 			if !found {
 				t.Errorf("container csi-driver not found")
+			}
+		})
+	}
+}
+
+func Test_StsCredentialsRequestHook(t *testing.T) {
+	testARN := "arn:aws:iam::301721915996:role/user-123x-4567--efs-csi-driver-role"
+
+	tests := []struct {
+		name              string
+		envVariables      map[string]string
+		expectedARN       string
+		expectedTokenPath string
+	}{
+		{
+			name:              "STS is enabled",
+			envVariables:      map[string]string{stsIAMRoleARNEnvVar: testARN},
+			expectedARN:       testARN,
+			expectedTokenPath: cloudTokenPath,
+		},
+		{
+			name:              "STS is disabled - no ARN set",
+			envVariables:      map[string]string{},
+			expectedARN:       "",
+			expectedTokenPath: "",
+		},
+		{
+			name:              "STS is disabled - ARN is empty",
+			envVariables:      map[string]string{stsIAMRoleARNEnvVar: ""},
+			expectedARN:       "",
+			expectedTokenPath: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cr := clients.GetFakeOperatorCR()
+
+			// Set the environment variables
+			for key, value := range tt.envVariables {
+				err := os.Setenv(key, value)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			}
+
+			// Act
+			testCr := getTestCredentialsRequest()
+			err := stsCredentialsRequestHook(&cr.Spec.OperatorSpec, testCr)
+			if err != nil {
+				t.Fatalf("unexpected hook error: %v", err)
+			}
+
+			// Assert
+			providerSpec, _, err := unstructured.NestedString(testCr.Object, "spec", "providerSpec", "stsIAMRoleARN")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if providerSpec != tt.expectedARN {
+				t.Fatalf("expected stsIAMRoleARN %#v, got %#v", tt.expectedARN, providerSpec)
+			}
+
+			tokenPath, _, err := unstructured.NestedString(testCr.Object, "spec", "cloudTokenPath")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tokenPath != tt.expectedTokenPath {
+				t.Fatalf("expected cloudTokenPath %#v, got %#v", tt.expectedTokenPath, tokenPath)
+			}
+
+			// Cleanup
+			for key := range tt.envVariables {
+				err := os.Unsetenv(key)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
 			}
 		})
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/volume_snapshot_class"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/csi/credentialsrequestcontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
 	"github.com/openshift/library-go/pkg/operator/deploymentcontroller"
@@ -39,6 +40,8 @@ type OperatorControllerConfig struct {
 	// Prefix of all library-go style controllers.
 	ControllerNamePrefix string
 
+	// List of hooks to add to credentials request controller.
+	CredentialsRequestHooks []credentialsrequestcontroller.CredentialsRequestHook
 	// List of hooks to add to CSI driver controller Deployment.
 	DeploymentHooks []deploymentcontroller.DeploymentHookFunc
 	// List of informers that should be added to the Deployment controller.
@@ -65,6 +68,10 @@ type OperatorControllerConfig struct {
 
 	// ExtraReplacements defines additional replacements that should be made to assets
 	ExtraReplacementsFunc func() []string
+}
+
+func (o *OperatorControllerConfig) AddCredentialsRequestHook(hook credentialsrequestcontroller.CredentialsRequestHook) {
+	o.CredentialsRequestHooks = append(o.CredentialsRequestHooks, hook)
 }
 
 func (o *OperatorControllerConfig) AddDeploymentHook(hook deploymentcontroller.DeploymentHookFunc, informers ...factory.Informer) {

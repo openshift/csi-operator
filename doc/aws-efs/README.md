@@ -46,6 +46,8 @@ STORAGECLASS_LOCATION=sc.yaml MANIFEST_LOCATION=manifest.yaml ./bin/create-efs-v
 
 > **Note**: Creation of EFS volume, security groups and firewall rules is not idempotent and hence you must delete those manually if you want to recreate.
 
+> **Note**: For STS clusters you need to use --local-aws-creds option.
+
 This should give us a storageclass which can be applied and can be used for testing:
 
 ```shell

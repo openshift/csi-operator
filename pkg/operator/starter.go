@@ -71,6 +71,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	// Start controllers that manage resources in the MANAGEMENT cluster.
 	controlPlaneControllerInformers := csiOperatorControllerConfig.DeploymentInformers
 	controllerHooks := csiOperatorControllerConfig.DeploymentHooks
+	credentialsRequestHooks := csiOperatorControllerConfig.CredentialsRequestHooks
 
 	if len(csiOperatorControllerConfig.DeploymentWatchedSecretNames) > 0 {
 		controlPlaneSecretInformer := c.GetControlPlaneSecretInformer(controlPlaneNamespace)
@@ -146,6 +147,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			generated_assets.CredentialRequestControllerAssetName,
 			c.ControlPlaneDynamicClient,
 			c.OperatorInformers,
+			credentialsRequestHooks...,
 		)
 	}
 
