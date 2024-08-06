@@ -431,6 +431,7 @@ spec:
           # If credentials key exists in ebs-cloud-credentials secret, then use it as the auth file
           if [ -e "$CREDENTIALS_FILE" ]; then
               cp "$CREDENTIALS_FILE" "$AUTH_CREDENTIALS_FILE"
+              echo "Kubernetes Secret already contains credentials file, copied to the right place: $AUTH_CREDENTIALS_FILE"
               exit 0
           fi
 
@@ -446,6 +447,7 @@ spec:
           aws_access_key_id=$(cat "$AWS_ACCESS_KEY_ID_FILE")
           aws_secret_access_key=$(cat "$AWS_SECRET_ACCESS_KEY_FILE")
           EOF
+          echo "Kubernetes Secret does not have credentials file, created a fresh one at $AUTH_CREDENTIALS_FILE"
         image: ${TOOLS_IMAGE}
         name: init-aws-credentials-file
         volumeMounts:
