@@ -2,6 +2,7 @@
 #
 # Loaded from base/rbac/main_provisioner_binding.yaml
 #   because it's needed by controller sidecar common/sidecars/provisioner.yaml
+# Applied strategic merge patch overlays/samba/patches/binding_with_namespace_placeholder_controller.yaml
 #
 #
 
@@ -16,4 +17,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: smb-csi-driver-controller-sa
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NAMESPACE}
