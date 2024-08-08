@@ -172,6 +172,11 @@ func GetAzureFileOperatorControllerConfig(ctx context.Context, flavour generator
 			return nil, err
 		}
 		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer)
+
+		msi := os.Getenv("AZURE_MSI_AUTHENTICATION")
+		if msi == "true" {
+			cfg.AddDeploymentHookBuilders(c, operator.WithAzureMSI)
+		}
 	} else {
 		standAloneConfigSyncer, err := syncCloudConfigStandAlone(c)
 		if err != nil {

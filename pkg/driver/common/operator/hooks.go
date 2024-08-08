@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
@@ -139,4 +140,25 @@ func withHyperShiftControlPlaneImages(c *clients.Clients) (dc.DeploymentHookFunc
 		return nil
 	}
 	return hook, nil
+}
+
+// WithAzureMSI sets AZURE_MSI_AUTHENTICATION env var
+func WithAzureMSI(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		for i := range deployment.Spec.Template.Spec.Containers {
+			container := &deployment.Spec.Template.Spec.Containers[i]
+			if container.Name != "csi-driver" {
+				continue
+			}
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "AZURE_MSI_AUTHENTICATION",
+				Value: "true",
+			})
+		}
+		return nil
+	}
+	informers := []factory.Informer{
+		c.GetInfraInformer().Informer(),
+	}
+	return hook, informers
 }
