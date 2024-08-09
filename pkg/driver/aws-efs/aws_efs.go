@@ -2,6 +2,9 @@ package aws_efs
 
 import (
 	"context"
+	"fmt"
+	"os"
+
 	opv1 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -17,7 +20,6 @@ import (
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"os"
 )
 
 const (
@@ -110,7 +112,7 @@ func GetAWSEFSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEFS")
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withFIPSDeploymentHook)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
-	cfg.AddDaemonSetHookBuilders(c, withFIPSDaemonSetHook)
+	cfg.AddDaemonSetHookBuilders(c, withFIPSDaemonSetHook, withVolumeMetricsDaemonSetHook)
 	cfg.AddCredentialsRequestHook(stsCredentialsRequestHook)
 
 	return cfg, nil
@@ -126,6 +128,7 @@ func withCABundleDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []fa
 	informers := []factory.Informer{
 		c.GetControlPlaneConfigMapInformer(c.ControlPlaneNamespace).Informer(),
 	}
+
 	return hook, informers
 }
 
@@ -193,4 +196,50 @@ func stsCredentialsRequestHook(spec *opv1.OperatorSpec, cr *unstructured.Unstruc
 		return err
 	}
 	return nil
+}
+
+func withVolumeMetricsDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
+	clusterCSIDriverInformer := c.OperatorInformers.Operator().V1().ClusterCSIDrivers()
+	hook := func(opSpec *opv1.OperatorSpec, ds *appsv1.DaemonSet) error {
+		clusterCSIDriver, err := clusterCSIDriverInformer.Lister().Get(string(opv1.AWSEFSCSIDriver))
+		if err != nil {
+			return err
+		}
+
+		// Short-circuit if metrics are not enabled.
+		config := clusterCSIDriver.Spec.DriverConfig.AWS
+		if config == nil || config.EFSVolumeMetrics == nil || config.EFSVolumeMetrics.State == opv1.AWSEFSVolumeMetricsDisabled {
+			return nil
+		}
+
+		containers := ds.Spec.Template.Spec.Containers
+		for i := range containers {
+			if containers[i].Name != "csi-driver" {
+				continue
+			}
+
+			// At this point, we know that EFS volume metrics should be enabled, so set the CLI option.
+			containers[i].Args = append(containers[i].Args, "--vol-metrics-opt-in=true")
+
+			// Now capture the optional fields.
+			if config.EFSVolumeMetrics.RecursiveWalk != nil {
+				minutes := config.EFSVolumeMetrics.RecursiveWalk.RefreshPeriodMinutes
+				if minutes > 0 {
+					containers[i].Args = append(containers[i].Args, fmt.Sprintf("--vol-metrics-refresh-period=%d", minutes))
+				}
+				goroutines := config.EFSVolumeMetrics.RecursiveWalk.FSRateLimit
+				if goroutines > 0 {
+					containers[i].Args = append(containers[i].Args, fmt.Sprintf("--vol-metrics-fs-rate-limit=%d", goroutines))
+				}
+			}
+		}
+		ds.Spec.Template.Spec.Containers = containers
+
+		return nil
+	}
+	informers := []factory.Informer{
+		clusterCSIDriverInformer.Informer(),
+	}
+	return hook, informers
+
 }
