@@ -27,3 +27,7 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/openshift/origin-kube-rbac-proxy:latest
+  - name: tools
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-tools:latest
