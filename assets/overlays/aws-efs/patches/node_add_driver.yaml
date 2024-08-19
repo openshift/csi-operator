@@ -80,6 +80,7 @@ spec:
             # intended to prevent the driver from adding undue stress to control-plane nodes.
             limits:
               memory: 1Gi
+          terminationMessagePolicy: FallbackToLogsOnError
         - name: csi-node-driver-registrar
           securityContext:
             privileged: true
@@ -113,6 +114,7 @@ spec:
             requests:
               memory: 50Mi
               cpu: 10m
+          terminationMessagePolicy: FallbackToLogsOnError
         - name: csi-liveness-probe
           image: ${LIVENESS_PROBE_IMAGE}
           args:
@@ -127,6 +129,7 @@ spec:
             requests:
               memory: 50Mi
               cpu: 10m
+          terminationMessagePolicy: FallbackToLogsOnError
       volumes:
         - name: kubelet-dir
           hostPath:
