@@ -221,6 +221,7 @@ spec:
           echo "Kubernetes Secret does not have credentials file, created a fresh one at $AUTH_CREDENTIALS_FILE"
         image: ${TOOLS_IMAGE}
         name: init-aws-credentials-file
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /var/run/aws/keys
           name: aws-keys

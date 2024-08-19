@@ -81,6 +81,7 @@ spec:
               readOnly: true
             - name: aws-auth
               mountPath: /var/run/aws/auth
+          terminationMessagePolicy: FallbackToLogsOnError
       containers:
         # CSI driver container
         - name: csi-driver
