@@ -5,6 +5,11 @@ RUN make
 
 FROM registry.ci.openshift.org/ocp/4.17:base-rhel9
 COPY --from=builder /go/src/github.com/openshift/csi-operator/bin/create-efs-volume /usr/bin/
+
+# This is the image that's used to _generate_ the upstream test manifest.
+# Store the OCP specific test manifests here too, so they're available on the same place.
+COPY test/e2e/aws-efs/* /usr/share/aws-efs-csi-driver/
+
 ENTRYPOINT ["/usr/bin/create-efs-volume"]
 LABEL io.k8s.display-name="OpenShift AWS EFS Creator" \
 	io.k8s.description="The AWS EFS CSI Creator creates a EFS filesystem for testing."
