@@ -1,7 +1,7 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: smb-csi-driver-operator.v4.17.0
+  name: smb-csi-driver-operator.v4.18.0
   namespace: placeholder
   annotations:
     categories: Storage
@@ -13,7 +13,7 @@ metadata:
     repository: https://github.com/openshift/csi-operator
     createdAt: "2021-07-14T00:00:00Z"
     description: Install and configure CIFS/SMB CSI driver.
-    olm.skipRange: ">=4.15.0-0 <4.17.0"
+    olm.skipRange: ">=4.15.0-0 <4.18.0"
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "false"
     features.operators.openshift.io/proxy-aware: "true"
@@ -44,7 +44,7 @@ spec:
       url: https://github.com/openshift/csi-operator
     - name: Source Repository
       url: https://github.com/openshift/csi-operator
-  version: 4.17.0
+  version: 4.18.0
   maturity: preview
   maintainers:
     - email: aos-storage-staff@redhat.com
@@ -54,7 +54,7 @@ spec:
     name: Red Hat
   labels:
     alm-owner-metering: smb-csi-driver-operator
-    alm-status-descriptors: smb-csi-driver-operator.v4.17.0
+    alm-status-descriptors: smb-csi-driver-operator.v4.18.0
   selector:
     matchLabels:
       alm-owner-metering: smb-csi-driver-operator
