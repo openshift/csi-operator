@@ -64,6 +64,7 @@ spec:
             memory: 20Mi
         securityContext:
           privileged: true
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
