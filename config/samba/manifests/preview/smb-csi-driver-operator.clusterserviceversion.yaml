@@ -303,6 +303,7 @@ spec:
                     requests:
                       memory: 50Mi
                       cpu: 10m
+                  terminationMessagePolicy: FallbackToLogsOnError
                 priorityClassName: system-cluster-critical
                 # Strongly prefer a master node, but don't require it.
                 # We want the same Deployment to work on hypershift,
