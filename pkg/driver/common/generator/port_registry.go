@@ -1,5 +1,7 @@
 package generator
 
+// We can typically reuse ports as we don't expect to deploy CSI drivers for
+// different clouds on the same cluster.
 const (
 	AWSEBSLoopbackMetricsPortStart = 8201
 	AWSEBSExposedMetricsPortStart  = 9201
@@ -7,8 +9,6 @@ const (
 	AWSEFSLoopbackMetricsPortStart = 8211
 	AWSEFSExposedMetricsPortStart  = 9211
 
-	// it should be safe to reuse port for Azure because we do not
-	// expect to deploy azure-disk and EBS driver on same clusters
 	AzureDiskControllerLoopbackMetricsPortStart = 8201
 	AzureDiskControllerExposedMetricsPortStart  = 9201
 	AzureDiskNodeLoopbackMetricsPortStart       = 8206
@@ -19,4 +19,7 @@ const (
 
 	SambaLoopbackMetricsPortStart = 8221
 	SambaExposedMetricsPortStart  = 9221
+
+	OpenStackCinderLoopbackMetricsPortStart = 8202
+	OpenStackCinderExposedMetricsPortStart  = 9202
 )
