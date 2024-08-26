@@ -1,7 +1,7 @@
 all: build
 .PHONY: all
 
-GO_BUILD_BINDIR=bin/
+GO_BUILD_BINDIR=bin
 
 # Include the library makefile
 include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
