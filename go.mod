@@ -9,7 +9,7 @@ require (
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/google/go-cmp v0.6.0
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
-	github.com/openshift/api v0.0.0-20240808055311-bf71d8fa8155
+	github.com/openshift/api v0.0.0-20240906165951-d73f2e11e0be
 	github.com/openshift/build-machinery-go v0.0.0-20240419090851-af9c868bcf52
 	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87
 	github.com/openshift/hypershift v0.1.39
