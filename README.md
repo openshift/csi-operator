@@ -62,3 +62,7 @@ export KUBE_RBAC_PROXY_IMAGE=quay.io/openshift/origin-kube-rbac-proxy:latest
 # Run the operator via CLI
 ./bin/aws-ebs-csi-driver-operator start --kubeconfig $MY_KUBECONFIG --namespace openshift-cluster-csi-drivers
 ```
+
+## Migrating an existing operator
+
+If you are looking to migrate an existing CSI Driver operator to the combined `csi-operator` operator, refer to [the docs](docs/migrating-operators.md)
