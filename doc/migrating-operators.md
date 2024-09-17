@@ -1,38 +1,53 @@
 # Process of moving operators to csi-operator monorepo
 
-We have come with following flow for moving operators from their own repository into csi-operator mono repo.
+> **Note**
+>
+> This doc previously lived in [openshift/enhancements][enhancements].
+>
+> [enhancements]: https://raw.githubusercontent.com/openshift/enhancements/master/enhancements/storage/csi-driver-operator-merge.md
 
-## Avoid .gitignore related footguns
+We have come with following flow for moving operators from their own repository into this repo.
 
-Remove any .gitignore entries in the source repository that would match a directory / file that we need. For example, `azure-disk-csi-driver-operator` in .gitignore matched `cmd/azure-disk-csi-driver-operator` directory that we really need not to be ignored. See https://github.com/openshift/csi-operator/pull/110, where we had to fix after merge to csi-operator.
+## Avoid `.gitignore` related footguns
+
+Remove any `.gitignore` entries in the source repository that would match a directory / file that we need.
+For example, `azure-disk-csi-driver-operator` in `.gitignore` matched `cmd/azure-disk-csi-driver-operator` directory that we really need not to be ignored.
+See https://github.com/openshift/csi-operator/pull/110, where we had to fix after merge to `csi-operator`.
 
 ## Move existing code into csi-operator repository
 
-Using git-subtree move your existing operator code to https://github.com/openshift/csi-operator/tree/master/legacy
+Using `git-subtree`, move your existing operator code to https://github.com/openshift/csi-operator/tree/master/legacy
 
 ```
 git subtree add --prefix legacy/azure-disk-csi-driver-operator https://github.com/openshift/azure-disk-csi-driver-operator.git master --squash
+```
+
+Once this has been done, all changes should now take place in `csi-operator`.
+You can sync back to the original repository like so:
+
+```
 git subtree push --prefix legacy/azure-disk-csi-driver-operator https://github.com/openshift/azure-disk-csi-driver-operator.git master
 ```
 
-## Add Dockerfiles for building images from new location
+## Add a `Dockerfile` for building images from new location
 
 Place a `Dockerfile.<operator>` at top of csi-operator tree and make sure that you are able to build an image of the operator from csi-operator repository.
 
-## Update openshift/release to build image from new location
+## Update `openshift/release` to build image from new location
 
-Make a PR to openshift/release repository to build the operator from csi-operator. For example - https://github.com/openshift/release/pull/46233.
+Make a PR to [openshift/release](https://github.com/openshift/release) repository to build the operator from `csi-operator`.
+For example, https://github.com/openshift/release/pull/46233
 
 1. Update also `storage-conf-csi-<operator>-commands.sh`, the test manifest will be at a different location.
 2. Make sure that rehearse jobs for both older versions of operator and newer versions of operator pass.
 
-## Change ocp-build-data repository to ship image from new location
+## Update `openshift/ocp-build-data` to ship image from new location
 
-Make a PR to [ocp-build-data](https://github.com/openshift-eng/ocp-build-data) repository to change location of the image etc -  https://github.com/openshift-eng/ocp-build-data/pull/4148
+Make a PR to [openshift/ocp-build-data](https://github.com/openshift-eng/ocp-build-data) repository to change location of the image.
+For example, https://github.com/openshift-eng/ocp-build-data/pull/4148
 
 1. Notice the `cachito` line in the PR - we need to build with the vendor from legacy/ directory.
-
-2. Ask ART for a scratch build. Make sure you can install  a cluster with that build.
+2. Ask ART for a scratch build. Make sure you can install a cluster with that build.
 
 ```
 oc adm release new \
@@ -44,21 +59,23 @@ azure-disk-csi-driver-operator=<the scratch build> \
 oc adm release extract --command openshift-install quay.io/jsafrane/scratch:release1
 ```
 
-This step is only applicable for CVO based operators and not OLM based operators. For OLM based operator - either an image can be built locally and deployed using your personal index image or you can ask ART team for a scratch image when you open `ocp-build-data` PR and proceed to include that image in your personal index image.
+This step is only applicable for CVO based operators and not OLM based operators.
+For OLM based operator - either an image can be built locally and deployed using your personal index image or you can ask ART team for a scratch image when you open `ocp-build-data` PR and proceed to include that image in your personal index image.
 
-## Co-ordinating merges in ocp-build-data and release repository
+## Co-ordinating merges in `openshift/ocp-build-data` and `openshift/release` repository
 
-Both PRs in openshift/release and ocp-build-data must be merged +/- at the same time. There is a robot that syncs some data from ocp-build-data to openshift/release and actually breaks things when these two repos use different source repository to build images.
+Both PRs in `openshift/release` and `openshift/ocp-build-data` must be merged +/- at the same time.
+There is a robot that syncs some data from the latter to the former and actually breaks things when these two repos use different source repository to build images.
 
-## Enjoy the build from csi-operator repository
+## Enjoy the build from `openshift/csi-operator` repository
 
-After aforementioned changes, your new operator should be able to be built from csi-operator repo and everything should work.
+After aforementioned changes, your new operator should be able to be built from `openshift/csi-operator` repo and everything should work.
 
-## Moving operator to new structure in csi-operator
+## Moving operator to new structure in `openshift/csi-operator`
 
 So in previous section we merely copied existing code from operator’s own repository into `csi-operator` repository. We did not change anything.
 
-But once your operator has been changed to conform to new code in csi-operator repo, You need to perform following additional steps:
+But once your operator has been changed to conform to new code in `openshift/csi-operator` repo, You need to perform following additional steps:
 
 1. Make sure that `Dockerfile.<operator>` at top of the `csi-operator` tree refers to new location of code and not older `legacy/<operator>` location. See example of existing Dockerfiles.
 2. After your changes to `csi-operator` are merged, you should remove the old location from cachito - https://github.com/openshift-eng/ocp-build-data/pull/4219
