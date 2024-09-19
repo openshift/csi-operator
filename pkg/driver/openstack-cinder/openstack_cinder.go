@@ -3,6 +3,7 @@ package openstack_cinder
 import (
 	"context"
 	"fmt"
+	"time"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
@@ -10,6 +11,7 @@ import (
 	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
 	"github.com/openshift/csi-operator/pkg/generator"
+	configsync "github.com/openshift/csi-operator/pkg/openstack-cinder/config"
 	"github.com/openshift/csi-operator/pkg/operator/config"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
@@ -19,6 +21,7 @@ import (
 )
 
 const (
+	resyncInterval        = 20 * time.Minute
 	cinderConfigName      = "cloud-conf"
 	cloudCredSecretName   = "openstack-cloud-credentials"
 	metricsCertSecretName = "openstack-cinder-csi-driver-controller-metrics-serving-cert"
@@ -134,6 +137,12 @@ func GetOpenStackCinderOperatorControllerConfig(ctx context.Context, flavour gen
 
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
 
+	configMapSyncer, err := createConfigMapSyncer(c)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer)
+
 	return cfg, nil
 }
 
@@ -185,4 +194,16 @@ func withConfigDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller
 	)
 	informers := []factory.Informer{}
 	return hook, informers
+}
+
+func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
+	configSyncController := configsync.NewConfigSyncController(
+		c.OperatorClient,
+		c.KubeClient,
+		c.KubeInformers,
+		c.ConfigInformers,
+		resyncInterval,
+		c.EventRecorder)
+
+	return configSyncController, nil
 }

@@ -66,6 +66,10 @@ func NewConfigSyncController(
 	).ToController("ConfigSync", eventRecorder)
 }
 
+func (c *ConfigSyncController) Name() string {
+	return "ConfigSyncController"
+}
+
 func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	var err error
 
