@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+  name: openstack-cinder-csi-driver-trusted-ca-bundle
+  namespace: openshift-cluster-csi-drivers
