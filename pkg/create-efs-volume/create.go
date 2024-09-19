@@ -1,4 +1,4 @@
-package efscreate
+package create_efs_volume
 
 import (
 	"context"
