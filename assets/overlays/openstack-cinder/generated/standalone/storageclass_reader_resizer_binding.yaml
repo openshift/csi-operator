@@ -1,0 +1,19 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/rbac/storageclass_reader_resizer_binding.yaml
+#   because it's needed by controller sidecar common/sidecars/resizer.yaml
+#
+#
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openstack-cinder-csi-storageclass-reader-resizer-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openshift-csi-resizer-storageclass-reader-role
+subjects:
+- kind: ServiceAccount
+  name: openstack-cinder-csi-driver-controller-sa
+  namespace: openshift-cluster-csi-drivers
