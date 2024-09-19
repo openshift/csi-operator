@@ -1,13 +1,14 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/blockstorage/extensions/availabilityzones"
-	"github.com/gophercloud/utils/openstack/clientconfig"
-	azutils "github.com/gophercloud/utils/openstack/compute/v2/availabilityzones"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/availabilityzones"
+	"github.com/gophercloud/utils/v2/openstack/clientconfig"
+	azutils "github.com/gophercloud/utils/v2/openstack/compute/v2/availabilityzones"
 	"github.com/openshift/openstack-cinder-csi-driver-operator/pkg/version"
 )
 
@@ -77,13 +78,13 @@ func getCloudInfo() (*CloudInfo, error) {
 	ua := gophercloud.UserAgent{}
 	ua.Prepend(fmt.Sprintf("openstack-cinder-csi-driver-operator/%s", version.Get().GitCommit))
 
-	ci.clients.computeClient, err = clientconfig.NewServiceClient("compute", opts)
+	ci.clients.computeClient, err = clientconfig.NewServiceClient(context.TODO(), "compute", opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a compute client: %w", err)
 	}
 	ci.clients.computeClient.UserAgent = ua
 
-	ci.clients.volumeClient, err = clientconfig.NewServiceClient("volume", opts)
+	ci.clients.volumeClient, err = clientconfig.NewServiceClient(context.TODO(), "volume", opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a volume client: %w", err)
 	}
@@ -114,7 +115,7 @@ func (ci *CloudInfo) collectInfo() error {
 }
 
 func (ci *CloudInfo) getComputeZones() ([]string, error) {
-	zones, err := azutils.ListAvailableAvailabilityZones(ci.clients.computeClient)
+	zones, err := azutils.ListAvailableAvailabilityZones(context.TODO(), ci.clients.computeClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list compute availability zones: %w", err)
 	}
@@ -129,7 +130,7 @@ func (ci *CloudInfo) getComputeZones() ([]string, error) {
 }
 
 func (ci *CloudInfo) getVolumeZones() ([]string, error) {
-	allPages, err := availabilityzones.List(ci.clients.volumeClient).AllPages()
+	allPages, err := availabilityzones.List(ci.clients.volumeClient).AllPages(context.TODO())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list volume availability zones: %w", err)
 	}

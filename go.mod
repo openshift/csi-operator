@@ -5,8 +5,8 @@ go 1.22.0
 toolchain go1.22.3
 
 require (
-	github.com/gophercloud/gophercloud v1.13.0
-	github.com/gophercloud/utils v0.0.0-20231010081019-80377eca5d56
+	github.com/gophercloud/gophercloud/v2 v2.1.0
+	github.com/gophercloud/utils/v2 v2.0.0-20240812072210-8ce1fc0f2894
 	github.com/onsi/gomega v1.33.1
 	github.com/openshift/api v0.0.0-20240710000542-465787efd0d6
 	github.com/openshift/build-machinery-go v0.0.0-20240419090851-af9c868bcf52
@@ -44,6 +44,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
+	github.com/gofrs/uuid/v5 v5.3.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -56,7 +57,6 @@ require (
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
-	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -94,10 +94,10 @@ require (
 	golang.org/x/exp v0.0.0-20240707233637-46b078467d37 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sync v0.8.0 // indirect
+	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/term v0.22.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20240709173604-40e1e62336c5 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240709173604-40e1e62336c5 // indirect
