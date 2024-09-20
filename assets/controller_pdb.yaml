@@ -1,0 +1,11 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: openstack-manila-csi-controllerplugin-pdb
+  namespace: openshift-manila-csi-driver
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: openstack-manila-csi
+      component: controllerplugin
