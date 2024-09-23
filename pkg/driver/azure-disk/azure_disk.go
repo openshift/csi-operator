@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
+	"github.com/openshift/csi-operator/pkg/driver/common/util"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
 	"github.com/openshift/csi-operator/pkg/operator/volume_snapshot_class"
@@ -215,6 +216,10 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 			return nil, err
 		}
 		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer)
+
+		if os.Getenv("AZURE_ADAPTER_INIT_IMAGE") != "" {
+			cfg.AddDeploymentHook(util.WithAROHCPSidecarContainers())
+		}
 	} else {
 		standAloneConfigSyncer, err := syncCloudConfigStandAlone(c)
 		if err != nil {
@@ -282,7 +287,7 @@ func injectEnvAndMounts(spec *coreV1.PodSpec) {
 }
 
 func syncCloudConfigGuest(c *clients.Clients) (factory.Controller, error) {
-	// syncs cloud-config from openshif-config namespace to openshift-cluster-csi-drivers namespace
+	// syncs cloud-config from openshift-config namespace to openshift-cluster-csi-drivers namespace
 	srcConfigMap := resourcesynccontroller.ResourceLocation{
 		Namespace: openshiftDefaultCloudConfigNamespace,
 		Name:      configMapName,
