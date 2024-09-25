@@ -1,0 +1,5 @@
+apiVersion: rbac.authorization.k8s.io/v1
+subjects:
+  - kind: ServiceAccount
+    name: openstack-cinder-csi-driver-controller-sa
+    namespace: ${NAMESPACE}
