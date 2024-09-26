@@ -1,0 +1,13 @@
+kind: Deployment
+apiVersion: apps/v1
+spec:
+  template:
+    spec:
+      containers:
+        - name: csi-provisioner
+          env:
+            - name: ENABLE_TOPOLOGY
+              valueFrom:
+                configMapKeyRef:
+                  key: enable_topology
+                  name: cloud-conf
