@@ -173,6 +173,12 @@ func (cfg SidecarConfig) WithAdditionalAssets(assets ...string) SidecarConfig {
 	return newCfg
 }
 
+func (cfg SidecarConfig) WithPatches(flavours sets.Set[ClusterFlavour], namePatchPairs ...string) SidecarConfig {
+	newCfg := cfg
+	newCfg.AssetPatches = newCfg.AssetPatches.WithPatches(flavours, namePatchPairs...)
+	return newCfg
+}
+
 func (a Assets) WithAssets(flavours sets.Set[ClusterFlavour], assets ...string) Assets {
 	newAssets := make([]Asset, 0, len(a)+len(assets))
 	newAssets = append(newAssets, a...)
