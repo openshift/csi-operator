@@ -7,6 +7,8 @@ metadata:
 spec:
   template:
     spec:
+      # We need hostNetwork in order to access the metadata service as it's a link-local address.
+      # This also implies the use of the 'privileged' SCC.
       hostNetwork: true
       containers:
         - name: csi-driver
