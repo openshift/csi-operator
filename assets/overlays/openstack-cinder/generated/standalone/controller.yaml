@@ -42,7 +42,7 @@ spec:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: cacert,config-cinderplugin,secret-cinderplugin,socket-dir
-        openshift.io/required-scc: privileged
+        openshift.io/required-scc: restricted-v2
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
       labels:
         app: openstack-cinder-csi-driver-controller
@@ -329,7 +329,6 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
-      hostNetwork: true
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical

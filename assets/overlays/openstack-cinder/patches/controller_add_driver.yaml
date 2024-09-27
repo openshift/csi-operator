@@ -9,11 +9,8 @@ spec:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: "cacert,config-cinderplugin,secret-cinderplugin,socket-dir"
-        # FIXME(stephenfin): This was not set previously for openstack-cinder-csi-driver-operator.
-        # What is the effect/necessity of setting it now?
-        openshift.io/required-scc: privileged
+        openshift.io/required-scc: restricted-v2
     spec:
-      hostNetwork: true
       priorityClassName: system-cluster-critical
       nodeSelector:
         node-role.kubernetes.io/master: ""
@@ -54,7 +51,6 @@ spec:
               value: /etc/kubernetes/config/cloud.conf
           ports:
             - name: healthz
-              # Due to hostNetwork, this port is open on a node!
               containerPort: 10301
               protocol: TCP
           livenessProbe:

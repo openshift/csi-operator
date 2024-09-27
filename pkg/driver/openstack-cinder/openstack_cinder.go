@@ -91,13 +91,9 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				commongenerator.DefaultNodeDriverRegistrar,
 			},
 			Assets: commongenerator.DefaultNodeAssets.WithAssets(generator.AllFlavours,
-				"overlays/openstack-cinder/base/controller_privileged_binding.yaml",
 				"overlays/openstack-cinder/base/csidriver.yaml",
 				"overlays/openstack-cinder/base/storageclass.yaml",
 				"overlays/openstack-cinder/base/volumesnapshotclass.yaml",
-			),
-			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
-				"controller_privileged_binding.yaml", "overlays/openstack-cinder/patches/binding_with_namespace_placeholder_controller.yaml",
 			),
 		},
 
