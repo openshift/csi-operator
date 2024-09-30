@@ -1,14 +1,21 @@
 # CSI driver operators
 
-This repository contains code for CSI driver operators that are part of OpenShift payload and few optional ones that are installed by Operator Lifecycle Manager (OLM).
+This repository contains code for CSI driver operators that are part of
+OpenShift payload and few optional ones that are installed by Operator
+Lifecycle Manager (OLM).
 
 ## Operators
 
 * aws-ebs-csi-driver-operator
+* aws-efs-csi-driver-operator
+* azure-disk-csi-driver-operator
+* azure-file-csi-driver-operator
+* smb-csi-driver-operator
 
 ## Automatic generation of CSI driver assets
 
-As part of the repository, there is generator of CSI driver YAML files in `cmd/generator`.
+As part of the repository, there is generator of CSI driver YAML files in
+`cmd/generator`.
 
 ### Usage
 
@@ -18,9 +25,9 @@ As part of the repository, there is generator of CSI driver YAML files in `cmd/g
 
 Some documentation is available via godoc. Usage:
 
-```
-$ godoc &
-$ firefox localost:6060/pkg/github.com/openshift/csi-operator/
+```shell
+godoc &
+firefox localost:6060/pkg/github.com/openshift/csi-operator/
 ```
 
 Good starting points are `pkg/generator` and `pkg/generated-assets`.
@@ -29,7 +36,8 @@ Good starting points are `pkg/generator` and `pkg/generated-assets`.
 
 ### AWS EBS CSI driver operator
 
-Before running the operator manually, you must remove the operator installed by CSO/CVO
+Before running the operator manually, you must remove the operator installed by
+CSO/CVO
 
 ```shell
 # Scale down CVO and CSO
