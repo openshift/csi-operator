@@ -1,0 +1,201 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/node.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/node_add_driver.yaml
+# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
+# livenessprobe.yaml: Added arguments [--probe-timeout=10s]
+# Applied strategic merge patch livenessprobe.yaml
+# node_driver_registrar.yaml: Loaded from common/sidecars/node_driver_registrar.yaml
+# Applied strategic merge patch node_driver_registrar.yaml
+#
+#
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+  name: openstack-manila-csi-nodeplugin
+  namespace: ${NODE_NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: openstack-manila-csi
+      component: nodeplugin
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/enable-ds-eviction: "false"
+        openshift.io/required-scc: privileged
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        app: openstack-manila-csi
+        component: nodeplugin
+    spec:
+      containers:
+      - args:
+        - --v=${LOG_LEVEL}
+        - --nodeid=$(NODE_ID)
+        - --endpoint=$(CSI_ENDPOINT)
+        - --drivername=$(DRIVER_NAME)
+        - --share-protocol-selector=$(MANILA_SHARE_PROTO)
+        - --fwdendpoint=$(FWD_CSI_ENDPOINT)
+        env:
+        - name: DRIVER_NAME
+          value: manila.csi.openstack.org
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: CSI_ENDPOINT
+          value: unix:///var/lib/kubelet/plugins/manila.csi.openstack.org/csi.sock
+        - name: FWD_CSI_ENDPOINT
+          value: unix:///var/lib/kubelet/plugins/csi-nfsplugin/csi.sock
+        - name: MANILA_SHARE_PROTO
+          value: NFS
+        image: ${DRIVER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 10
+        name: csi-driver
+        ports:
+        - containerPort: 10305
+          name: healthz
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/kubelet/plugins/manila.csi.openstack.org
+          name: plugin-dir
+        - mountPath: /var/lib/kubelet/plugins/csi-nfsplugin
+          name: fwd-plugin-dir
+        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+          name: cacert
+        - mountPath: /etc/selinux
+          name: etc-selinux
+        - mountPath: /sys/fs
+          name: sys-fs
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --health-port=10305
+        - --v=${LOG_LEVEL}
+        - --probe-timeout=10s
+        env: []
+        image: ${LIVENESS_PROBE_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-liveness-probe
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --kubelet-registration-path=/var/lib/kubelet/plugins/manila.csi.openstack.org/csi.sock
+        - --http-endpoint=:10307
+        - --v=${LOG_LEVEL}
+        env: []
+        image: ${NODE_DRIVER_REGISTRAR_IMAGE}
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - rm -rf /registration/manila.csi.openstack.org-reg.sock /csi/csi.sock
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: rhealthz
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+        name: csi-node-driver-registrar
+        ports:
+        - containerPort: 10307
+          name: rhealthz
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+        - mountPath: /registration
+          name: registration-dir
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      serviceAccount: manila-csi-driver-node-sa
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/lib/kubelet
+          type: Directory
+        name: kubelet-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins/manila.csi.openstack.org/
+          type: DirectoryOrCreate
+        name: socket-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins_registry/
+          type: Directory
+        name: registration-dir
+      - hostPath:
+          path: /dev
+          type: Directory
+        name: device-dir
+      - hostPath:
+          path: /etc/selinux
+          type: DirectoryOrCreate
+        name: etc-selinux
+      - hostPath:
+          path: /sys/fs
+          type: Directory
+        name: sys-fs
+      - name: metrics-serving-cert
+        secret:
+          secretName: manila-csi-driver-node-metrics-serving-cert
+      - hostPath:
+          path: /var/lib/kubelet/plugins/manila.csi.openstack.org
+          type: DirectoryOrCreate
+        name: plugin-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins/csi-nfsplugin
+          type: DirectoryOrCreate
+        name: fwd-plugin-dir
+      - configMap:
+          items:
+          - key: ca-bundle.pem
+            path: ca-bundle.pem
+          name: cloud-provider-config
+          optional: true
+        name: cacert
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate
