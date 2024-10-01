@@ -1,0 +1,11 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/node_sa.yaml
+#
+#
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: manila-csi-driver-node-sa
+  namespace: ${NODE_NAMESPACE}
