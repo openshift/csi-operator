@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go v1.52.6
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/google/go-cmp v0.6.0
-	github.com/gophercloud/gophercloud/v2 v2.1.0
+	github.com/gophercloud/gophercloud/v2 v2.1.1
 	github.com/gophercloud/utils/v2 v2.0.0-20240812072210-8ce1fc0f2894
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
 	github.com/onsi/gomega v1.33.1
