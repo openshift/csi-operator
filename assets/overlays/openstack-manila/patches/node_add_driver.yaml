@@ -1,0 +1,119 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+  name: openstack-manila-csi-nodeplugin
+spec:
+  selector:
+    matchLabels:
+      app: openstack-manila-csi
+      component: nodeplugin
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+  template:
+    metadata:
+      labels:
+        app: openstack-manila-csi
+        component: nodeplugin
+      annotations:
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        # This annotation prevents eviction from the cluster-autoscaler
+        cluster-autoscaler.kubernetes.io/enable-ds-eviction: "false"
+        openshift.io/required-scc: privileged
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: csi-driver
+          securityContext:
+            privileged: true
+          image: ${DRIVER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --v=${LOG_LEVEL}
+            - "--nodeid=$(NODE_ID)"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--drivername=$(DRIVER_NAME)"
+            - "--share-protocol-selector=$(MANILA_SHARE_PROTO)"
+            - "--fwdendpoint=$(FWD_CSI_ENDPOINT)"
+          env:
+            - name: DRIVER_NAME
+              value: manila.csi.openstack.org
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CSI_ENDPOINT
+              value: unix:///var/lib/kubelet/plugins/manila.csi.openstack.org/csi.sock
+            - name: FWD_CSI_ENDPOINT
+              value: unix:///var/lib/kubelet/plugins/csi-nfsplugin/csi.sock
+            - name: MANILA_SHARE_PROTO
+              value: NFS
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /var/lib/kubelet/plugins/manila.csi.openstack.org
+            - name: fwd-plugin-dir
+              mountPath: /var/lib/kubelet/plugins/csi-nfsplugin
+            - name: cacert
+              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+            - name: etc-selinux
+              mountPath: /etc/selinux
+            - name: sys-fs
+              mountPath: /sys/fs
+          ports:
+            - name: healthz
+              # Due to hostNetwork, this port is open on all nodes!
+              containerPort: 10305
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+      volumes:
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+        - name: plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/manila.csi.openstack.org
+            type: DirectoryOrCreate
+        - name: fwd-plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/csi-nfsplugin
+            type: DirectoryOrCreate
+        - name: cacert
+          # Extract ca-bundle.pem to /etc/kubernetes/static-pod-resources/configmaps/cloud-config if present.
+          # Let the pod start when the ConfigMap does not exist or the certificate
+          # is not preset there. The certificate file will be created once the
+          # ConfigMap is created / the cerificate is added to it.
+          configMap:
+            name: cloud-provider-config
+            items:
+            - key: ca-bundle.pem
+              path: ca-bundle.pem
+            optional: true
+        - name: etc-selinux
+          hostPath:
+            path: /etc/selinux
+            type: DirectoryOrCreate
+        - name: sys-fs
+          hostPath:
+            path: /sys/fs
+            type: Directory

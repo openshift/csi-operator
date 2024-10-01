@@ -1,0 +1,129 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+  name: openstack-manila-csi-controllerplugin
+spec:
+  selector:
+    matchLabels:
+      app: openstack-manila-csi
+      component: controllerplugin
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  template:
+    metadata:
+      labels:
+        app: openstack-manila-csi
+        component: controllerplugin
+      annotations:
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        openshift.io/required-scc: restricted-v2
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      priorityClassName: system-cluster-critical
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: openstack-manila-csi
+                    component: controllerplugin
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: csi-driver
+          image: ${DRIVER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --v=${LOG_LEVEL}
+            - --cluster-id=${CLUSTER_ID}
+            - --nodeid=$(NODE_ID)
+            - --endpoint=$(CSI_ENDPOINT)
+            - --drivername=$(DRIVER_NAME)
+            - --share-protocol-selector=$(MANILA_SHARE_PROTO)
+            - --fwdendpoint=$(FWD_CSI_ENDPOINT)
+          env:
+            - name: DRIVER_NAME
+              value: manila.csi.openstack.org
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CSI_ENDPOINT
+              value: unix:///plugin/csi.sock
+            - name: MANILA_SHARE_PROTO
+              value: NFS
+            - name: FWD_CSI_ENDPOINT
+              value: unix:///plugin/csi-nfs.sock
+          ports:
+            - name: healthz
+              # Due to hostNetwork, this port is open on a node!
+              containerPort: 10306
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /plugin
+            - name: cacert
+              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+        # TODO: fix manila CSI driver not to require NFS driver socket!
+        - name: csi-driver-nfs
+          image: ${NFS_DRIVER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--nodeid=$(NODE_ID)"
+            - "--endpoint=unix://plugin/csi-nfs.sock"
+            - "--mount-permissions=0777"
+          env:
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /plugin
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
+        - name: cacert
+          # If present, extract ca-bundle.pem to
+          # /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+          # Let the pod start when the ConfigMap does not exist or the certificate
+          # is not preset there. The certificate file will be created once the
+          # ConfigMap is created / the cerificate is added to it.
+          configMap:
+            name: cloud-provider-config
+            items:
+            - key: ca-bundle.pem
+              path: ca-bundle.pem
+            optional: true
