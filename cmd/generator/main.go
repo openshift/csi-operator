@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
-	aws_efs "github.com/openshift/csi-operator/pkg/driver/aws-efs"
+	"os"
 	"path/filepath"
 
 	"github.com/openshift/csi-operator/assets"
 	aws_ebs "github.com/openshift/csi-operator/pkg/driver/aws-ebs"
+	aws_efs "github.com/openshift/csi-operator/pkg/driver/aws-efs"
 	azure_disk "github.com/openshift/csi-operator/pkg/driver/azure-disk"
 	azure_file "github.com/openshift/csi-operator/pkg/driver/azure-file"
 	samba "github.com/openshift/csi-operator/pkg/driver/samba"
@@ -32,6 +33,12 @@ func main() {
 		if !cfg.StandaloneOnly {
 			flavours = append(flavours, generator.FlavourHyperShift)
 		}
+
+		rootPath := filepath.Join(*path, cfg.OutputDir)
+		if _, err := os.Stat(rootPath); err == nil {
+			os.RemoveAll(rootPath)
+		}
+
 		for _, flavour := range flavours {
 			gen := generator.NewAssetGenerator(generator.ClusterFlavour(flavour), cfg, assets.ReadFile)
 			a, err := gen.GenerateAssets()
