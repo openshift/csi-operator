@@ -161,18 +161,32 @@ type AssetPatch struct {
 	PatchAssetName string
 }
 
+// WithExtraArguments appends the provides arguments to the 'args' array of asset used for the sidecar container.
 func (cfg SidecarConfig) WithExtraArguments(extraArguments ...string) SidecarConfig {
 	newCfg := cfg
 	newCfg.ExtraArguments = extraArguments
 	return newCfg
 }
 
+// WithAdditionalAssets adds one or more additional assets that will be treated as a strategic merge patches and merged
+// into the base asset. This is the preferred way to extend a base asset.
 func (cfg SidecarConfig) WithAdditionalAssets(assets ...string) SidecarConfig {
 	newCfg := cfg
 	newCfg.GuestAssetNames = append(newCfg.GuestAssetNames, assets...)
 	return newCfg
 }
 
+// WithPatches modifies assets using provided JSON Patch files (in YAML format). It allows values to be modified rather
+// than overridden (for example, to add an item to an array). In most cases, strategic merging should be preferred as it
+// is significantly more readable.
+func (cfg SidecarConfig) WithPatches(flavours sets.Set[ClusterFlavour], namePatchPairs ...string) SidecarConfig {
+	newCfg := cfg
+	newCfg.AssetPatches = newCfg.AssetPatches.WithPatches(flavours, namePatchPairs...)
+	return newCfg
+}
+
+// WithAssets adds one or more additional assets that will be treated as a strategic merge patches and merged into the
+// base asset. This is the preferred way to extend a base asset.
 func (a Assets) WithAssets(flavours sets.Set[ClusterFlavour], assets ...string) Assets {
 	newAssets := make([]Asset, 0, len(a)+len(assets))
 	newAssets = append(newAssets, a...)
@@ -185,6 +199,9 @@ func (a Assets) WithAssets(flavours sets.Set[ClusterFlavour], assets ...string) 
 	return newAssets
 }
 
+// WithPatches modifies assets using provided JSON Patch files (in YAML format). It allows values to be modified rather
+// than overridden for example to add an item to an array. In most cases, strategic merging should be preferred as it is
+// significantly more readable.
 func (p AssetPatches) WithPatches(flavours sets.Set[ClusterFlavour], namePatchPairs ...string) AssetPatches {
 	if len(namePatchPairs)%2 != 0 {
 		panic("namePatchPairs must be even")
