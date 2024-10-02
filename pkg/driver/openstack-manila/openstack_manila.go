@@ -145,6 +145,15 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 		return nil, err
 	}
 	cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer, secretSyncer, nfsCSIDriverController)
+
+	cfg.ExtraReplacementsFunc = func() []string {
+		pairs := []string{}
+		nfsImage := os.Getenv(nfsImageEnvName)
+		if nfsImage != "" {
+			pairs = append(pairs, []string{"${NFS_DRIVER_IMAGE}", nfsImage}...)
+		}
+		return pairs
+	}
 	return cfg, nil
 }
 
