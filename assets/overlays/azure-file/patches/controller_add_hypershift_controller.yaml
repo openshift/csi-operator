@@ -12,4 +12,4 @@ spec:
           secretName: service-network-admin-kubeconfig
       - name: cloud-config
         secret:
-          secretName: azure-cloud-config
+          secretName: azure-file-csi-config
