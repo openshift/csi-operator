@@ -17,7 +17,7 @@ const (
 	nfsImageEnvName           = "NFS_DRIVER_IMAGE"
 )
 
-func DefaultReplacements(controlPlaneNamespace string) []string {
+func DefaultReplacements(controlPlaneNamespace, csiDriverNamespace string) []string {
 	pairs := []string{}
 
 	// Replace container images by env vars if they are set
@@ -72,5 +72,7 @@ func DefaultReplacements(controlPlaneNamespace string) []string {
 	}
 
 	pairs = append(pairs, []string{"${NAMESPACE}", controlPlaneNamespace}...)
+
+	pairs = append(pairs, []string{"${NODE_NAMESPACE}", csiDriverNamespace}...)
 	return pairs
 }
