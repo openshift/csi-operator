@@ -211,7 +211,7 @@ func syncCloudConfigGuest(c *clients.Clients) (factory.Controller, error) {
 		Name:      configMapName,
 	}
 	dstConfigMap := resourcesynccontroller.ResourceLocation{
-		Namespace: clients.CSIDriverNamespace,
+		Namespace: c.CSIDriverNamespace,
 		Name:      localCloudConfigName,
 	}
 	cloudConfigSyncController := resourcesynccontroller.NewResourceSyncController(
@@ -260,12 +260,12 @@ func syncCloudConfigStandAlone(c *clients.Clients) (factory.Controller, error) {
 // withCABundleDaemonSetHook projects custom CA bundle ConfigMap into the CSI driver container
 func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
 	hook := csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
-		clients.CSIDriverNamespace,
+		c.CSIDriverNamespace,
 		trustedCAConfigMap,
-		c.GetConfigMapInformer(clients.CSIDriverNamespace),
+		c.GetConfigMapInformer(c.CSIDriverNamespace),
 	)
 	informers := []factory.Informer{
-		c.GetConfigMapInformer(clients.CSIDriverNamespace).Informer(),
+		c.GetConfigMapInformer(c.CSIDriverNamespace).Informer(),
 	}
 	return hook, informers
 }

@@ -30,6 +30,7 @@ import (
 type Builder struct {
 	userAgwent             string
 	csiDriverName          string
+	csiDriverNamespace     string
 	resync                 time.Duration
 	controllerConfig       *controllercmd.ControllerContext
 	guestKubeConfig        *rest.Config
@@ -41,18 +42,17 @@ type Builder struct {
 }
 
 // NewBuilder creates a new Builder.
-func NewBuilder(userAgent string, csiDriverName string, controllerConfig *controllercmd.ControllerContext, resync time.Duration) *Builder {
+func NewBuilder(userAgent string, csiDriverName, csiDriverNamespace string, controlPlaneNamespaces []string, controllerConfig *controllercmd.ControllerContext, resync time.Duration) *Builder {
 	return &Builder{
-		userAgwent:       userAgent,
-		csiDriverName:    csiDriverName,
-		resync:           resync,
-		controllerConfig: controllerConfig,
-		controlPlaneNamespaces: []string{
-			controllerConfig.OperatorNamespace,
-		},
+		userAgwent:             userAgent,
+		csiDriverName:          csiDriverName,
+		csiDriverNamespace:     csiDriverNamespace,
+		resync:                 resync,
+		controllerConfig:       controllerConfig,
+		controlPlaneNamespaces: controlPlaneNamespaces,
 		guestNamespaces: []string{
 			"",
-			CSIDriverNamespace,
+			csiDriverNamespace,
 		},
 	}
 }
@@ -86,6 +86,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 
 		ControlPlaneDynamicClient:   controlPlaneDynamicClient,
 		ControlPlaneDynamicInformer: controlPlaneDynamicInformers,
+		CSIDriverNamespace:          b.csiDriverNamespace,
 	}
 
 	guestKubeClient := controlPlaneKubeClient
@@ -103,11 +104,11 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		// Use name of the operator Deployment in the management cluster + namespace
 		// in the guest cluster as the closest approximation of the real involvedObject.
 		controllerRef, err := events.GetControllerReferenceForCurrentPod(ctx, controlPlaneKubeClient, b.controllerConfig.OperatorNamespace, nil)
-		controllerRef.Namespace = CSIDriverNamespace
+		controllerRef.Namespace = b.csiDriverNamespace
 		if err != nil {
 			klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
 		}
-		b.client.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(CSIDriverNamespace), b.userAgwent, controllerRef)
+		b.client.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(b.csiDriverNamespace), b.userAgwent, controllerRef)
 
 		b.client.ControlPlaneHypeClient = hypextclient.NewForConfigOrDie(controlPlaneRestConfig)
 		b.client.ControlPlaneHypeInformer = hypextinformers.NewFilteredSharedInformerFactory(b.client.ControlPlaneHypeClient, b.resync, b.controllerConfig.OperatorNamespace, nil)
@@ -139,7 +140,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 	b.client.DynamicClient = guestDynamicClient
 
 	// TODO: non-filtered one for VolumeSnapshots?
-	b.client.DynamicInformer = dynamicinformer.NewFilteredDynamicSharedInformerFactory(guestDynamicClient, b.resync, CSIDriverNamespace, nil)
+	b.client.DynamicInformer = dynamicinformer.NewFilteredDynamicSharedInformerFactory(guestDynamicClient, b.resync, b.csiDriverNamespace, nil)
 
 	b.client.OperatorClientSet = opclient.NewForConfigOrDie(guestKubeConfig)
 	b.client.OperatorInformers = opinformers.NewSharedInformerFactory(b.client.OperatorClientSet, b.resync)

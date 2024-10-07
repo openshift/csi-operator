@@ -8,7 +8,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: csi-nodeplugin-nfsplugin
-  namespace: ${NAMESPACE}
+  namespace: ${NODE_NAMESPACE}
 spec:
   selector:
     matchLabels:
