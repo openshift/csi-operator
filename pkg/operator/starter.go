@@ -113,13 +113,15 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	).WithCSIConfigObserverController(
 		csiOperatorControllerConfig.GetControllerName("DriverCSIConfigObserverController"),
 		c.ConfigInformers,
-	).WithCSIDriverControllerService(
+	).WithCSIDriverControllerServiceWorkload(
 		csiOperatorControllerConfig.GetControllerName("DriverControllerServiceController"),
+		controlPlaneNamespace,
 		a.GetAsset,
 		generated_assets.ControllerDeploymentAssetName,
 		c.ControlPlaneKubeClient,
-		c.ControlPlaneKubeInformers.InformersFor(controlPlaneNamespace),
+		c.ControlPlaneKubeInformers,
 		c.ConfigInformers,
+		csiOperatorControllerConfig.GetPreconditions(),
 		controlPlaneControllerInformers,
 		controllerHooks...,
 	)
