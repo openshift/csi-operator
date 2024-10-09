@@ -2,7 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: ${ASSET_PREFIX}-node-monitor
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}
 spec:
   # Empty list to make json-patch work
   endpoints: []

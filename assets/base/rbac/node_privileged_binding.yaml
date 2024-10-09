@@ -5,7 +5,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: ${ASSET_PREFIX}-node-sa
-    namespace: openshift-cluster-csi-drivers
+    namespace: ${NODE_NAMESPACE}
 roleRef:
   kind: ClusterRole
   name: ${ASSET_SHORT_PREFIX}-privileged-role
