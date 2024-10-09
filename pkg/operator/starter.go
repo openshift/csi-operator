@@ -136,9 +136,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	guestDaemonInformers := csiOperatorControllerConfig.GuestDaemonSetInformers
 
 	if len(csiOperatorControllerConfig.DaemonSetWatchedSecretNames) > 0 {
-		nodeSecretInformer := c.GetNodeSecretInformer(clients.CSIDriverNamespace)
+		nodeSecretInformer := c.GetNodeSecretInformer(c.GuestNamespace)
 		for _, secretName := range csiOperatorControllerConfig.DaemonSetWatchedSecretNames {
-			guestDaemonSetHooks = append(guestDaemonSetHooks, csidrivernodeservicecontroller.WithSecretHashAnnotationHook(clients.CSIDriverNamespace, secretName, nodeSecretInformer))
+			guestDaemonSetHooks = append(guestDaemonSetHooks, csidrivernodeservicecontroller.WithSecretHashAnnotationHook(c.GuestNamespace, secretName, nodeSecretInformer))
 			guestDaemonInformers = append(guestDaemonInformers, nodeSecretInformer.Informer())
 		}
 	}
@@ -147,7 +147,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if credentialsRequestAssetNames := a.GetCredentialsRequestAssetNames(); len(credentialsRequestAssetNames) > 0 {
 		controlPlaneCSIControllerSet.WithCredentialsRequestController(
 			csiOperatorControllerConfig.GetControllerName("CredentialsRequestController"),
-			clients.CSIDriverNamespace,
+			c.GuestNamespace,
 			a.GetAsset,
 			generated_assets.CredentialRequestControllerAssetName,
 			c.ControlPlaneDynamicClient,
@@ -174,7 +174,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		a.GetAsset,
 		generated_assets.NodeDaemonSetAssetName,
 		c.KubeClient,
-		c.KubeInformers.InformersFor(clients.CSIDriverNamespace),
+		c.KubeInformers.InformersFor(c.GuestNamespace),
 		guestDaemonInformers,
 		guestDaemonSetHooks...,
 	)

@@ -23,12 +23,14 @@ import (
 	fakecore "k8s.io/client-go/kubernetes/fake"
 )
 
+const csiDriverNamespace = "openshift-cluster-csi-drivers"
+
 // NewFakeClients creates a new Clients full of fake interfaces for testing.
 // To add existing objects to the fake clients, use this pattern: c.controlPlaneKubeClient.(*fake.Clientset).Tracer().Add(obj1, obj2).
 // Each fake client interface has its own Tracer.
 func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clients {
 	controlPlaneKubeClient := fakecore.NewSimpleClientset()
-	controlPlaneKubeInformers := v1helpers.NewKubeInformersForNamespaces(controlPlaneKubeClient, controllerNamespace, "", CSIDriverNamespace)
+	controlPlaneKubeInformers := v1helpers.NewKubeInformersForNamespaces(controlPlaneKubeClient, controllerNamespace, "", csiDriverNamespace)
 
 	// Manually register HyperShift's CRDs used by the operator. We cannot import their schema,
 	// https://issues.redhat.com/browse/HOSTEDCP-336, This is necessary to enable List() support in the fake dynamic
@@ -44,7 +46,7 @@ func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clie
 	controlPlaneHypeInformers := hypextinformers.NewSharedInformerFactory(controlPlaneHypeClient, 0)
 
 	guestKubeClient := fakecore.NewSimpleClientset()
-	guestKubeInformers := v1helpers.NewKubeInformersForNamespaces(guestKubeClient, controllerNamespace, "", CSIDriverNamespace)
+	guestKubeInformers := v1helpers.NewKubeInformersForNamespaces(guestKubeClient, controllerNamespace, "", csiDriverNamespace)
 
 	guestAPIExtClient := fakeextapi.NewSimpleClientset()
 	guestAPIExtInformerFactory := apiextinformers.NewSharedInformerFactory(guestAPIExtClient, 0 /*no resync */)
@@ -62,7 +64,7 @@ func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clie
 
 	fakeObjectRef := corev1.ObjectReference{
 		Kind:       "Pod",
-		Namespace:  CSIDriverNamespace,
+		Namespace:  csiDriverNamespace,
 		Name:       "fake",
 		APIVersion: "v1",
 	}
@@ -74,7 +76,7 @@ func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clie
 		// OperatorClient.Informer().
 		operatorDynamicInformers: nil,
 
-		EventRecorder: events.NewKubeRecorder(guestKubeClient.CoreV1().Events(CSIDriverNamespace), "fake", &fakeObjectRef),
+		EventRecorder: events.NewKubeRecorder(guestKubeClient.CoreV1().Events(csiDriverNamespace), "fake", &fakeObjectRef),
 
 		ControlPlaneKubeClient:      controlPlaneKubeClient,
 		ControlPlaneKubeInformers:   controlPlaneKubeInformers,

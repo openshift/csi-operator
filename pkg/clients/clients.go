@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	CSIDriverNamespace     = "openshift-cluster-csi-drivers"
 	ManagedConfigNamespace = "openshift-config-managed" // For kube-cloud-config config map. TODO: should be namespace list configurable?
 )
 
