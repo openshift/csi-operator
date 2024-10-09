@@ -100,19 +100,20 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 	// First, we try to retrieve from the Cinder CSI-specific config map
 	sourceConfig, err = c.configMapLister.ConfigMaps(util.OpenShiftConfigNamespace).Get("cinder-csi-config")
 	if err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+
 		// Failing that, we attempt to retrieve from the cloud provider-specific config map
-		if errors.IsNotFound(err) {
-			sourceConfig, err = c.configMapLister.ConfigMaps(util.OpenShiftConfigNamespace).Get(infra.Spec.CloudConfig.Name)
-			if err != nil {
-				if errors.IsNotFound(err) {
-					// TODO: report error after some while?
-					klog.V(2).Infof("Waiting for config map %s from %s", infra.Spec.CloudConfig.Name, util.OpenShiftConfigNamespace)
-					return nil
-				}
+		sourceConfig, err = c.configMapLister.ConfigMaps(util.OpenShiftConfigNamespace).Get(infra.Spec.CloudConfig.Name)
+		if err != nil {
+			if !errors.IsNotFound(err) {
 				return err
 			}
-		} else {
-			return err
+
+			// TODO: report error after some while?
+			klog.V(2).Infof("Waiting for config map %s from %s", infra.Spec.CloudConfig.Name, util.OpenShiftConfigNamespace)
+			return nil
 		}
 	}
 
