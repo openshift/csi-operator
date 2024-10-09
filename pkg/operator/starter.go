@@ -40,8 +40,13 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		flavour = generator.FlavourHyperShift
 	}
 
+	if opConfig.GuestNamespace == "" {
+		// If no guest namespace is defined, let's set the default value.
+		opConfig.GuestNamespace = "openshift-cluster-csi-drivers"
+	}
+
 	// Create Clients
-	builder := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), controllerConfig, resync).
+	builder := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), opConfig.GuestNamespace, controllerConfig, resync).
 		WithHyperShiftGuest(guestKubeConfigString, opConfig.CloudConfigNamespace)
 
 	c := builder.BuildOrDie(ctx)
