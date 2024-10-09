@@ -66,7 +66,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if err != nil {
 		return err
 	}
-	defaultReplacements := operator.DefaultReplacements(controlPlaneNamespace)
+	defaultReplacements := operator.DefaultReplacements(controlPlaneNamespace, opConfig.GuestNamespace)
 	if csiOperatorControllerConfig.ExtraReplacementsFunc != nil {
 		defaultReplacements = append(defaultReplacements, csiOperatorControllerConfig.ExtraReplacementsFunc()...)
 	}
