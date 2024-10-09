@@ -192,6 +192,9 @@ func withConfigDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller
 	return hook, informers
 }
 
+// createConfigMapSyncer syncs config maps containing configuration for the CSI driver from the
+// user-managed namespace to the operator namespace, validating it and potentially transforming it
+// in the process
 func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
 	configSyncController := configsync.NewConfigSyncController(
 		c.OperatorClient,

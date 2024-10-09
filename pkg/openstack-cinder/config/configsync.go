@@ -72,6 +72,8 @@ func (c *ConfigSyncController) Name() string {
 	return "ConfigSyncController"
 }
 
+// sync syncs user-defined configuration from one of the two potential locations to the
+// operator-defined location
 func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	var err error
 
@@ -126,6 +128,10 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 	return nil
 }
 
+// translateConfigMap handles translation of config maps for the legacy, in-tree Cinder CSI driver
+// to those used by the external CSI driver that this operator manages. It also does some basic
+// validation of the config map, setting attributes to values expected by other parts of the
+// operator.
 func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool) (*v1.ConfigMap, error) {
 	// Process the cloud configuration
 	content, ok := cloudConfig.Data[sourceConfigKey]

@@ -27,6 +27,9 @@ type openstackClients struct {
 
 var ci *CloudInfo
 
+// enableTopologyFeature determines whether the topology feature flag for the CSI external
+// provisioner sidecar container should be set to enabled or disabled, based on whether we have a
+// mapping of compute AZs to block storage AZs or not.
 func enableTopologyFeature() (bool, error) {
 	var err error
 
@@ -98,6 +101,7 @@ func getCloudInfo() (*CloudInfo, error) {
 	return ci, nil
 }
 
+// collectInfo fetches AZ information from the compute and block storage services
 func (ci *CloudInfo) collectInfo() error {
 	var err error
 
@@ -114,6 +118,7 @@ func (ci *CloudInfo) collectInfo() error {
 	return nil
 }
 
+// getComputeZones fetches AZ information from the compute service
 func (ci *CloudInfo) getComputeZones() ([]string, error) {
 	zones, err := azutils.ListAvailableAvailabilityZones(context.TODO(), ci.clients.computeClient)
 	if err != nil {
@@ -129,6 +134,7 @@ func (ci *CloudInfo) getComputeZones() ([]string, error) {
 	return zones, nil
 }
 
+// getVolumeZones fetches AZ information from the block storage service
 func (ci *CloudInfo) getVolumeZones() ([]string, error) {
 	allPages, err := availabilityzones.List(ci.clients.volumeClient).AllPages(context.TODO())
 	if err != nil {
