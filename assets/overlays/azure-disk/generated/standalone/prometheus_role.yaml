@@ -9,7 +9,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: azure-disk-csi-driver-prometheus
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}
 rules:
 - apiGroups:
   - ""

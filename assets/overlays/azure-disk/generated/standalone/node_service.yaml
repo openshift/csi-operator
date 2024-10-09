@@ -13,7 +13,7 @@ metadata:
   labels:
     app: azure-disk-csi-driver-node-metrics
   name: azure-disk-csi-driver-node-metrics
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}
 spec:
   ports:
   - name: driver-m
