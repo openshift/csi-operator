@@ -5,6 +5,9 @@ spec:
     spec:
       containers:
         - name: csi-provisioner
+          # The Topology feature gate can only be enabled or disabled via a command-line option,
+          # so we need to do this dance of copying the value from the config map to the environment
+          # so that we can use the environment variable in our CLI option.
           env:
             - name: ENABLE_TOPOLOGY
               valueFrom:
