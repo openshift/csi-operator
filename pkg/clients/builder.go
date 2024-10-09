@@ -30,6 +30,7 @@ import (
 type Builder struct {
 	userAgwent             string
 	csiDriverName          string
+	guestNamespace         string
 	resync                 time.Duration
 	controllerConfig       *controllercmd.ControllerContext
 	guestKubeConfig        *rest.Config
@@ -41,10 +42,11 @@ type Builder struct {
 }
 
 // NewBuilder creates a new Builder.
-func NewBuilder(userAgent string, csiDriverName string, controllerConfig *controllercmd.ControllerContext, resync time.Duration) *Builder {
+func NewBuilder(userAgent string, csiDriverName, guestNamespace string, controllerConfig *controllercmd.ControllerContext, resync time.Duration) *Builder {
 	return &Builder{
 		userAgwent:       userAgent,
 		csiDriverName:    csiDriverName,
+		guestNamespace:   guestNamespace,
 		resync:           resync,
 		controllerConfig: controllerConfig,
 		controlPlaneNamespaces: []string{
@@ -52,7 +54,7 @@ func NewBuilder(userAgent string, csiDriverName string, controllerConfig *contro
 		},
 		guestNamespaces: []string{
 			"",
-			CSIDriverNamespace,
+			guestNamespace,
 		},
 	}
 }
@@ -86,6 +88,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 
 		ControlPlaneDynamicClient:   controlPlaneDynamicClient,
 		ControlPlaneDynamicInformer: controlPlaneDynamicInformers,
+		GuestNamespace:              b.guestNamespace,
 	}
 
 	guestKubeClient := controlPlaneKubeClient

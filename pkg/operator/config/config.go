@@ -18,6 +18,9 @@ import (
 type OperatorConfig struct {
 	// CSI driver name. ClusterCSIDriver with this name will be used as CR of this operator.
 	CSIDriverName opv1.CSIDriverName
+	// Guest namespace. This is the namespace that non-control plane resources
+	// will be placed in. This defaults to "openshift-cluster-csi-drivers" if unset.
+	GuestNamespace string
 	// HTTP User-agent for connection to the API server
 	UserAgent string
 	// Reader for generated assets.

@@ -32,6 +32,9 @@ type Clients struct {
 	// i.e. openshift-cluster-csi-drivers.
 	ControlPlaneNamespace string
 
+	// Namespace where to install CSI driver guest.
+	GuestNamespace string
+
 	// Client for operator's ClusterCSIDriver CR. Always in the guest or standalone cluster.
 	OperatorClient v1helpers.OperatorClientWithFinalizers
 	// Informer for the ClusterCSIDriver CR. Always in the guest or standalone cluster.
