@@ -10,6 +10,7 @@ Lifecycle Manager (OLM).
 * aws-efs-csi-driver-operator
 * azure-disk-csi-driver-operator
 * azure-file-csi-driver-operator
+* openstack-cinder-csi-driver-operator
 * smb-csi-driver-operator
 
 ## Automatic generation of CSI driver assets
@@ -37,7 +38,7 @@ Good starting points are `pkg/generator` and `pkg/generated-assets`.
 ### AWS EBS CSI driver operator
 
 Before running the operator manually, you must remove the operator installed by
-CSO/CVO
+CSO/CVO:
 
 ```shell
 # Scale down CVO and CSO
