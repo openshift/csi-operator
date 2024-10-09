@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	CSIDriverNamespace     = "openshift-cluster-csi-drivers"
 	ManagedConfigNamespace = "openshift-config-managed" // For kube-cloud-config config map. TODO: should be namespace list configurable?
 )
 
@@ -31,6 +30,9 @@ type Clients struct {
 	// Namespace where to install CSI driver control plane. On standalone cluster, it's the same as the guest namespace,
 	// i.e. openshift-cluster-csi-drivers.
 	ControlPlaneNamespace string
+
+	// Namespace where to install CSI driver guest.
+	GuestNamespace string
 
 	// Client for operator's ClusterCSIDriver CR. Always in the guest or standalone cluster.
 	OperatorClient v1helpers.OperatorClientWithFinalizers

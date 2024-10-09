@@ -23,6 +23,8 @@ import (
 	fakecore "k8s.io/client-go/kubernetes/fake"
 )
 
+const CSIDriverNamespace = "openshift-cluster-csi-drivers"
+
 // NewFakeClients creates a new Clients full of fake interfaces for testing.
 // To add existing objects to the fake clients, use this pattern: c.controlPlaneKubeClient.(*fake.Clientset).Tracer().Add(obj1, obj2).
 // Each fake client interface has its own Tracer.
