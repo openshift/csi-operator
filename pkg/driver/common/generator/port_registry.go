@@ -19,4 +19,7 @@ const (
 
 	SambaLoopbackMetricsPortStart = 8221
 	SambaExposedMetricsPortStart  = 9221
+
+	OpenStackManilaLoopbackMetricsPortStart = 8202
+	OpenStackManilaExposedMetricsPortStart  = 9202
 )

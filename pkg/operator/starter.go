@@ -40,8 +40,18 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		flavour = generator.FlavourHyperShift
 	}
 
+	controlPlaneNamespaces := []string{controllerConfig.OperatorNamespace}
+	if opConfig.CSIDriverNamespace == "" {
+		// If no guest namespace is defined, let's set the default value.
+		opConfig.CSIDriverNamespace = "openshift-cluster-csi-drivers"
+	} else {
+		// Manila uses a different namespace than other operators for both control plane and guest.
+		controlPlaneNamespace = opConfig.CSIDriverNamespace
+		controlPlaneNamespaces = append(controlPlaneNamespaces, controlPlaneNamespace)
+	}
+
 	// Create Clients
-	builder := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), controllerConfig, resync).
+	builder := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), opConfig.CSIDriverNamespace, controlPlaneNamespaces, controllerConfig, resync).
 		WithHyperShiftGuest(guestKubeConfigString, opConfig.CloudConfigNamespace)
 
 	c := builder.BuildOrDie(ctx)
@@ -61,7 +71,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if err != nil {
 		return err
 	}
-	defaultReplacements := operator.DefaultReplacements(controlPlaneNamespace)
+	defaultReplacements := operator.DefaultReplacements(controlPlaneNamespace, opConfig.CSIDriverNamespace)
 	if csiOperatorControllerConfig.ExtraReplacementsFunc != nil {
 		defaultReplacements = append(defaultReplacements, csiOperatorControllerConfig.ExtraReplacementsFunc()...)
 	}
@@ -131,9 +141,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	guestDaemonInformers := csiOperatorControllerConfig.GuestDaemonSetInformers
 
 	if len(csiOperatorControllerConfig.DaemonSetWatchedSecretNames) > 0 {
-		nodeSecretInformer := c.GetNodeSecretInformer(clients.CSIDriverNamespace)
+		nodeSecretInformer := c.GetNodeSecretInformer(c.CSIDriverNamespace)
 		for _, secretName := range csiOperatorControllerConfig.DaemonSetWatchedSecretNames {
-			guestDaemonSetHooks = append(guestDaemonSetHooks, csidrivernodeservicecontroller.WithSecretHashAnnotationHook(clients.CSIDriverNamespace, secretName, nodeSecretInformer))
+			guestDaemonSetHooks = append(guestDaemonSetHooks, csidrivernodeservicecontroller.WithSecretHashAnnotationHook(c.CSIDriverNamespace, secretName, nodeSecretInformer))
 			guestDaemonInformers = append(guestDaemonInformers, nodeSecretInformer.Informer())
 		}
 	}
@@ -142,7 +152,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if credentialsRequestAssetNames := a.GetCredentialsRequestAssetNames(); len(credentialsRequestAssetNames) > 0 {
 		controlPlaneCSIControllerSet.WithCredentialsRequestController(
 			csiOperatorControllerConfig.GetControllerName("CredentialsRequestController"),
-			clients.CSIDriverNamespace,
+			c.CSIDriverNamespace,
 			a.GetAsset,
 			generated_assets.CredentialRequestControllerAssetName,
 			c.ControlPlaneDynamicClient,
@@ -169,7 +179,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		a.GetAsset,
 		generated_assets.NodeDaemonSetAssetName,
 		c.KubeClient,
-		c.KubeInformers.InformersFor(clients.CSIDriverNamespace),
+		c.KubeInformers.InformersFor(c.CSIDriverNamespace),
 		guestDaemonInformers,
 		guestDaemonSetHooks...,
 	)
