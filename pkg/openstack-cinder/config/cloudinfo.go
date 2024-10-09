@@ -17,10 +17,10 @@ type CloudInfo struct {
 	ComputeZones []string
 	VolumeZones  []string
 
-	clients *clients
+	clients *openstackClients
 }
 
-type clients struct {
+type openstackClients struct {
 	computeClient *gophercloud.ServiceClient
 	volumeClient  *gophercloud.ServiceClient
 }
@@ -68,7 +68,7 @@ func getCloudInfo() (*CloudInfo, error) {
 	var err error
 
 	ci = &CloudInfo{
-		clients: &clients{},
+		clients: &openstackClients{},
 	}
 
 	opts := new(clientconfig.ClientOpts)

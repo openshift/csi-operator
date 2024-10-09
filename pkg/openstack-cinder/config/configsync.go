@@ -10,7 +10,6 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
-	"github.com/openshift/csi-operator/pkg/openstack-cinder/util"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -22,6 +21,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
+
+	"github.com/openshift/csi-operator/pkg/clients"
+	"github.com/openshift/csi-operator/pkg/openstack-cinder/util"
 )
 
 // This ConfigSyncController translates the ConfigMap provided by the user
@@ -208,7 +210,7 @@ func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool) (
 	config := v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.CinderConfigName,
-			Namespace: util.DefaultNamespace,
+			Namespace: clients.CSIDriverNamespace,
 		},
 		Data: map[string]string{
 			targetConfigKey:   buf.String(),
