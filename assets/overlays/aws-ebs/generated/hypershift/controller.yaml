@@ -485,4 +485,4 @@ spec:
       - name: hosted-kubeconfig
         secret:
           defaultMode: 420
-          secretName: service-network-admin-kubeconfig
+          secretName: aws-ebs-csi-driver-controller-kubeconfig
