@@ -9,7 +9,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 
-	"github.com/openshift/csi-operator/pkg/efscreate"
+	"github.com/openshift/csi-operator/pkg/create-efs-volume"
 	"github.com/openshift/csi-operator/pkg/version"
 )
 
@@ -53,5 +53,5 @@ func NewOperatorCommand() *cobra.Command {
 }
 
 func runOperatorWithCredentialsConfig(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
-	return efscreate.RunOperator(ctx, controllerConfig, useLocalAWSCredentials)
+	return create_efs_volume.RunOperator(ctx, controllerConfig, useLocalAWSCredentials)
 }
