@@ -102,7 +102,7 @@ func GetAWSEFSOperatorConfig() *config.OperatorConfig {
 		AssetReader:                     assets.ReadFile,
 		AssetDir:                        generatedAssetBase,
 		OperatorControllerConfigBuilder: GetAWSEFSOperatorControllerConfig,
-		Removable:                       false,
+		Removable:                       true,
 	}
 }
 
