@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -102,10 +103,16 @@ func GetAWSEFSOperatorConfig() *config.OperatorConfig {
 // after a client connection + cluster flavour are established.
 func GetAWSEFSOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEFS")
-	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withFIPSDeploymentHook)
+	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withFIPSDeploymentHook, withCustomTags)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
 	cfg.AddDaemonSetHookBuilders(c, withFIPSDaemonSetHook, withVolumeMetricsDaemonSetHook)
 	cfg.AddCredentialsRequestHook(stsCredentialsRequestHook)
+	if flavour == generator.FlavourHyperShift {
+		accessPointsTagController := NewEFSAccessPointTagsController(cfg.GetControllerName("EFSAccessPointTagsController"), c, c.EventRecorder)
+		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, accessPointsTagController)
+		cfg.DeploymentInformers = append(cfg.DeploymentInformers, c.KubeInformers.InformersFor("").Core().V1().PersistentVolumes().Informer())
+		cfg.DeploymentInformers = append(cfg.DeploymentInformers, c.KubeInformers.InformersFor(awsEFSSecretNamespace).Core().V1().Secrets().Informer())
+	}
 
 	return cfg, nil
 }
@@ -234,4 +241,50 @@ func withVolumeMetricsDaemonSetHook(c *clients.Clients) (csidrivernodeservicecon
 	}
 	return hook, informers
 
+}
+
+// withCustomTags add tags from Infrastructure.Status.PlatformStatus.AWS.ResourceTags to the driver command line as
+// --tags=<key1>:<value1> <key2>:<value2>,...
+func withCustomTags(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(spec *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		infraLister := c.GetInfraInformer().Lister()
+		infra, err := infraLister.Get(infrastructureName)
+		if err != nil {
+			return err
+		}
+		if infra.Status.PlatformStatus == nil || infra.Status.PlatformStatus.AWS == nil {
+			return nil
+		}
+
+		userTags := infra.Status.PlatformStatus.AWS.ResourceTags
+		if len(userTags) == 0 {
+			return nil
+		}
+
+		// Create a slice of formatted key:value pairs
+		tagPairs := make([]string, 0, len(userTags))
+		for _, userTag := range userTags {
+			// Skip tags with empty keys or values to avoid invalid formatting
+			if userTag.Key == "" || userTag.Value == "" {
+				continue
+			}
+			tagPairs = append(tagPairs, fmt.Sprintf("%s:%s", userTag.Key, userTag.Value))
+		}
+
+		// Join the tag pairs with a space separator
+		tags := strings.Join(tagPairs, " ")
+		tagsArgument := fmt.Sprintf("--tags=%s", tags)
+
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			if container.Name != "csi-driver" {
+				continue
+			}
+			container.Args = append(container.Args, tagsArgument)
+		}
+		return nil
+	}
+	informers := []factory.Informer{
+		c.GetInfraInformer().Informer(),
+	}
+	return hook, informers
 }
