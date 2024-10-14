@@ -1,0 +1,18 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/rbac/node_privileged_binding.yaml
+#
+#
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openstack-cinder-node-privileged-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openstack-cinder-privileged-role
+subjects:
+- kind: ServiceAccount
+  name: openstack-cinder-csi-driver-node-sa
+  namespace: openshift-cluster-csi-drivers
