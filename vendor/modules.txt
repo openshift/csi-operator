@@ -190,6 +190,7 @@ github.com/gophercloud/gophercloud/v2/openstack/identity/v2/tokens
 github.com/gophercloud/gophercloud/v2/openstack/identity/v3/ec2tokens
 github.com/gophercloud/gophercloud/v2/openstack/identity/v3/oauth1
 github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens
+github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/sharetypes
 github.com/gophercloud/gophercloud/v2/openstack/utils
 github.com/gophercloud/gophercloud/v2/pagination
 # github.com/gophercloud/utils/v2 v2.0.0-20240812072210-8ce1fc0f2894
