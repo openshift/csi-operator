@@ -3,16 +3,20 @@ package openstack_manila
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/sharetypes"
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
 	"github.com/openshift/csi-operator/pkg/generator"
+	"github.com/openshift/csi-operator/pkg/openstack-manila/client"
 	"github.com/openshift/csi-operator/pkg/openstack-manila/secret"
 	"github.com/openshift/csi-operator/pkg/openstack-manila/util"
 	"github.com/openshift/csi-operator/pkg/operator/config"
@@ -20,7 +24,15 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8serrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
@@ -145,6 +157,30 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 		return nil, err
 	}
 
+	cfg.Precondition = func() (bool, error) {
+		openstackClient, err := client.NewOpenStackClient(util.CloudConfigFilename)
+		if err != nil {
+			return false, err
+		}
+		shareTypes, err := openstackClient.GetShareTypes()
+		if err != nil {
+			return false, err
+		}
+
+		if len(shareTypes) == 0 {
+			klog.V(4).Infof("Manila does not provide any share types")
+			return false, errors.New("manila does not provide any share types")
+		}
+
+		syncCSIDriver(ctx, c.KubeClient, c.EventRecorder)
+
+		syncStorageClasses(ctx, shareTypes, c.KubeClient, c.EventRecorder)
+
+		return true, nil
+
+	}
+
+	cfg.PreconditionInformers = []factory.Informer{c.GetCSIDriverInformer().Informer(), c.GetStorageClassInformer().Informer()}
 	secretSyncer, err := createSecretSyncer(c)
 	if err != nil {
 		return nil, err
@@ -168,9 +204,90 @@ func withClusterWideProxyDaemonSetHook(_ *clients.Clients) (csidrivernodeservice
 	return hook, nil
 }
 
+func getFsGroupPolicy() storagev1.FSGroupPolicy {
+
+	// NOTE: Set the fsGroupPolicy param to None as default value
+	fsGroupPolicy := storagev1.NoneFSGroupPolicy
+
+	fsGroupPolicyFromEnv := storagev1.FSGroupPolicy(os.Getenv("CSI_FSGROUP_POLICY"))
+	switch fsGroupPolicyFromEnv {
+	case storagev1.NoneFSGroupPolicy, storagev1.FileFSGroupPolicy, storagev1.ReadWriteOnceWithFSTypeFSGroupPolicy:
+		fsGroupPolicy = fsGroupPolicyFromEnv
+	default:
+		if fsGroupPolicyFromEnv != "" {
+			klog.V(4).Infof("Invalid CSI_FSGROUP_POLICY %q. Ignoring.", fsGroupPolicyFromEnv)
+		}
+	}
+
+	return fsGroupPolicy
+}
+
+func syncCSIDriver(ctx context.Context, kubeClient kubernetes.Interface, recorder events.Recorder) error {
+	klog.V(4).Infof("Starting CSI driver config refresh")
+	defer klog.V(4).Infof("CSI driver config refresh finished")
+
+	var errs []error
+
+	stream, e := assets.ReadFile("overlays/openstack-manila/generated/standalone/csidriver.yaml")
+	if e != nil {
+		panic("Error loading the CSIDriver resource")
+	}
+
+	cr := resourceread.ReadCSIDriverV1OrDie(stream)
+	f := getFsGroupPolicy()
+	cr.Spec.FSGroupPolicy = &f
+
+	_, _, err := resourceapply.ApplyCSIDriver(ctx, kubeClient.StorageV1(), recorder, cr)
+
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	return k8serrors.NewAggregate(errs)
+}
+
+func syncStorageClasses(ctx context.Context, shareTypes []sharetypes.ShareType, kubeClient kubernetes.Interface, recorder events.Recorder) error {
+	var errs []error
+	for _, shareType := range shareTypes {
+		klog.V(4).Infof("Syncing storage class for shareType type %s", shareType.Name)
+		sc := generateStorageClass(shareType)
+		_, _, err := resourceapply.ApplyStorageClass(ctx, kubeClient.StorageV1(), recorder, sc)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return k8serrors.NewAggregate(errs)
+}
+
+func generateStorageClass(shareType sharetypes.ShareType) *storagev1.StorageClass {
+	/* As per RFC 1123 the storage class name must consist of lower case alphanumeric character,  '-' or '.'
+	   and must start and end with an alphanumeric character.
+	*/
+	storageClassName := util.StorageClassNamePrefix + strings.ToLower(strings.Replace(shareType.Name, "_", "-", -1))
+	delete := corev1.PersistentVolumeReclaimDelete
+	immediate := storagev1.VolumeBindingImmediate
+	sc := &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: storageClassName,
+		},
+		Provisioner: "manila.csi.openstack.org",
+		Parameters: map[string]string{
+			"type": shareType.Name,
+			"csi.storage.k8s.io/provisioner-secret-name":       util.ManilaSecretName,
+			"csi.storage.k8s.io/provisioner-secret-namespace":  util.OperandNamespace,
+			"csi.storage.k8s.io/node-stage-secret-name":        util.ManilaSecretName,
+			"csi.storage.k8s.io/node-stage-secret-namespace":   util.OperandNamespace,
+			"csi.storage.k8s.io/node-publish-secret-name":      util.ManilaSecretName,
+			"csi.storage.k8s.io/node-publish-secret-namespace": util.OperandNamespace,
+		},
+		ReclaimPolicy:     &delete,
+		VolumeBindingMode: &immediate,
+	}
+	return sc
+}
+
 // withCABundleDeploymentHook projects custom CA bundle ConfigMap into the CSI driver container
 func withCABundleDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
-	klog.Info("withCABundleDeploymentHook")
 	hook := csidrivercontrollerservicecontroller.WithCABundleDeploymentHook(
 		c.ControlPlaneNamespace,
 		trustedCAConfigMap,
