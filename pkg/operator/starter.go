@@ -215,21 +215,21 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		csiOperatorControllerConfig.ExtraControlPlaneControllers = append(csiOperatorControllerConfig.ExtraControlPlaneControllers, snapshotClassController)
 	}
 
-	// Start all informers
+	starterController := StarterController(
+		c,
+		[]*csicontrollerset.CSIControllerSet{controlPlaneCSIControllerSet, guestCSIControllerSet},
+		csiOperatorControllerConfig.ExtraControlPlaneControllers,
+		controllerConfig.EventRecorder,
+		csiOperatorControllerConfig,
+	)
+
 	c.Start(ctx)
 	klog.V(2).Infof("Waiting for informers to sync")
 	c.WaitForCacheSync(ctx)
 	klog.V(2).Infof("Informers synced")
 
-	// Start controllers
-	for _, controller := range csiOperatorControllerConfig.ExtraControlPlaneControllers {
-		klog.Infof("Starting controller %s", controller.Name())
-		go controller.Run(ctx, 1)
-	}
-	klog.Info("Starting control plane controllerset")
-	go controlPlaneCSIControllerSet.Run(ctx, 1)
-	klog.Info("Starting guest controllerset")
-	go guestCSIControllerSet.Run(ctx, 1)
+	klog.Info("Starting controllers")
+	go starterController.Run(ctx, 1)
 
 	<-ctx.Done()
 
