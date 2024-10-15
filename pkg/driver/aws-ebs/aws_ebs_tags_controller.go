@@ -3,6 +3,7 @@ package aws_ebs
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"time"
 
@@ -37,23 +38,11 @@ type EBSVolumeTagController struct {
 	coreClient   corev1.CoreV1Interface
 	queue        workqueue.RateLimitingInterface
 	informer     cache.SharedIndexInformer
-	awsEC2Client *ec2.EC2
 }
 
 // NewEBSVolumeTagController initializes the controller and sets up the AWS session using credentials from a Kubernetes secret
 func NewEBSVolumeTagController(configClient configclient.Interface, coreClient corev1.CoreV1Interface) (*EBSVolumeTagController, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
-	awsRegion, err := getAWSRegionFromInfrastructure(configClient)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving AWS region from infrastructure: %v", err)
-	}
-
-	// Initialize AWS EC2 client using the credentials from the secret
-	awsEC2Client, err := getEC2Client(context.TODO(), coreClient, awsRegion)
-	if err != nil {
-		return nil, fmt.Errorf("error creating AWS EC2 client: %v", err)
-	}
 
 	// Create a listerWatcher for the Infrastructure resource
 	listerWatcher := &cache.ListWatch{
@@ -79,11 +68,10 @@ func NewEBSVolumeTagController(configClient configclient.Interface, coreClient c
 		coreClient:   coreClient,
 		queue:        queue,
 		informer:     informer,
-		awsEC2Client: awsEC2Client,
 	}
 
 	// Add event handlers to the informer
-	_, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			controller.handleAdd(obj)
 		},
@@ -101,28 +89,89 @@ func NewEBSVolumeTagController(configClient configclient.Interface, coreClient c
 	return controller, nil
 }
 
-// getEC2Client retrieves AWS credentials from the secret and creates an AWS EC2 client
+// getEC2Client retrieves AWS credentials from the secret and creates an AWS EC2 client using session.Options
 func getEC2Client(ctx context.Context, coreClient corev1.CoreV1Interface, awsRegion string) (*ec2.EC2, error) {
-	// Fetch the secret containing AWS credentials
 	secret, err := coreClient.Secrets(awsSecretNamespace).Get(ctx, awsSecretName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving AWS credentials secret: %v", err)
 	}
 
-	awsAccessKeyID := secret.Data["aws_access_key_id"]
-	awsSecretAccessKey := secret.Data["aws_secret_access_key"]
+	// Check for aws_access_key_id and aws_secret_access_key fields
+	awsAccessKeyID, accessKeyFound := secret.Data["aws_access_key_id"]
+	awsSecretAccessKey, secretKeyFound := secret.Data["aws_secret_access_key"]
 
-	// Create a new AWS session using the credentials
-	awsSession, err := session.NewSession(&aws.Config{
-		Region:      aws.String(awsRegion),
-		Credentials: credentials.NewStaticCredentials(string(awsAccessKeyID), string(awsSecretAccessKey), ""),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error creating AWS session: %v", err)
+	if accessKeyFound && secretKeyFound {
+		return createEC2ClientWithStaticKeys(awsRegion, string(awsAccessKeyID), string(awsSecretAccessKey))
 	}
 
-	// Return an EC2 client
+	// Otherwise, check for credentials field and create session using that
+	credentialsData, credentialsFound := secret.Data["credentials"]
+	if credentialsFound {
+		tempFile, err := writeCredentialsToTempFile(credentialsData)
+		if err != nil {
+			return nil, fmt.Errorf("error writing credentials to temporary file: %v", err)
+		}
+
+		return createEC2ClientWithCredentialsFile(awsRegion, tempFile)
+	}
+
+	return nil, fmt.Errorf("no valid AWS credentials found in secret")
+}
+
+// createEC2ClientWithStaticKeys creates an EC2 client using static credentials (access key and secret key)
+func createEC2ClientWithStaticKeys(awsRegion, awsAccessKeyID, awsSecretAccessKey string) (*ec2.EC2, error) {
+	awsSession, err := session.NewSession(&aws.Config{
+		Region:      aws.String(awsRegion),
+		Credentials: credentials.NewStaticCredentials(awsAccessKeyID, awsSecretAccessKey, ""),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating AWS session with static credentials: %v", err)
+	}
 	return ec2.New(awsSession), nil
+}
+
+// createEC2ClientWithCredentialsFile creates an EC2 client using a temporary credentials file
+func createEC2ClientWithCredentialsFile(awsRegion, credentialsFilename string) (*ec2.EC2, error) {
+	klog.Infof("Creating AWS session using credentials file: %s", credentialsFilename)
+
+	defer func() {
+		err := os.Remove(credentialsFilename)
+		if err != nil {
+			klog.Warningf("Failed to remove temporary credentials file: %v", err)
+		} else {
+			klog.Infof("Temporary credentials file %s removed successfully.", credentialsFilename)
+		}
+	}()
+
+	awsOptions := session.Options{
+		Config: aws.Config{
+			Region: aws.String(awsRegion),
+		},
+		SharedConfigState: session.SharedConfigEnable,
+		SharedConfigFiles: []string{credentialsFilename},
+	}
+
+	awsSession, err := session.NewSessionWithOptions(awsOptions)
+	if err != nil {
+		return nil, fmt.Errorf("error creating AWS session using credentials file: %v", err)
+	}
+
+	return ec2.New(awsSession), nil
+}
+
+// writeCredentialsToTempFile writes credentials data to a temporary file and returns the filename
+func writeCredentialsToTempFile(data []byte) (string, error) {
+	f, err := os.CreateTemp("", "aws-shared-credentials")
+	if err != nil {
+		return "", fmt.Errorf("failed to create file for shared credentials: %v", err)
+	}
+	defer f.Close()
+
+	if _, err := f.Write(data); err != nil {
+		defer os.Remove(f.Name())
+		return "", fmt.Errorf("failed to write credentials to %s: %v", f.Name(), err)
+	}
+	return f.Name(), nil
 }
 
 // getAWSRegionFromInfrastructure retrieves the AWS region from the Infrastructure resource in OpenShift
@@ -167,7 +216,8 @@ func (c *EBSVolumeTagController) handleDelete(obj interface{}) {
 
 // processInfrastructure processes the Infrastructure resource and updates EBS tags
 func (c *EBSVolumeTagController) processInfrastructure(infra *configv1.Infrastructure) {
-	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
+	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil &&
+		infra.Status.PlatformStatus.AWS.ResourceTags != nil {
 		awsInfra := infra.Status.PlatformStatus.AWS
 		err := c.fetchPVsAndUpdateTags(awsInfra.ResourceTags)
 		if err != nil {
@@ -200,7 +250,20 @@ func (c *EBSVolumeTagController) fetchPVsAndUpdateTags(resourceTags []configv1.A
 
 // updateEBSTags updates the tags of an AWS EBS volume
 func (c *EBSVolumeTagController) updateEBSTags(volumeID string, resourceTags []configv1.AWSResourceTag) error {
-	existingTagsOutput, err := c.awsEC2Client.DescribeTags(&ec2.DescribeTagsInput{
+	// get the infra resource region
+	awsRegion, err := getAWSRegionFromInfrastructure(c.configClient)
+	if err != nil {
+		return fmt.Errorf("error retrieving AWS region from infrastructure: %v", err)
+	}
+
+	// create ec2 Client
+	ec2Client, err := getEC2Client(context.Background(), c.coreClient, awsRegion)
+	if err != nil {
+		return fmt.Errorf("error retrieving AWS EC2 client: %v", err)
+	}
+
+	// Describe existing tags
+	existingTagsOutput, err := ec2Client.DescribeTags(&ec2.DescribeTagsInput{
 		Filters: []*ec2.Filter{
 			{
 				Name:   aws.String("resource-id"),
@@ -212,16 +275,23 @@ func (c *EBSVolumeTagController) updateEBSTags(volumeID string, resourceTags []c
 		return err
 	}
 
+	// Merge the existing tags with new resource tags
 	mergedTags := mergeTags(existingTagsOutput.Tags, resourceTags)
 
 	klog.Infof("Updating EBS tags for volume ID %s with tags: %v", volumeID, mergedTags)
 
-	_, err = c.awsEC2Client.CreateTags(&ec2.CreateTagsInput{
+	// Create or update the tags
+	_, err = ec2Client.CreateTags(&ec2.CreateTagsInput{
 		Resources: []*string{aws.String(volumeID)},
 		Tags:      mergedTags,
 	})
 
-	return err
+	if err != nil {
+		return fmt.Errorf("error creating tags for volume %s: %v", volumeID, err)
+	}
+
+	klog.Infof("Successfully updated tags for volume %s", volumeID)
+	return nil
 }
 
 // mergeTags merges existing AWS tags with new resource tags from OpenShift infrastructure
