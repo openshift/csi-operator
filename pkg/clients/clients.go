@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	coreinformers "k8s.io/client-go/informers/core/v1"
+	v1 "k8s.io/client-go/informers/storage/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -114,6 +115,16 @@ func (c *Clients) GetNodeInformer() coreinformers.NodeInformer {
 // GetInfraInformer returns an Infrastructure informer.
 func (c *Clients) GetInfraInformer() cfgv1informers.InfrastructureInformer {
 	return c.ConfigInformers.Config().V1().Infrastructures()
+}
+
+// GetStorageClassInformer returns a storage class informer.
+func (c *Clients) GetStorageClassInformer() v1.StorageClassInformer {
+	return c.KubeInformers.InformersFor("").Storage().V1().StorageClasses()
+}
+
+// GetCSIDriverInformer returns a CSI Driver informer.
+func (c *Clients) GetCSIDriverInformer() v1.CSIDriverInformer {
+	return c.KubeInformers.InformersFor("").Storage().V1().CSIDrivers()
 }
 
 // Start starts all informers.
