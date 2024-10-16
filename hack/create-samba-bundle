@@ -30,7 +30,7 @@ mkdir -p opm-bundle
 pushd opm-bundle
 cp -r -v ../../config/samba/* .
 
-MANIFEST=manifests/preview/smb-csi-driver-operator.clusterserviceversion.yaml
+MANIFEST=manifests/stable/smb-csi-driver-operator.clusterserviceversion.yaml
 
 # Replace images in the manifest - error prone, needs to be in sync with image-references.
 sed -i.bak -e "s~quay.io/openshift/origin-smb-csi-driver-operator:latest~$OPERATOR_IMAGE~" \
