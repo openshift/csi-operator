@@ -1,5 +1,5 @@
 updates:
-  - file: "preview/smb-csi-driver-operator.clusterserviceversion.yaml" # relative to this file
+  - file: "stable/smb-csi-driver-operator.clusterserviceversion.yaml" # relative to this file
     update_list:
     # replace metadata.name value
     - search: "smb-csi-driver-operator.v{MAJOR}.{MINOR}.0"
