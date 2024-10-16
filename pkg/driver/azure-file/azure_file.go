@@ -215,6 +215,7 @@ func syncCloudConfigGuest(c *clients.Clients) (factory.Controller, error) {
 		Name:      localCloudConfigName,
 	}
 	cloudConfigSyncController := resourcesynccontroller.NewResourceSyncController(
+		string(opv1.AzureFileCSIDriver),
 		c.OperatorClient,
 		c.KubeInformers,
 		c.KubeClient.CoreV1(),
@@ -244,6 +245,7 @@ func syncCloudConfigStandAlone(c *clients.Clients) (factory.Controller, error) {
 		Name:      localCloudConfigName,
 	}
 	cloudConfigSyncController := resourcesynccontroller.NewResourceSyncController(
+		string(opv1.AzureFileCSIDriver),
 		c.OperatorClient,
 		c.KubeInformers,
 		c.KubeClient.CoreV1(),

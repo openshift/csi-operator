@@ -2,12 +2,14 @@ package clients
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	snapshotclientset "github.com/kubernetes-csi/external-snapshotter/client/v6/clientset/versioned"
 	opv1 "github.com/openshift/api/operator/v1"
 	cfgclientset "github.com/openshift/client-go/config/clientset/versioned"
 	cfginformers "github.com/openshift/client-go/config/informers/externalversions"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	opclient "github.com/openshift/client-go/operator/clientset/versioned"
 	opinformers "github.com/openshift/client-go/operator/informers/externalversions"
 	hypextclient "github.com/openshift/hypershift/client/clientset/clientset"
@@ -19,11 +21,14 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	apiextclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	kubeclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 )
 
 // Builder is a helper to create Clients.
@@ -117,8 +122,42 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 	b.client.KubeClient = guestKubeClient
 	b.client.KubeInformers = v1helpers.NewKubeInformersForNamespaces(guestKubeClient, b.guestNamespaces...)
 
+	extractApplySpec := func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorSpecApplyConfiguration, error) {
+		castObj := &opv1.ClusterCSIDriver{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, castObj); err != nil {
+			return nil, fmt.Errorf("unable to convert to ClusterCSIDriver: %w", err)
+		}
+		ret, err := applyoperatorv1.ExtractClusterCSIDriver(castObj, fieldManager)
+		if err != nil {
+			return nil, fmt.Errorf("unable to extract fields for %q: %w", fieldManager, err)
+		}
+		if ret.Spec == nil {
+			return nil, nil
+		}
+		return &ret.Spec.OperatorSpecApplyConfiguration, nil
+	}
+	extractApplyStatus := func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorStatusApplyConfiguration, error) {
+		castObj := &opv1.ClusterCSIDriver{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, castObj); err != nil {
+			return nil, fmt.Errorf("unable to convert to ClusterCSIDriver: %w", err)
+		}
+		ret, err := applyoperatorv1.ExtractClusterCSIDriverStatus(castObj, fieldManager)
+		if err != nil {
+			return nil, fmt.Errorf("unable to extract fields for %q: %w", fieldManager, err)
+		}
+
+		if ret.Status == nil {
+			return nil, nil
+		}
+		return &ret.Status.OperatorStatusApplyConfiguration, nil
+	}
+
 	gvr := opv1.SchemeGroupVersion.WithResource("clustercsidrivers")
-	guestOperatorClient, guestOperatorDynamicInformers, err := goc.NewClusterScopedOperatorClientWithConfigName(guestKubeConfig, gvr, b.csiDriverName)
+	gvk := opv1.SchemeGroupVersion.WithKind("ClusterCSIDriver")
+	guestOperatorClient, guestOperatorDynamicInformers, err := goc.NewClusterScopedOperatorClientWithConfigName(
+		clock.RealClock{}, b.controllerConfig.KubeConfig, gvr, gvk, string(opv1.GCPPDCSIDriver), extractApplySpec, extractApplyStatus,
+	)
+
 	if err != nil {
 		klog.Fatalf("error building clustercsidriver informers: %v", err)
 	}
