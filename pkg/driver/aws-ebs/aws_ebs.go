@@ -270,6 +270,7 @@ func newCustomAWSBundleSyncer(c *clients.Clients) (factory.Controller, error) {
 		Name:      cloudConfigName,
 	}
 	certController := resourcesynccontroller.NewResourceSyncController(
+		string(opv1.AWSEBSCSIDriver),
 		c.OperatorClient,
 		c.KubeInformers,
 		c.KubeClient.CoreV1(),
