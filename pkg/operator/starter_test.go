@@ -1,11 +1,20 @@
 package operator
 
 import (
+	"path/filepath"
 	"testing"
 
 	opv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/csi-operator/assets"
+	azure_disk "github.com/openshift/csi-operator/pkg/driver/azure-disk"
+	"github.com/openshift/csi-operator/pkg/driver/common/operator"
+	generated_assets "github.com/openshift/csi-operator/pkg/generated-assets"
+	"github.com/openshift/csi-operator/pkg/generator"
+	"github.com/openshift/csi-operator/pkg/operator/config"
 	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -92,4 +101,68 @@ func TestGetOperatorSyncState(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDefaultReplacements(t *testing.T) {
+	cases := []struct {
+		name                  string
+		opConfig              *config.OperatorConfig
+		flavor                generator.ClusterFlavour
+		controlPlaneNamespace string
+		GuestNamespace        string
+	}{
+		{
+			name:                  "Testing replacement of Azure disk assets",
+			opConfig:              azure_disk.GetAzureDiskOperatorConfig(),
+			flavor:                generator.FlavourStandalone,
+			controlPlaneNamespace: "openshift-cluster-csi-drivers",
+			GuestNamespace:        "openshift-cluster-csi-drivers",
+		},
+		{
+			name:                  "Testing replacement of Azure disk assets with Hypershift",
+			opConfig:              azure_disk.GetAzureDiskOperatorConfig(),
+			flavor:                generator.FlavourHyperShift,
+			controlPlaneNamespace: "clusters-foo",
+			GuestNamespace:        "openshift-cluster-csi-drivers",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assetDir := filepath.Join(tc.opConfig.AssetDir, string(tc.flavor))
+			a, err := generated_assets.NewFromAssets(assets.ReadFile, assetDir)
+			if err != nil {
+				t.Fatalf("Failure when reading assets %v", err)
+			}
+
+			defaultReplacements := operator.DefaultReplacements(tc.controlPlaneNamespace, tc.GuestNamespace)
+			a.SetReplacements(defaultReplacements)
+
+			nodeAsset, err := a.GetAsset("node.yaml")
+			if err != nil {
+				t.Fatalf("Failure when getting populated asset %v", err)
+			}
+			generatedNameSpace := getTestDaemonSet(nodeAsset).Namespace
+			if generatedNameSpace != tc.GuestNamespace {
+				t.Fatalf("expected generated DaemonSet to use namespace %v, got %v", tc.GuestNamespace, generatedNameSpace)
+			}
+
+			controllerAsset, err := a.GetAsset("controller.yaml")
+			if err != nil {
+				t.Fatalf("Failure when getting populated asset %v", err)
+			}
+			generatedNameSpace = getTestDeployment(controllerAsset).Namespace
+			if generatedNameSpace != tc.controlPlaneNamespace {
+				t.Fatalf("expected generated Deployment to use namespace %v, got %v", tc.controlPlaneNamespace, generatedNameSpace)
+			}
+		})
+	}
+}
+
+func getTestDaemonSet(content []byte) *appsv1.DaemonSet {
+	return resourceread.ReadDaemonSetV1OrDie(content)
+}
+
+func getTestDeployment(content []byte) *appsv1.Deployment {
+	return resourceread.ReadDeploymentV1OrDie(content)
 }
