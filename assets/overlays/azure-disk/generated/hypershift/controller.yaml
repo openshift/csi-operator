@@ -158,7 +158,7 @@ spec:
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --default-fstype=ext4
         - --feature-gates=Topology=true
@@ -216,7 +216,7 @@ spec:
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --timeout=1200s
         - --worker-threads=1000
@@ -270,7 +270,7 @@ spec:
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --timeout=240s
         - -handle-volume-inuse-error=false
@@ -322,7 +322,7 @@ spec:
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --timeout=600s
         - --kubeconfig=$(KUBECONFIG)
