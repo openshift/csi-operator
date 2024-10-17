@@ -20,15 +20,17 @@ package v1alpha1
 // AzureNodePoolPlatformApplyConfiguration represents an declarative configuration of the AzureNodePoolPlatform type for use
 // with apply.
 type AzureNodePoolPlatformApplyConfiguration struct {
-	VMSize                 *string                        `json:"vmsize,omitempty"`
-	ImageID                *string                        `json:"imageID,omitempty"`
-	DiskSizeGB             *int32                         `json:"diskSizeGB,omitempty"`
-	DiskStorageAccountType *string                        `json:"diskStorageAccountType,omitempty"`
-	AvailabilityZone       *string                        `json:"availabilityZone,omitempty"`
-	DiskEncryptionSetID    *string                        `json:"diskEncryptionSetID,omitempty"`
-	EnableEphemeralOSDisk  *bool                          `json:"enableEphemeralOSDisk,omitempty"`
-	SubnetID               *string                        `json:"subnetID,omitempty"`
-	Diagnostics            *DiagnosticsApplyConfiguration `json:"diagnostics,omitempty"`
+	VMSize                 *string                         `json:"vmsize,omitempty"`
+	Image                  *AzureVMImageApplyConfiguration `json:"image,omitempty"`
+	DiskSizeGB             *int32                          `json:"diskSizeGB,omitempty"`
+	DiskStorageAccountType *string                         `json:"diskStorageAccountType,omitempty"`
+	AvailabilityZone       *string                         `json:"availabilityZone,omitempty"`
+	EncryptionAtHost       *string                         `json:"encryptionAtHost,omitempty"`
+	DiskEncryptionSetID    *string                         `json:"diskEncryptionSetID,omitempty"`
+	EnableEphemeralOSDisk  *bool                           `json:"enableEphemeralOSDisk,omitempty"`
+	SubnetID               *string                         `json:"subnetID,omitempty"`
+	Diagnostics            *DiagnosticsApplyConfiguration  `json:"diagnostics,omitempty"`
+	MachineIdentityID      *string                         `json:"machineIdentityID,omitempty"`
 }
 
 // AzureNodePoolPlatformApplyConfiguration constructs an declarative configuration of the AzureNodePoolPlatform type for use with
@@ -45,11 +47,11 @@ func (b *AzureNodePoolPlatformApplyConfiguration) WithVMSize(value string) *Azur
 	return b
 }
 
-// WithImageID sets the ImageID field in the declarative configuration to the given value
+// WithImage sets the Image field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ImageID field is set to the value of the last call.
-func (b *AzureNodePoolPlatformApplyConfiguration) WithImageID(value string) *AzureNodePoolPlatformApplyConfiguration {
-	b.ImageID = &value
+// If called multiple times, the Image field is set to the value of the last call.
+func (b *AzureNodePoolPlatformApplyConfiguration) WithImage(value *AzureVMImageApplyConfiguration) *AzureNodePoolPlatformApplyConfiguration {
+	b.Image = value
 	return b
 }
 
@@ -74,6 +76,14 @@ func (b *AzureNodePoolPlatformApplyConfiguration) WithDiskStorageAccountType(val
 // If called multiple times, the AvailabilityZone field is set to the value of the last call.
 func (b *AzureNodePoolPlatformApplyConfiguration) WithAvailabilityZone(value string) *AzureNodePoolPlatformApplyConfiguration {
 	b.AvailabilityZone = &value
+	return b
+}
+
+// WithEncryptionAtHost sets the EncryptionAtHost field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the EncryptionAtHost field is set to the value of the last call.
+func (b *AzureNodePoolPlatformApplyConfiguration) WithEncryptionAtHost(value string) *AzureNodePoolPlatformApplyConfiguration {
+	b.EncryptionAtHost = &value
 	return b
 }
 
@@ -106,5 +116,13 @@ func (b *AzureNodePoolPlatformApplyConfiguration) WithSubnetID(value string) *Az
 // If called multiple times, the Diagnostics field is set to the value of the last call.
 func (b *AzureNodePoolPlatformApplyConfiguration) WithDiagnostics(value *DiagnosticsApplyConfiguration) *AzureNodePoolPlatformApplyConfiguration {
 	b.Diagnostics = value
+	return b
+}
+
+// WithMachineIdentityID sets the MachineIdentityID field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the MachineIdentityID field is set to the value of the last call.
+func (b *AzureNodePoolPlatformApplyConfiguration) WithMachineIdentityID(value string) *AzureNodePoolPlatformApplyConfiguration {
+	b.MachineIdentityID = &value
 	return b
 }
