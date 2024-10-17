@@ -37,16 +37,11 @@ spec:
             - /bin/cinder-csi-plugin
             - "--provide-controller-service=true"
             - "--provide-node-service=false"
-            - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--cloud-config=$(CLOUD_CONFIG)"
             - "--cluster=${CLUSTER_ID}"
             - "--v=${LOG_LEVEL}"
           env:
-            - name: NODE_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
             - name: CSI_ENDPOINT
               value: unix://csi/csi.sock
             - name: CLOUD_CONFIG
