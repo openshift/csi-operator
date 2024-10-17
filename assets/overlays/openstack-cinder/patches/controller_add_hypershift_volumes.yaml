@@ -1,0 +1,8 @@
+spec:
+  template:
+    spec:
+      volumes:
+        - name: hosted-kubeconfig
+          secret:
+            defaultMode: 420
+            secretName: service-network-admin-kubeconfig

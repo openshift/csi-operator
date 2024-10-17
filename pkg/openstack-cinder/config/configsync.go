@@ -22,18 +22,18 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/openstack-cinder/util"
 )
 
 // This ConfigSyncController translates the ConfigMap provided by the user
 // containing configuration information for the Cinder CSI driver.
 type ConfigSyncController struct {
-	operatorClient       v1helpers.OperatorClient
-	kubeClient           kubernetes.Interface
-	configMapLister      corelisters.ConfigMapLister
-	infrastructureLister configv1listers.InfrastructureLister
-	eventRecorder        events.Recorder
+	operatorClient        v1helpers.OperatorClient
+	kubeClient            kubernetes.Interface
+	configMapLister       corelisters.ConfigMapLister
+	infrastructureLister  configv1listers.InfrastructureLister
+	controlPlaneNamespace string
+	eventRecorder         events.Recorder
 }
 
 const (
@@ -49,18 +49,21 @@ func NewConfigSyncController(
 	kubeClient kubernetes.Interface,
 	informers v1helpers.KubeInformersForNamespaces,
 	configInformers configinformers.SharedInformerFactory,
+	controlPlaneNamespace string,
 	resyncInterval time.Duration,
-	eventRecorder events.Recorder) factory.Controller {
+	eventRecorder events.Recorder,
+) factory.Controller {
 
 	// Read configmap from user-managed namespace and save the translated one
-	// to the operator namespace
+	// to the control plane namespace
 	configMapInformer := informers.InformersFor(util.OpenShiftConfigNamespace)
 	c := &ConfigSyncController{
-		operatorClient:       operatorClient,
-		kubeClient:           kubeClient,
-		configMapLister:      configMapInformer.Core().V1().ConfigMaps().Lister(),
-		infrastructureLister: configInformers.Config().V1().Infrastructures().Lister(),
-		eventRecorder:        eventRecorder.WithComponentSuffix("ConfigSync"),
+		operatorClient:        operatorClient,
+		kubeClient:            kubeClient,
+		configMapLister:       configMapInformer.Core().V1().ConfigMaps().Lister(),
+		infrastructureLister:  configInformers.Config().V1().Infrastructures().Lister(),
+		controlPlaneNamespace: controlPlaneNamespace,
+		eventRecorder:         eventRecorder.WithComponentSuffix("ConfigSync"),
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(resyncInterval).WithSyncDegradedOnError(operatorClient).WithInformers(
 		operatorClient.Informer(),
@@ -117,7 +120,7 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		}
 	}
 
-	targetConfig, err := translateConfigMap(sourceConfig, enableTopologyFeature)
+	targetConfig, err := translateConfigMap(sourceConfig, enableTopologyFeature, c.controlPlaneNamespace)
 	if err != nil {
 		return err
 	}
@@ -133,7 +136,11 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 // to those used by the external CSI driver that this operator manages. It also does some basic
 // validation of the config map, setting attributes to values expected by other parts of the
 // operator.
-func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool) (*v1.ConfigMap, error) {
+func translateConfigMap(
+	cloudConfig *v1.ConfigMap,
+	enableTopologyFeature bool,
+	controlPlaneNamespace string,
+) (*v1.ConfigMap, error) {
 	// Process the cloud configuration
 	content, ok := cloudConfig.Data[sourceConfigKey]
 	if !ok {
@@ -217,7 +224,7 @@ func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool) (
 	config := v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.CinderConfigName,
-			Namespace: clients.CSIDriverNamespace,
+			Namespace: controlPlaneNamespace,
 		},
 		Data: map[string]string{
 			targetConfigKey:   buf.String(),

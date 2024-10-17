@@ -119,6 +119,7 @@ cloud       = openstack`,
 	for _, tc := range tc {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
+			controlPlaneNamespace := "openshift-cluster-csi-drivers"
 			sourceConfigMap := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cloud-provider-config",
@@ -134,14 +135,14 @@ cloud       = openstack`,
 			expectedConfigMap := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cinder-csi-config",
-					Namespace: "openshift-cluster-csi-drivers",
+					Namespace: controlPlaneNamespace,
 				},
 				Data: map[string]string{
 					"config":          tc.target,
 					"enable_topology": tc.expectedTopologyValue,
 				},
 			}
-			actualConfigMap, err := translateConfigMap(&sourceConfigMap, tc.generatedTopologyValue)
+			actualConfigMap, err := translateConfigMap(&sourceConfigMap, tc.generatedTopologyValue, controlPlaneNamespace)
 			if tc.errMsg != "" {
 				g.Expect(err).Should(MatchError(tc.errMsg))
 				return
