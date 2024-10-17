@@ -60,6 +60,12 @@ type OperatorControllerConfig struct {
 	GuestDaemonSetHooks []csidrivernodeservicecontroller.DaemonSetHookFunc
 	// List of informers that should be added to the guest DaemonSet controller.
 	GuestDaemonSetInformers []factory.Informer
+
+	// List of functions that should return true if we want the controller to sync normally.
+	// Returning false or error will degrade the cluster with OperatorCondition.Reason set to "PreconditionNotFulfilled"
+	// and any errors returned are shown as OperatorCondition.Message
+	Preconditions []deploymentcontroller.PreconditionFunc
+
 	// List of hooks should be run on the storage classes.
 	// No informers here, because StorageClassController does not accept any.
 	StorageClassHooks []csistorageclasscontroller.StorageClassHookFunc
@@ -114,6 +120,20 @@ func (o *OperatorControllerConfig) AddStorageClassHookBuilders(c *clients.Client
 		hook := builder(c)
 		o.AddStorageClassHook(hook)
 	}
+}
+
+func (o *OperatorControllerConfig) AddPreconditions(preconditionFuncs ...deploymentcontroller.PreconditionFunc) {
+	for _, f := range preconditionFuncs {
+		o.Preconditions = append(o.Preconditions, f)
+	}
+}
+
+func (o *OperatorControllerConfig) GetPreconditions() []func(context.Context) (bool, error) {
+	var funcs []func(context.Context) (bool, error)
+	for _, precondition := range o.Preconditions {
+		funcs = append(funcs, precondition)
+	}
+	return funcs
 }
 
 type DeploymentHookBuilder func(c *clients.Clients) (deploymentcontroller.DeploymentHookFunc, []factory.Informer)
