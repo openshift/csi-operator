@@ -112,7 +112,7 @@ func (c *SecretSyncController) translateSecret(cloudSecret *v1.Secret) (*v1.Secr
 	secret := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.ManilaSecretName,
-			Namespace: util.OperatorNamespace,
+			Namespace: util.OperandNamespace,
 		},
 		Type: v1.SecretTypeOpaque,
 		Data: data,
