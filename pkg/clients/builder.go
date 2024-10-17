@@ -108,7 +108,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		if err != nil {
 			klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
 		}
-		b.client.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(b.guestNamespace), b.userAgent, controllerRef)
+		b.client.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(b.guestNamespace), b.userAgent, controllerRef, clock.RealClock{})
 
 		b.client.ControlPlaneHypeClient = hypextclient.NewForConfigOrDie(controlPlaneRestConfig)
 		b.client.ControlPlaneHypeInformer = hypextinformers.NewFilteredSharedInformerFactory(b.client.ControlPlaneHypeClient, b.resync, b.controllerConfig.OperatorNamespace, nil)
@@ -162,4 +162,35 @@ func (b *Builder) AddSnapshotClient(ctx context.Context) (snapshotclientset.Inte
 		return nil, err
 	}
 	return b.client.SnapshotClient, nil
+}
+
+func extractApplySpec(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorSpecApplyConfiguration, error) {
+	castObj := &opv1.ClusterCSIDriver{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, castObj); err != nil {
+		return nil, fmt.Errorf("unable to convert to ClusterCSIDriver: %w", err)
+	}
+	ret, err := applyoperatorv1.ExtractClusterCSIDriver(castObj, fieldManager)
+	if err != nil {
+		return nil, fmt.Errorf("unable to extract fields for %q: %w", fieldManager, err)
+	}
+	if ret.Spec == nil {
+		return nil, nil
+	}
+	return &ret.Spec.OperatorSpecApplyConfiguration, nil
+}
+
+func extractApplyStatus(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorStatusApplyConfiguration, error) {
+	castObj := &opv1.ClusterCSIDriver{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, castObj); err != nil {
+		return nil, fmt.Errorf("unable to convert to ClusterCSIDriver: %w", err)
+	}
+	ret, err := applyoperatorv1.ExtractClusterCSIDriverStatus(castObj, fieldManager)
+	if err != nil {
+		return nil, fmt.Errorf("unable to extract fields for %q: %w", fieldManager, err)
+	}
+
+	if ret.Status == nil {
+		return nil, nil
+	}
+	return &ret.Status.OperatorStatusApplyConfiguration, nil
 }

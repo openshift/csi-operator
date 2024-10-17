@@ -8,6 +8,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/cli"
+	"k8s.io/utils/clock"
 
 	"github.com/openshift/csi-operator/pkg/operator"
 	"github.com/openshift/csi-operator/pkg/version"
@@ -33,6 +34,7 @@ func NewOperatorCommand() *cobra.Command {
 		"smb-csi-driver-operator",
 		version.Get(),
 		runCSIDriverOperator,
+		clock.RealClock{},
 	).NewCommand()
 
 	ctrlCmd.Use = "start"

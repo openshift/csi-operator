@@ -117,6 +117,8 @@ type HostedControlPlaneSpec struct {
 
 	// Services defines metadata about how control plane services are published
 	// in the management cluster.
+	// +kubebuilder:validation:MaxItems=6
+	// +kubebuilder:validation:MinItems=4
 	Services []ServicePublishingStrategyMapping `json:"services"`
 
 	// AuditWebhook contains metadata for configuring an audit webhook
@@ -184,7 +186,8 @@ type HostedControlPlaneSpec struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
-// AvailabilityPolicy specifies a high level availability policy for components.
+// availabilityPolicy specifies a high level availability policy for components.
+// +kubebuilder:validation:Enum=HighlyAvailable;SingleReplica
 type AvailabilityPolicy string
 
 const (
@@ -313,8 +316,8 @@ type APIEndpoint struct {
 	Port int32 `json:"port"`
 }
 
-// +kubebuilder:object:root=true
 // HostedControlPlaneList contains a list of HostedControlPlanes.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type HostedControlPlaneList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

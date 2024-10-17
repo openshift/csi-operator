@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/dynamic/fake"
 	fakecore "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/utils/clock"
 )
 
 const csiDriverNamespace = "openshift-cluster-csi-drivers"
@@ -76,7 +77,7 @@ func NewFakeClients(controllerNamespace string, cr *opv1.ClusterCSIDriver) *Clie
 		// OperatorClient.Informer().
 		operatorDynamicInformers: nil,
 
-		EventRecorder: events.NewKubeRecorder(guestKubeClient.CoreV1().Events(csiDriverNamespace), "fake", &fakeObjectRef),
+		EventRecorder: events.NewKubeRecorder(guestKubeClient.CoreV1().Events(csiDriverNamespace), "fake", &fakeObjectRef, clock.RealClock{}),
 
 		ControlPlaneKubeClient:      controlPlaneKubeClient,
 		ControlPlaneKubeInformers:   controlPlaneKubeInformers,
