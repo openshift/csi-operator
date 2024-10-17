@@ -141,7 +141,7 @@ cloud       = openstack`,
 					"enable_topology": tc.expectedTopologyValue,
 				},
 			}
-			actualConfigMap, err := translateConfigMap(&sourceConfigMap, tc.generatedTopologyValue)
+			actualConfigMap, err := translateConfigMap(&sourceConfigMap, tc.generatedTopologyValue, expectedConfigMap.Namespace)
 			if tc.errMsg != "" {
 				g.Expect(err).Should(MatchError(tc.errMsg))
 				return

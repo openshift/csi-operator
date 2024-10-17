@@ -22,7 +22,6 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/openstack-cinder/util"
 )
 
@@ -33,6 +32,7 @@ type ConfigSyncController struct {
 	kubeClient           kubernetes.Interface
 	configMapLister      corelisters.ConfigMapLister
 	infrastructureLister configv1listers.InfrastructureLister
+	guestNamespace       string
 	eventRecorder        events.Recorder
 }
 
@@ -49,6 +49,7 @@ func NewConfigSyncController(
 	kubeClient kubernetes.Interface,
 	informers v1helpers.KubeInformersForNamespaces,
 	configInformers configinformers.SharedInformerFactory,
+	guestNamespace string,
 	resyncInterval time.Duration,
 	eventRecorder events.Recorder) factory.Controller {
 
@@ -60,6 +61,7 @@ func NewConfigSyncController(
 		kubeClient:           kubeClient,
 		configMapLister:      configMapInformer.Core().V1().ConfigMaps().Lister(),
 		infrastructureLister: configInformers.Config().V1().Infrastructures().Lister(),
+		guestNamespace:       guestNamespace,
 		eventRecorder:        eventRecorder.WithComponentSuffix("ConfigSync"),
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(resyncInterval).WithSyncDegradedOnError(operatorClient).WithInformers(
@@ -117,7 +119,7 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		}
 	}
 
-	targetConfig, err := translateConfigMap(sourceConfig, enableTopologyFeature)
+	targetConfig, err := translateConfigMap(sourceConfig, enableTopologyFeature, c.guestNamespace)
 	if err != nil {
 		return err
 	}
@@ -133,7 +135,7 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 // to those used by the external CSI driver that this operator manages. It also does some basic
 // validation of the config map, setting attributes to values expected by other parts of the
 // operator.
-func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool) (*v1.ConfigMap, error) {
+func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool, guestNamespace string) (*v1.ConfigMap, error) {
 	// Process the cloud configuration
 	content, ok := cloudConfig.Data[sourceConfigKey]
 	if !ok {
@@ -217,7 +219,7 @@ func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool) (
 	config := v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.CinderConfigName,
-			Namespace: clients.CSIDriverNamespace,
+			Namespace: guestNamespace,
 		},
 		Data: map[string]string{
 			targetConfigKey:   buf.String(),
