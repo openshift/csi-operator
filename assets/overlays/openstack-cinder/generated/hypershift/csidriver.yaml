@@ -1,0 +1,21 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/openstack-cinder/base/csidriver.yaml
+#
+#
+
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  annotations:
+    csi.openshift.io/managed: "true"
+  name: cinder.csi.openstack.org
+spec:
+  attachRequired: true
+  fsGroupPolicy: File
+  podInfoOnMount: true
+  requiresRepublish: false
+  seLinuxMount: true
+  storageCapacity: false
+  volumeLifecycleModes:
+  - Persistent
