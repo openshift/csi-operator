@@ -6,7 +6,7 @@ metadata:
   labels:
     app: ${ASSET_PREFIX}-node-metrics
   name: ${ASSET_PREFIX}-node-metrics
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}
 spec:
   ports:
   selector:

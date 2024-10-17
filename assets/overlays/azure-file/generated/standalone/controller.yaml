@@ -135,7 +135,7 @@ spec:
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --extra-create-metadata=true
         - --timeout=300s
@@ -183,7 +183,7 @@ spec:
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --timeout=120s
         env: []
@@ -228,7 +228,7 @@ spec:
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --timeout=120s
         - -handle-volume-inuse-error=false
@@ -274,7 +274,7 @@ spec:
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --timeout=600s
         env: []

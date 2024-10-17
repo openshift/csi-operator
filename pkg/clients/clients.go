@@ -18,11 +18,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	coreinformers "k8s.io/client-go/informers/core/v1"
+	v1 "k8s.io/client-go/informers/storage/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 const (
-	CSIDriverNamespace     = "openshift-cluster-csi-drivers"
 	ManagedConfigNamespace = "openshift-config-managed" // For kube-cloud-config config map. TODO: should be namespace list configurable?
 )
 
@@ -31,6 +31,9 @@ type Clients struct {
 	// Namespace where to install CSI driver control plane. On standalone cluster, it's the same as the guest namespace,
 	// i.e. openshift-cluster-csi-drivers.
 	ControlPlaneNamespace string
+
+	// Namespace where to install CSI driver guest.
+	CSIDriverNamespace string
 
 	// Client for operator's ClusterCSIDriver CR. Always in the guest or standalone cluster.
 	OperatorClient v1helpers.OperatorClientWithFinalizers
@@ -112,6 +115,16 @@ func (c *Clients) GetNodeInformer() coreinformers.NodeInformer {
 // GetInfraInformer returns an Infrastructure informer.
 func (c *Clients) GetInfraInformer() cfgv1informers.InfrastructureInformer {
 	return c.ConfigInformers.Config().V1().Infrastructures()
+}
+
+// GetStorageClassInformer returns a storage class informer.
+func (c *Clients) GetStorageClassInformer() v1.StorageClassInformer {
+	return c.KubeInformers.InformersFor("").Storage().V1().StorageClasses()
+}
+
+// GetCSIDriverInformer returns a CSI Driver informer.
+func (c *Clients) GetCSIDriverInformer() v1.CSIDriverInformer {
+	return c.KubeInformers.InformersFor("").Storage().V1().CSIDrivers()
 }
 
 // Start starts all informers.

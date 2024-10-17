@@ -100,7 +100,7 @@ spec:
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=openshift-cluster-csi-drivers
+        - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --feature-gates=Topology=true
         - --extra-create-metadata=true

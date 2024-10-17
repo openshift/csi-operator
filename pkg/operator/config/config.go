@@ -18,6 +18,8 @@ import (
 type OperatorConfig struct {
 	// CSI driver name. ClusterCSIDriver with this name will be used as CR of this operator.
 	CSIDriverName opv1.CSIDriverName
+	// CSI driver namespace.
+	CSIDriverNamespace string
 	// HTTP User-agent for connection to the API server
 	UserAgent string
 	// Reader for generated assets.
@@ -68,6 +70,11 @@ type OperatorControllerConfig struct {
 
 	// ExtraReplacements defines additional replacements that should be made to assets
 	ExtraReplacementsFunc func() []string
+
+	// Precondition to run operator
+	Precondition func() (bool, error)
+
+	PreconditionInformers []factory.Informer
 }
 
 func (o *OperatorControllerConfig) AddCredentialsRequestHook(hook credentialsrequestcontroller.CredentialsRequestHook) {
