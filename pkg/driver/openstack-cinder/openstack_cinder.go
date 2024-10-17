@@ -76,8 +76,10 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--probe-timeout=10s",
 				),
 			},
-			Assets:       commongenerator.DefaultControllerAssets,
-			AssetPatches: commongenerator.DefaultAssetPatches,
+			Assets: commongenerator.DefaultControllerAssets,
+			AssetPatches: commongenerator.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
+				"controller.yaml", "overlays/openstack-cinder/patches/controller_add_hypershift_volumes.yaml",
+			),
 		},
 
 		GuestConfig: &generator.GuestConfig{
@@ -96,9 +98,6 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/openstack-cinder/base/volumesnapshotclass.yaml",
 			),
 		},
-
-		// TODO(stephenfin): We'd like to support HyperShift. When we do, we should change this.
-		StandaloneOnly: true,
 	}
 }
 
