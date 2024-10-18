@@ -211,23 +211,17 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, cloudCredSecretName)
 	cfg.AddDaemonSetHook(withAzureStackHubDaemonSetHook(insideStackHub))
 
-	if flavour == generator.FlavourHyperShift {
-		configMapSyncer, err := syncCloudConfigGuest(c)
-		if err != nil {
-			return nil, err
-		}
-		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer)
+	configMapSyncer, err := syncCloudConfig(c)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer)
 
+	if flavour == generator.FlavourHyperShift {
 		azureDiskSecretProviderClass := strings.TrimSpace(os.Getenv("ARO_HCP_SECRET_PROVIDER_CLASS_FOR_DISK"))
 		if azureDiskSecretProviderClass != "" {
 			cfg.DeploymentHooks = append(cfg.DeploymentHooks, withAROCSIVolume(azureDiskSecretProviderClass))
 		}
-	} else {
-		standAloneConfigSyncer, err := syncCloudConfigStandAlone(c)
-		if err != nil {
-			return nil, err
-		}
-		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, standAloneConfigSyncer)
 	}
 
 	// add extra replacement for stuff
@@ -288,44 +282,16 @@ func injectEnvAndMounts(spec *coreV1.PodSpec) {
 	}
 }
 
-func syncCloudConfigGuest(c *clients.Clients) (factory.Controller, error) {
-	// syncs cloud-config from openshif-config namespace to openshift-cluster-csi-drivers namespace
+func syncCloudConfig(c *clients.Clients) (factory.Controller, error) {
+	// syncs cloud-config from openshift-config namespace to the "guest
+	// cluster" namespace: openshift-cluster-csi-drivers for standalone
+	// deployments or clusters-{clusters} for Hypershift managed deployments
 	srcConfigMap := resourcesynccontroller.ResourceLocation{
 		Namespace: openshiftDefaultCloudConfigNamespace,
 		Name:      configMapName,
 	}
 	dstConfigMap := resourcesynccontroller.ResourceLocation{
 		Namespace: c.GuestNamespace,
-		Name:      localCloudConfigName,
-	}
-	cloudConfigSyncController := resourcesynccontroller.NewResourceSyncController(
-		string(opv1.AzureDiskCSIDriver),
-		c.OperatorClient,
-		c.KubeInformers,
-		c.KubeClient.CoreV1(),
-		c.KubeClient.CoreV1(),
-		c.EventRecorder)
-
-	err := cloudConfigSyncController.SyncConfigMap(dstConfigMap, srcConfigMap)
-	if err != nil {
-		return nil, err
-	}
-	return cloudConfigSyncController, nil
-}
-
-// useful in standalone clusters for syncing cloud-provider config from openshift-config
-// namespace to openshift-cluster-csi-drivers namespace
-// Please note although I am using c.ControlPlaneNamespace, strictly speaking this is not needed
-// in hypershift clusters because cloud-config is already synced there for external CCM and stuff.
-func syncCloudConfigStandAlone(c *clients.Clients) (factory.Controller, error) {
-	// sync config map with additional trust bundle to the operator namespace,
-	// so the operator can get it as a ConfigMap volume.
-	srcConfigMap := resourcesynccontroller.ResourceLocation{
-		Namespace: openshiftDefaultCloudConfigNamespace,
-		Name:      configMapName,
-	}
-	dstConfigMap := resourcesynccontroller.ResourceLocation{
-		Namespace: c.ControlPlaneNamespace,
 		Name:      localCloudConfigName,
 	}
 	cloudConfigSyncController := resourcesynccontroller.NewResourceSyncController(
