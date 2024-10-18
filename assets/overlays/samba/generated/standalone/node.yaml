@@ -14,7 +14,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: smb-csi-driver-node
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}
 spec:
   selector:
     matchLabels:

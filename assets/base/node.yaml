@@ -2,7 +2,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: ${ASSET_PREFIX}-node
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}
 spec:
   selector:
     matchLabels:

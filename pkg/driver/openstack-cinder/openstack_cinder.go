@@ -158,12 +158,12 @@ func withCABundleDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []fa
 // withCABundleDaemonSetHook projects custom CA bundle ConfigMap into the CSI driver container
 func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
 	hook := csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
-		clients.CSIDriverNamespace,
+		c.GuestNamespace,
 		trustedCAConfigMap,
-		c.GetConfigMapInformer(clients.CSIDriverNamespace),
+		c.GetConfigMapInformer(c.GuestNamespace),
 	)
 	informers := []factory.Informer{
-		c.GetConfigMapInformer(clients.CSIDriverNamespace).Informer(),
+		c.GetConfigMapInformer(c.GuestNamespace).Informer(),
 	}
 	return hook, informers
 }
@@ -201,6 +201,7 @@ func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
 		c.KubeClient,
 		c.KubeInformers,
 		c.ConfigInformers,
+		c.GuestNamespace,
 		resyncInterval,
 		c.EventRecorder)
 

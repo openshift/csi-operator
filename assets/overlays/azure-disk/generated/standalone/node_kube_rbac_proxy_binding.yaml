@@ -16,4 +16,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: azure-disk-csi-driver-node-sa
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}

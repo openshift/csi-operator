@@ -16,4 +16,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: aws-ebs-csi-driver-controller-sa
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}

@@ -9,7 +9,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: azure-disk-csi-driver-node-monitor
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token

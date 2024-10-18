@@ -10,7 +10,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: smb-csi-driver-lease-leader-election
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NODE_NAMESPACE}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
