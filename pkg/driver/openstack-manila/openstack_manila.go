@@ -169,7 +169,7 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 
 		syncCSIDriver(ctx, c.KubeClient, c.EventRecorder)
 
-		syncStorageClasses(ctx, shareTypes, c.KubeClient, c.EventRecorder)
+		syncStorageClasses(ctx, shareTypes, c.KubeClient, c.EventRecorder, c.GuestNamespace)
 
 		return true, nil
 
@@ -226,11 +226,11 @@ func syncCSIDriver(ctx context.Context, kubeClient kubernetes.Interface, recorde
 	return k8serrors.NewAggregate(errs)
 }
 
-func syncStorageClasses(ctx context.Context, shareTypes []sharetypes.ShareType, kubeClient kubernetes.Interface, recorder events.Recorder) error {
+func syncStorageClasses(ctx context.Context, shareTypes []sharetypes.ShareType, kubeClient kubernetes.Interface, recorder events.Recorder, guestNamespace string) error {
 	var errs []error
 	for _, shareType := range shareTypes {
 		klog.V(4).Infof("Syncing storage class for shareType type %s", shareType.Name)
-		sc := generateStorageClass(shareType)
+		sc := generateStorageClass(shareType, guestNamespace)
 		_, _, err := resourceapply.ApplyStorageClass(ctx, kubeClient.StorageV1(), recorder, sc)
 		if err != nil {
 			errs = append(errs, err)
@@ -239,7 +239,7 @@ func syncStorageClasses(ctx context.Context, shareTypes []sharetypes.ShareType, 
 	return k8serrors.NewAggregate(errs)
 }
 
-func generateStorageClass(shareType sharetypes.ShareType) *storagev1.StorageClass {
+func generateStorageClass(shareType sharetypes.ShareType, guestNamespace string) *storagev1.StorageClass {
 	/* As per RFC 1123 the storage class name must consist of lower case alphanumeric character,  '-' or '.'
 	   and must start and end with an alphanumeric character.
 	*/
@@ -254,11 +254,11 @@ func generateStorageClass(shareType sharetypes.ShareType) *storagev1.StorageClas
 		Parameters: map[string]string{
 			"type": shareType.Name,
 			"csi.storage.k8s.io/provisioner-secret-name":       util.ManilaSecretName,
-			"csi.storage.k8s.io/provisioner-secret-namespace":  util.OperandNamespace,
+			"csi.storage.k8s.io/provisioner-secret-namespace":  guestNamespace,
 			"csi.storage.k8s.io/node-stage-secret-name":        util.ManilaSecretName,
-			"csi.storage.k8s.io/node-stage-secret-namespace":   util.OperandNamespace,
+			"csi.storage.k8s.io/node-stage-secret-namespace":   guestNamespace,
 			"csi.storage.k8s.io/node-publish-secret-name":      util.ManilaSecretName,
-			"csi.storage.k8s.io/node-publish-secret-namespace": util.OperandNamespace,
+			"csi.storage.k8s.io/node-publish-secret-namespace": guestNamespace,
 		},
 		ReclaimPolicy:     &delete,
 		VolumeBindingMode: &immediate,
@@ -300,6 +300,8 @@ func createSecretSyncer(c *clients.Clients) (factory.Controller, error) {
 		c.OperatorClient,
 		c.KubeClient,
 		c.ControlPlaneKubeInformers,
+		c.ControlPlaneNamespace,
+		c.GuestNamespace,
 		resyncInterval,
 		c.EventRecorder)
 
