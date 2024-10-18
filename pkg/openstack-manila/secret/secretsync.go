@@ -24,10 +24,12 @@ import (
 // This SecretSyncController translates Secret provided by cloud-credential-operator into
 // format required by the CSI driver.
 type SecretSyncController struct {
-	operatorClient v1helpers.OperatorClient
-	kubeClient     kubernetes.Interface
-	secretLister   corelisters.SecretLister
-	eventRecorder  events.Recorder
+	operatorClient        v1helpers.OperatorClient
+	kubeClient            kubernetes.Interface
+	secretLister          corelisters.SecretLister
+	eventRecorder         events.Recorder
+	controlPlaneNamespace string
+	guestNamespace        string
 }
 
 const (
@@ -42,16 +44,20 @@ func NewSecretSyncController(
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
 	informers v1helpers.KubeInformersForNamespaces,
+	controlPlaneNamespace,
+	guestNamespace string,
 	resync time.Duration,
 	eventRecorder events.Recorder) factory.Controller {
 
 	// Read secret from operator namespace and save the translated one to the operand namespace
-	secretInformer := informers.InformersFor(util.OperatorNamespace)
+	secretInformer := informers.InformersFor(controlPlaneNamespace)
 	c := &SecretSyncController{
-		operatorClient: operatorClient,
-		kubeClient:     kubeClient,
-		secretLister:   secretInformer.Core().V1().Secrets().Lister(),
-		eventRecorder:  eventRecorder.WithComponentSuffix("SecretSync"),
+		operatorClient:        operatorClient,
+		kubeClient:            kubeClient,
+		secretLister:          secretInformer.Core().V1().Secrets().Lister(),
+		eventRecorder:         eventRecorder.WithComponentSuffix("SecretSync"),
+		controlPlaneNamespace: controlPlaneNamespace,
+		guestNamespace:        guestNamespace,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(resync).WithSyncDegradedOnError(operatorClient).WithInformers(
 		operatorClient.Informer(),
@@ -68,7 +74,7 @@ func (c *SecretSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		return nil
 	}
 
-	cloudSecret, err := c.secretLister.Secrets(util.OperatorNamespace).Get(util.CloudCredentialSecretName)
+	cloudSecret, err := c.secretLister.Secrets(c.controlPlaneNamespace).Get(util.CloudCredentialSecretName)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// TODO: report error after some while?
@@ -112,7 +118,7 @@ func (c *SecretSyncController) translateSecret(cloudSecret *v1.Secret) (*v1.Secr
 	secret := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.ManilaSecretName,
-			Namespace: util.OperandNamespace,
+			Namespace: c.guestNamespace,
 		},
 		Type: v1.SecretTypeOpaque,
 		Data: data,
