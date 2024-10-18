@@ -205,7 +205,7 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
 
 	// Hooks for daemonset or on the node
-	cfg.AddDaemonSetHookBuilders(c, withClusterWideProxyDaemonSetHook, withCABundleDaemonSetHook)
+	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook)
 	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, cloudCredSecretName)
 	cfg.AddDaemonSetHook(withAzureStackHubDaemonSetHook(insideStackHub))
 
@@ -407,12 +407,6 @@ func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroll
 		c.GetConfigMapInformer(c.GuestNamespace).Informer(),
 	}
 	return hook, informers
-}
-
-// withClusterWideProxyHook adds the cluster-wide proxy config to the DaemonSet.
-func withClusterWideProxyDaemonSetHook(_ *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
-	hook := csidrivernodeservicecontroller.WithObservedProxyDaemonSetHook()
-	return hook, nil
 }
 
 func withAzureStackHubDaemonSetHook(runningOnAzureStackHub bool) csidrivernodeservicecontroller.DaemonSetHookFunc {

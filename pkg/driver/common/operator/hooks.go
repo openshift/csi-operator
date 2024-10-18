@@ -13,6 +13,7 @@ import (
 	hypev1beta1listers "github.com/openshift/hypershift/client/listers/hypershift/v1beta1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,18 +36,26 @@ func NewDefaultOperatorControllerConfig(flavour generator.ClusterFlavour, c *cli
 	}
 	// Default controller hooks
 	if flavour == generator.FlavourStandalone {
-		cfg.AddDeploymentHookBuilders(c, withClusterWideProxy, withStandaloneReplicas)
+		cfg.AddDeploymentHookBuilders(c, withClusterWideProxyDeploymentHook, withStandaloneReplicas)
 	} else {
 		// HyperShift
 		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftControlPlaneImages)
 	}
 
+	cfg.AddDaemonSetHookBuilders(c, withClusterWideProxyDaemonSetHook)
+
 	return cfg
 }
 
-// withClusterWideProxy adds the cluster-wide proxy config to the Deployment.
-func withClusterWideProxy(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+// withClusterWideProxyDeploymentHook adds the cluster-wide proxy config to the Deployment.
+func withClusterWideProxyDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
 	hook := csidrivercontrollerservicecontroller.WithObservedProxyDeploymentHook()
+	return hook, nil
+}
+
+// withClusterWideProxyHook adds the cluster-wide proxy config to the DaemonSet.
+func withClusterWideProxyDaemonSetHook(_ *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
+	hook := csidrivernodeservicecontroller.WithObservedProxyDaemonSetHook()
 	return hook, nil
 }
 
