@@ -92,8 +92,13 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 
 // GetOpenStackManilaOperatorConfig returns runtime configuration of the CSI driver operator.
 func GetOpenStackManilaOperatorConfig() *config.OperatorConfig {
+	// TODO: To ensure upgrades work, let's keep using the same guest namespace,
+	// named openshift-manila-csi-driver, manila has been using in past releases. Later, we
+	// can migrate manila components to the namespace all other operators use and stop relying on
+	// openshift-manila-csi-driver.
 	return &config.OperatorConfig{
 		CSIDriverName:                   opv1.ManilaCSIDriver,
+		GuestNamespace:                  "openshift-manila-csi-driver",
 		UserAgent:                       "openstack-manila-csi-driver-operator",
 		AssetReader:                     assets.ReadFile,
 		AssetDir:                        generatedAssetBase,
@@ -121,7 +126,7 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, metricsCertSecretName)
 
 	// Generate NFS driver asset with image and namespace populated
-	dsBytes, err := assetWithNFSDriver("overlays/openstack-manila/generated/standalone/node_nfs.yaml")
+	dsBytes, err := assetWithNFSDriver("overlays/openstack-manila/generated/standalone/node_nfs.yaml", c)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +136,8 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 		c.EventRecorder,
 		c.OperatorClient,
 		c.KubeClient,
-		c.ControlPlaneKubeInformers.InformersFor(c.ControlPlaneNamespace).Apps().V1().DaemonSets(),
-		[]factory.Informer{c.GetControlPlaneConfigMapInformer(c.ControlPlaneNamespace).Informer()},
+		c.KubeInformers.InformersFor(c.GuestNamespace).Apps().V1().DaemonSets(),
+		[]factory.Informer{c.GetConfigMapInformer(c.GuestNamespace).Informer()},
 	)
 
 	configMapSyncer, err := createConfigMapSyncer(c)
@@ -165,6 +170,7 @@ func withClusterWideProxyDaemonSetHook(_ *clients.Clients) (csidrivernodeservice
 
 // withCABundleDeploymentHook projects custom CA bundle ConfigMap into the CSI driver container
 func withCABundleDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	klog.Info("withCABundleDeploymentHook")
 	hook := csidrivercontrollerservicecontroller.WithCABundleDeploymentHook(
 		c.ControlPlaneNamespace,
 		trustedCAConfigMap,
@@ -173,19 +179,21 @@ func withCABundleDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []fa
 	informers := []factory.Informer{
 		c.GetControlPlaneConfigMapInformer(c.ControlPlaneNamespace).Informer(),
 	}
+
 	return hook, informers
 }
 
 // withCABundleDaemonSetHook projects custom CA bundle ConfigMap into the CSI driver container
 func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
 	hook := csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
-		clients.CSIDriverNamespace,
+		c.GuestNamespace,
 		trustedCAConfigMap,
-		c.GetConfigMapInformer(clients.CSIDriverNamespace),
+		c.GetConfigMapInformer(c.GuestNamespace),
 	)
 	informers := []factory.Informer{
-		c.GetConfigMapInformer(clients.CSIDriverNamespace).Informer(),
+		c.GetConfigMapInformer(c.GuestNamespace).Informer(),
 	}
+
 	return hook, informers
 }
 
@@ -193,7 +201,7 @@ func createSecretSyncer(c *clients.Clients) (factory.Controller, error) {
 	secretSyncController := secret.NewSecretSyncController(
 		c.OperatorClient,
 		c.KubeClient,
-		c.KubeInformers,
+		c.ControlPlaneKubeInformers,
 		resyncInterval,
 		c.EventRecorder)
 
@@ -208,7 +216,7 @@ func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
 		Name:      util.CloudConfigName,
 	}
 	dstConfigMap := resourcesynccontroller.ResourceLocation{
-		Namespace: util.OperatorNamespace,
+		Namespace: c.GuestNamespace,
 		Name:      util.CloudConfigName,
 	}
 	certController := resourcesynccontroller.NewResourceSyncController(
@@ -227,7 +235,7 @@ func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
 // Manila needs to replace two of them: Manila driver and NFS driver image.
 // Let the Manila image be replaced by CSIDriverController and NFS in this
 // custom asset loading func.
-func assetWithNFSDriver(file string) ([]byte, error) {
+func assetWithNFSDriver(file string, c *clients.Clients) ([]byte, error) {
 	asset, err := assets.ReadFile(file)
 	if err != nil {
 		return nil, err
@@ -238,5 +246,5 @@ func assetWithNFSDriver(file string) ([]byte, error) {
 	}
 
 	asset = bytes.ReplaceAll(asset, []byte("${NFS_DRIVER_IMAGE}"), []byte(nfsImage))
-	return bytes.ReplaceAll(asset, []byte("${NAMESPACE}"), []byte(util.OperatorNamespace)), nil
+	return bytes.ReplaceAll(asset, []byte("${NODE_NAMESPACE}"), []byte(c.GuestNamespace)), nil
 }

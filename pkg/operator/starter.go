@@ -40,13 +40,20 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		flavour = generator.FlavourHyperShift
 	}
 
+	controlPlaneNamespaces := []string{controllerConfig.OperatorNamespace}
 	if opConfig.GuestNamespace == "" {
 		// If no guest namespace is defined, let's set the default value.
 		opConfig.GuestNamespace = "openshift-cluster-csi-drivers"
+	} else {
+		// Manila uses a different namespace than other operators for both control plane and guest in non-hypershift clusters.
+		if !isHypershift {
+			controlPlaneNamespace = opConfig.GuestNamespace
+			controlPlaneNamespaces = append(controlPlaneNamespaces, controlPlaneNamespace)
+		}
 	}
 
 	// Create Clients
-	builder := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), opConfig.GuestNamespace, controllerConfig, resync).
+	builder := clients.NewBuilder(opConfig.UserAgent, string(opConfig.CSIDriverName), opConfig.GuestNamespace, controlPlaneNamespaces, controllerConfig, resync).
 		WithHyperShiftGuest(guestKubeConfigString, opConfig.CloudConfigNamespace)
 
 	c := builder.BuildOrDie(ctx)
