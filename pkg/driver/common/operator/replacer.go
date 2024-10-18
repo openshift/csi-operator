@@ -14,6 +14,7 @@ const (
 	kubeRBACProxyImageEnvName = "KUBE_RBAC_PROXY_IMAGE"
 	toolsImageEnvName         = "TOOLS_IMAGE"
 	hyperShiftImageEnvName    = "HYPERSHIFT_IMAGE"
+	nfsImageEnvName           = "NFS_DRIVER_IMAGE"
 )
 
 func DefaultReplacements(controlPlaneNamespace, guestNamespace string) []string {
@@ -64,6 +65,12 @@ func DefaultReplacements(controlPlaneNamespace, guestNamespace string) []string 
 	if csiDriver != "" {
 		pairs = append(pairs, []string{"${HYPERSHIFT_IMAGE}", hyperShiftImage}...)
 	}
+
+	nfsImage := os.Getenv(nfsImageEnvName)
+	if nfsImage != "" {
+		pairs = append(pairs, []string{"${NFS_DRIVER_IMAGE}", nfsImage}...)
+	}
+
 	pairs = append(pairs, []string{"${NAMESPACE}", controlPlaneNamespace}...)
 	pairs = append(pairs, []string{"${NODE_NAMESPACE}", guestNamespace}...)
 	return pairs

@@ -1,0 +1,16 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller_pdb.yaml
+#
+#
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: manila-csi-driver-controller-pdb
+  namespace: ${NAMESPACE}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: manila-csi-driver-controller

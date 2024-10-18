@@ -11,6 +11,7 @@ import (
 	azure_disk "github.com/openshift/csi-operator/pkg/driver/azure-disk"
 	azure_file "github.com/openshift/csi-operator/pkg/driver/azure-file"
 	openstack_cinder "github.com/openshift/csi-operator/pkg/driver/openstack-cinder"
+	openstack_manila "github.com/openshift/csi-operator/pkg/driver/openstack-manila"
 	samba "github.com/openshift/csi-operator/pkg/driver/samba"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"k8s.io/klog/v2"
@@ -63,6 +64,7 @@ func collectConfigs() []*generator.CSIDriverGeneratorConfig {
 		azure_disk.GetAzureDiskGeneratorConfig(),
 		azure_file.GetAzureFileGeneratorConfig(),
 		openstack_cinder.GetOpenStackCinderGeneratorConfig(),
+		openstack_manila.GetOpenStackManilaGeneratorConfig(),
 		samba.GetSambaGeneratorConfig(),
 	}
 }
