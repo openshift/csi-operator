@@ -214,17 +214,32 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	c.WaitForCacheSync(ctx)
 	klog.V(2).Infof("Informers synced")
 
-	// Start controllers
-	for _, controller := range csiOperatorControllerConfig.ExtraControlPlaneControllers {
-		klog.Infof("Starting controller %s", controller.Name())
-		go controller.Run(ctx, 1)
-	}
-	klog.Info("Starting control plane controllerset")
-	go controlPlaneCSIControllerSet.Run(ctx, 1)
-	klog.Info("Starting guest controllerset")
-	go guestCSIControllerSet.Run(ctx, 1)
+	if csiOperatorControllerConfig.Precondition != nil {
+		starterController := StarterController(
+			c.OperatorClient,
+			[]*csicontrollerset.CSIControllerSet{controlPlaneCSIControllerSet, guestCSIControllerSet},
+			csiOperatorControllerConfig.ExtraControlPlaneControllers,
+			controllerConfig.EventRecorder,
+			csiOperatorControllerConfig,
+		)
 
-	<-ctx.Done()
+		klog.Info("Starting controllers")
+		go starterController.Run(ctx, 1)
+
+		<-ctx.Done()
+	} else {
+		// Start controllers
+		for _, controller := range csiOperatorControllerConfig.ExtraControlPlaneControllers {
+			klog.Infof("Starting controller %s", controller.Name())
+			go controller.Run(ctx, 1)
+		}
+		klog.Info("Starting control plane controllerset")
+		go controlPlaneCSIControllerSet.Run(ctx, 1)
+		klog.Info("Starting guest controllerset")
+		go guestCSIControllerSet.Run(ctx, 1)
+
+		<-ctx.Done()
+	}
 
 	return nil
 }
