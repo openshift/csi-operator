@@ -23,6 +23,7 @@ spec:
         # the cluster is not configured for workload pinning.
         # See (openshift/enhancements#1213) for more info.
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        openshift.io/required-scc: restricted-v2
         cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: "socket-dir"
       labels:
         app: ${ASSET_PREFIX}-controller
