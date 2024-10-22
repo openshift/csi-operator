@@ -20,6 +20,7 @@ spec:
       labels:
         app: aws-efs-csi-driver-controller
       annotations:
+        openshift.io/required-scc: privileged
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
     spec:
       hostNetwork: true
