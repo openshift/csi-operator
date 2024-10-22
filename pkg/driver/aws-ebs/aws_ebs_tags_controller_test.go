@@ -2,236 +2,234 @@ package aws_ebs
 
 import (
 	"context"
-	"reflect"
-	"sort"
-	"testing"
-
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	configv1 "github.com/openshift/api/config/v1"
+	opv1 "github.com/openshift/api/operator/v1"
+	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
+	"github.com/openshift/client-go/config/informers/externalversions"
+	"github.com/openshift/csi-operator/pkg/clients"
+	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
-
-	configv1 "github.com/openshift/api/config/v1"
-	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
+	"testing"
 )
 
-func TestGetAWSRegionFromInfrastructure(t *testing.T) {
-	infra := &configv1.Infrastructure{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cluster",
+type FakeOperator struct {
+	metav1.ObjectMeta
+	Spec   opv1.OperatorSpec
+	Status opv1.OperatorStatus
+}
+
+func TestEBSVolumeTagsController_Sync(t *testing.T) {
+	ctx := context.TODO()
+
+	fakeConfigClient := fakeconfig.NewSimpleClientset()
+	informerFactory := externalversions.NewSharedInformerFactory(fakeConfigClient, 0)
+	fakeOperator := &FakeOperator{
+		ObjectMeta: metav1.ObjectMeta{},
+		Spec: opv1.OperatorSpec{
+			ManagementState: opv1.Managed,
 		},
-		Status: configv1.InfrastructureStatus{
-			PlatformStatus: &configv1.PlatformStatus{
-				AWS: &configv1.AWSPlatformStatus{
-					Region: "us-east-1",
+		Status: opv1.OperatorStatus{},
+	}
+
+	// Test Initialization and Sync method
+	t.Run("TestControllerInitializationAndSync", func(t *testing.T) {
+		// Prepare a fake client set for the controller
+		fakeClients := &clients.Clients{
+			KubeClient: fake.NewSimpleClientset(),
+			ConfigClientSet: fakeconfig.NewSimpleClientset(&configv1.Infrastructure{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+				Status: configv1.InfrastructureStatus{
+					PlatformStatus: &configv1.PlatformStatus{
+						AWS: &configv1.AWSPlatformStatus{
+							Region: "us-east-1",
+						},
+					},
 				},
+			}),
+
+			ConfigInformers: informerFactory,
+			OperatorClient:  v1helpers.NewFakeOperatorClientWithObjectMeta(&fakeOperator.ObjectMeta, &fakeOperator.Spec, &fakeOperator.Status, nil),
+		}
+
+		// Create the in-memory event recorder for testing
+		recorder := events.NewInMemoryRecorder("test-controller")
+
+		validSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      awsSecretName,
+				Namespace: awsSecretNamespace,
 			},
-		},
-	}
-
-	// Use the OpenShift fake clientset, not Kubernetes fake client
-	fakeConfigClient := fakeconfig.NewSimpleClientset()
-
-	// Add the infrastructure resource to the fake OpenShift client
-	_, err := fakeConfigClient.ConfigV1().Infrastructures().Create(context.TODO(), infra, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create infrastructure resource: %v", err)
-	}
-
-	// Call the function to test if the region is correctly retrieved
-	region, err := getAWSRegionFromInfrastructure(fakeConfigClient)
-	if err != nil {
-		t.Fatalf("unexpected error retrieving AWS region: %v", err)
-	}
-
-	expectedRegion := "us-east-1"
-	if region != expectedRegion {
-		t.Errorf("expected AWS region %s, got %s", expectedRegion, region)
-	}
-}
-
-func TestGetAWSRegionFromInfrastructure_ErrorHandling(t *testing.T) {
-	// Case where AWS region is missing in Infrastructure resource
-	infra := &configv1.Infrastructure{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cluster",
-		},
-		Status: configv1.InfrastructureStatus{
-			PlatformStatus: &configv1.PlatformStatus{
-				AWS: nil, // AWS platform status is missing
+			Data: map[string][]byte{
+				"aws_access_key_id":     []byte("test-access-key"),
+				"aws_secret_access_key": []byte("test-secret-key"),
 			},
-		},
-	}
+		}
+		_, err := fakeClients.KubeClient.CoreV1().Secrets(awsSecretNamespace).Create(ctx, validSecret, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatalf("Failed to create secret for valid credentials: %v", err)
+		}
 
-	fakeConfigClient := fakeconfig.NewSimpleClientset()
+		// Create the EBSVolumeTagsController
+		controller := NewEBSVolumeTagsController(ctx, "test-controller", fakeClients, recorder)
+		if controller == nil {
+			t.Fatalf("Expected controller to be created, got nil")
+		}
 
-	_, err := fakeConfigClient.ConfigV1().Infrastructures().Create(context.TODO(), infra, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create infrastructure resource: %v", err)
-	}
-
-	// Call the function to test if it returns an error due to missing AWS information
-	_, err = getAWSRegionFromInfrastructure(fakeConfigClient)
-	if err == nil {
-		t.Errorf("expected error retrieving AWS region, but got none")
-	}
-}
-
-// TestGetEC2Client tests if the EC2 client is correctly initialized using credentials from a Kubernetes secret.
-func TestGetEC2Client(t *testing.T) {
-	// Create a fake Kubernetes core client with a secret containing AWS credentials
-	fakeCoreClient := fake.NewSimpleClientset().CoreV1()
-
-	// Add a secret containing AWS credentials
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      awsSecretName,
-			Namespace: awsSecretNamespace,
-		},
-		Data: map[string][]byte{
-			"aws_access_key_id":     []byte("fake-access-key-id"),
-			"aws_secret_access_key": []byte("fake-secret-access-key"),
-		},
-	}
-	_, err := fakeCoreClient.Secrets(awsSecretNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create secret: %v", err)
-	}
-
-	// Call getEC2Client and verify that the AWS session is created
-	awsRegion := "us-east-1"
-	client, err := getEC2Client(context.TODO(), fakeCoreClient, awsRegion)
-	if err != nil {
-		t.Fatalf("unexpected error creating EC2 client: %v", err)
-	}
-
-	// Check if the EC2 client is not nil (indicating successful creation)
-	if client == nil {
-		t.Errorf("expected non-nil EC2 client, got nil")
-	}
-}
-
-func TestGetEC2Client_MissingCredentials(t *testing.T) {
-	// Create a fake Kubernetes core client with a secret missing AWS credentials
-	fakeCoreClient := fake.NewSimpleClientset().CoreV1()
-
-	// Add a secret without AWS credentials
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      awsSecretName,
-			Namespace: awsSecretNamespace,
-		},
-		Data: map[string][]byte{
-			// No aws_access_key_id or aws_secret_access_key
-			"some_other_field": []byte("some-value"),
-		},
-	}
-	_, err := fakeCoreClient.Secrets(awsSecretNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create secret: %v", err)
-	}
-
-	// Call getEC2Client and expect an error due to missing credentials
-	awsRegion := "us-east-1"
-	_, err = getEC2Client(context.TODO(), fakeCoreClient, awsRegion)
-	if err == nil {
-		t.Errorf("expected error due to missing credentials, but got none")
-	}
-}
-
-func TestGetEC2Client_WithEncodedCredentialsHandledByAWS(t *testing.T) {
-	// Create a fake Kubernetes core client
-	fakeCoreClient := fake.NewSimpleClientset().CoreV1()
-
-	encodedCredentials := "W2RlZmF1bHRdCmF3c19hY2NCaGtMei8ydnd4a3Zzc0dFSUtLQQ==" // base64 credential format
-
-	// Create the secret with the base64 encoded 'credentials' field
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      awsSecretName,
-			Namespace: awsSecretNamespace,
-		},
-		Data: map[string][]byte{
-			"credentials": []byte(encodedCredentials),
-		},
-	}
-	_, err := fakeCoreClient.Secrets(awsSecretNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create secret: %v", err)
-	}
-
-	// Call getEC2Client and verify that the AWS session is created using the credentials file
-	awsRegion := "us-east-1"
-	client, err := getEC2Client(context.TODO(), fakeCoreClient, awsRegion)
-	if err != nil {
-		t.Fatalf("unexpected error creating EC2 client with credentials field: %v", err)
-	}
-
-	// Check if the EC2 client is not nil (indicating successful creation)
-	if client == nil {
-		t.Errorf("expected non-nil EC2 client, got nil")
-	}
-}
-
-// TestUpdateEBSTags tests the logic of merging and updating AWS tags without making real AWS calls.
-func TestUpdateEBSTags(t *testing.T) {
-	// Define existing tags returned by AWS EC2
-	existingTagsOutput := &ec2.DescribeTagsOutput{
-		Tags: []*ec2.TagDescription{
-			{
-				Key:   aws.String("existing-key"),
-				Value: aws.String("existing-value"),
-			},
-			{
-				Key:   aws.String("unchanged-key"),
-				Value: aws.String("unchanged-value"),
-			},
-		},
-	}
-
-	// Define new resource tags from the infrastructure resource
-	resourceTags := []configv1.AWSResourceTag{
-		{
-			Key:   "new-key",
-			Value: "new-value",
-		},
-		{
-			Key:   "existing-key", // This will override the existing tag
-			Value: "updated-value",
-		},
-	}
-
-	// Call the internal function that merges and updates the tags
-	mergedTags := mergeTags(existingTagsOutput.Tags, resourceTags)
-
-	// Define the expected merged tags
-	expectedTags := []*ec2.Tag{
-		{
-			Key:   aws.String("existing-key"),
-			Value: aws.String("updated-value"), // Should be updated
-		},
-		{
-			Key:   aws.String("unchanged-key"),
-			Value: aws.String("unchanged-value"),
-		},
-		{
-			Key:   aws.String("new-key"),
-			Value: aws.String("new-value"),
-		},
-	}
-	sortTags(expectedTags)
-	sortTags(mergedTags)
-	// Compare the merged tags with the expected tags
-	if !reflect.DeepEqual(mergedTags, expectedTags) {
-		t.Errorf("expected tags %v, got %v", expectedTags, mergedTags)
-	}
-}
-
-// Helper function to sort tags by Key
-func sortTags(tags []*ec2.Tag) {
-	sort.Slice(tags, func(i, j int) bool {
-		return *tags[i].Key < *tags[j].Key
+		// Test the Sync method
+		syncCtx := factory.NewSyncContext("test-controller", recorder)
+		err = controller.Sync(ctx, syncCtx)
+		if err != nil {
+			t.Fatalf("Expected Sync to run without errors, but got: %v", err)
+		}
 	})
+
+	// Test getEC2Client with valid and invalid AWS credentials
+	t.Run("TestGetEC2Client", func(t *testing.T) {
+		fakeCoreClient := fake.NewSimpleClientset()
+
+		// Case 1: Valid credentials
+		validSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      awsSecretName,
+				Namespace: awsSecretNamespace,
+			},
+			Data: map[string][]byte{
+				"aws_access_key_id":     []byte("test-access-key"),
+				"aws_secret_access_key": []byte("test-secret-key"),
+			},
+		}
+		_, err := fakeCoreClient.CoreV1().Secrets(awsSecretNamespace).Create(ctx, validSecret, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatalf("Failed to create secret for valid credentials: %v", err)
+		}
+
+		controller := &EBSVolumeTagsController{
+			commonClient: &clients.Clients{KubeClient: fakeCoreClient},
+		}
+
+		awsRegion := "us-east-1"
+		ec2Client, err := controller.getEC2Client(ctx, awsRegion)
+		if err != nil {
+			t.Fatalf("Expected EC2 client to be created without errors for valid credentials, but got: %v", err)
+		}
+		if ec2Client == nil {
+			t.Fatalf("Expected non-nil EC2 client, but got nil")
+		}
+
+		// Case 2: Missing credentials
+		invalidSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      awsSecretName,
+				Namespace: awsSecretNamespace,
+			},
+			Data: map[string][]byte{
+				"some_other_field": []byte("some-value"),
+			},
+		}
+		_, err = fakeCoreClient.CoreV1().Secrets(awsSecretNamespace).Update(ctx, invalidSecret, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatalf("Failed to create secret for invalid credentials: %v", err)
+		}
+
+		_, err = controller.getEC2Client(ctx, awsRegion)
+		if err == nil {
+			t.Fatalf("Expected error for missing AWS credentials, but got none")
+		}
+	})
+}
+
+// TestNewAndUpdatedTags checks that newAndUpdatedTags converts OpenShift AWS resource tags to AWS ec2.Tags correctly
+func TestNewAndUpdatedTags(t *testing.T) {
+	tests := []struct {
+		name         string
+		inputTags    []configv1.AWSResourceTag
+		expectedTags []*ec2.Tag
+	}{
+		{
+			name: "Single tag",
+			inputTags: []configv1.AWSResourceTag{
+				{Key: "key1", Value: "value1"},
+			},
+			expectedTags: []*ec2.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+			},
+		},
+		{
+			name: "Multiple tags",
+			inputTags: []configv1.AWSResourceTag{
+				{Key: "key1", Value: "value1"},
+				{Key: "key2", Value: "value2"},
+			},
+			expectedTags: []*ec2.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+				{Key: aws.String("key2"), Value: aws.String("value2")},
+			},
+		},
+		{
+			name:         "Empty tags",
+			inputTags:    []configv1.AWSResourceTag{},
+			expectedTags: []*ec2.Tag{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := newAndUpdatedTags(tt.inputTags)
+			if len(result) != len(tt.expectedTags) {
+				t.Fatalf("expected %d tags, got %d", len(tt.expectedTags), len(result))
+			}
+
+			for i, tag := range result {
+				if *tag.Key != *tt.expectedTags[i].Key || *tag.Value != *tt.expectedTags[i].Value {
+					t.Errorf("expected tag %v, got %v", tt.expectedTags[i], tag)
+				}
+			}
+		})
+	}
+}
+
+// TestVolumesIDsToResourceIDs checks that volumesIDsToResourceIDs converts a list of volume IDs to AWS resource IDs correctly
+func TestVolumesIDsToResourceIDs(t *testing.T) {
+	tests := []struct {
+		name           string
+		inputVolumeIDs []string
+		expectedResult []*string
+	}{
+		{
+			name:           "Single volume ID",
+			inputVolumeIDs: []string{"vol-1234"},
+			expectedResult: []*string{aws.String("vol-1234")},
+		},
+		{
+			name:           "Multiple volume IDs",
+			inputVolumeIDs: []string{"vol-1234", "vol-5678"},
+			expectedResult: []*string{aws.String("vol-1234"), aws.String("vol-5678")},
+		},
+		{
+			name:           "No volume IDs",
+			inputVolumeIDs: []string{},
+			expectedResult: []*string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := volumesIDsToResourceIDs(tt.inputVolumeIDs)
+			if len(result) != len(tt.expectedResult) {
+				t.Fatalf("expected %d resource IDs, got %d", len(tt.expectedResult), len(result))
+			}
+
+			for i, resourceID := range result {
+				if *resourceID != *tt.expectedResult[i] {
+					t.Errorf("expected resource ID %s, got %s", *tt.expectedResult[i], *resourceID)
+				}
+			}
+		})
+	}
 }

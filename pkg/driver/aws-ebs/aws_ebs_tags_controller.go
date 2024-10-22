@@ -3,26 +3,29 @@ package aws_ebs
 import (
 	"context"
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
 	"reflect"
+	"strings"
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
+
 	configv1 "github.com/openshift/api/config/v1"
-	configclient "github.com/openshift/client-go/config/clientset/versioned"
+	operatorapi "github.com/openshift/api/operator/v1"
+	"github.com/openshift/csi-operator/pkg/clients"
+	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 const (
@@ -32,66 +35,96 @@ const (
 	driverName             = "ebs.csi.aws.com"
 )
 
-// EBSVolumeTagController is the custom controller
-type EBSVolumeTagController struct {
-	configClient configclient.Interface
-	coreClient   corev1.CoreV1Interface
-	queue        workqueue.RateLimitingInterface
-	informer     cache.SharedIndexInformer
+type EBSVolumeTagsController struct {
+	name          string
+	commonClient  *clients.Clients
+	eventRecorder events.Recorder
+	failedQueue   workqueue.RateLimitingInterface
 }
 
-// NewEBSVolumeTagController initializes the controller and sets up the AWS session using credentials from a Kubernetes secret
-func NewEBSVolumeTagController(configClient configclient.Interface, coreClient corev1.CoreV1Interface) (*EBSVolumeTagController, error) {
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+func NewEBSVolumeTagsController(
+	ctx context.Context,
+	name string,
+	commonClient *clients.Clients,
+	eventRecorder events.Recorder) factory.Controller {
 
-	// Create a listerWatcher for the Infrastructure resource
-	listerWatcher := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return configClient.ConfigV1().Infrastructures().List(context.TODO(), options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.FieldSelector = fields.OneTermEqualSelector("metadata.name", infrastructureResource).String()
-			return configClient.ConfigV1().Infrastructures().Watch(context.TODO(), options)
-		},
+	c := &EBSVolumeTagsController{
+		name:          name,
+		commonClient:  commonClient,
+		eventRecorder: eventRecorder,
+		failedQueue:   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
+	// Define the informer for watching Infrastructure resource changes
+	infraInformer := c.commonClient.ConfigInformers.Config().V1().Infrastructures().Informer()
 
-	// Set up a shared informer
-	informer := cache.NewSharedIndexInformer(
-		listerWatcher,
-		&configv1.Infrastructure{},
-		time.Minute*10,
-		cache.Indexers{},
-	)
-
-	controller := &EBSVolumeTagController{
-		configClient: configClient,
-		coreClient:   coreClient,
-		queue:        queue,
-		informer:     informer,
-	}
-
-	// Add event handlers to the informer
-	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			controller.handleAdd(obj)
-		},
+	// Add event handler to process updates only when ResourceTags change
+	infraInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			controller.handleUpdate(oldObj, newObj)
-		},
-		DeleteFunc: func(obj interface{}) {
-			controller.handleDelete(obj)
+			oldInfra := oldObj.(*configv1.Infrastructure)
+			newInfra := newObj.(*configv1.Infrastructure)
+
+			// Compare old and new AWS ResourceTags
+			if !reflect.DeepEqual(oldInfra.Status.PlatformStatus.AWS.ResourceTags, newInfra.Status.PlatformStatus.AWS.ResourceTags) {
+				klog.Infof("AWS ResourceTags changed: triggering reconciliation")
+				syncCtx := factory.NewSyncContext(c.name, eventRecorder)
+				err := c.Sync(context.TODO(), syncCtx)
+				if err != nil {
+					klog.Errorf("Error syncing AWS Infrastructure: %v", err)
+					return
+				}
+			}
 		},
 	})
+
+	go c.startFailedQueueWorker(ctx)
+
+	return factory.New().WithSync(
+		c.Sync,
+	).ResyncEvery(
+		20*time.Minute,
+	).WithInformers(
+		infraInformer,
+	).ToController(
+		"EBSVolumeTagsController",
+		eventRecorder,
+	)
+}
+
+func (c *EBSVolumeTagsController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.V(4).Infof("EBSVolumeTagsController sync started")
+	defer klog.V(4).Infof("EBSVolumeTagsController sync finished")
+
+	opSpec, _, _, err := c.commonClient.OperatorClient.GetOperatorState()
 	if err != nil {
-		return nil, err
+		return err
+	}
+	if opSpec.ManagementState != operatorapi.Managed {
+		return nil
 	}
 
-	return controller, nil
+	infra, err := c.getInfrastructure()
+	if err != nil {
+		return err
+	}
+	var infraRegion = ""
+	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
+		infraRegion = infra.Status.PlatformStatus.AWS.Region
+	}
+	ec2Client, err := c.getEC2Client(ctx, infraRegion)
+	if err != nil {
+		return err
+	}
+	err = c.processInfrastructure(infra, ec2Client)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // getEC2Client retrieves AWS credentials from the secret and creates an AWS EC2 client using session.Options
-func getEC2Client(ctx context.Context, coreClient corev1.CoreV1Interface, awsRegion string) (*ec2.EC2, error) {
-	secret, err := coreClient.Secrets(awsSecretNamespace).Get(ctx, awsSecretName, metav1.GetOptions{})
+func (c *EBSVolumeTagsController) getEC2Client(ctx context.Context, awsRegion string) (*ec2.EC2, error) {
+	secret, err := c.commonClient.KubeClient.CoreV1().Secrets(awsSecretNamespace).Get(ctx, awsSecretName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving AWS credentials secret: %v", err)
 	}
@@ -175,164 +208,276 @@ func writeCredentialsToTempFile(data []byte) (string, error) {
 }
 
 // getAWSRegionFromInfrastructure retrieves the AWS region from the Infrastructure resource in OpenShift
-func getAWSRegionFromInfrastructure(configClient configclient.Interface) (string, error) {
-	infra, err := configClient.ConfigV1().Infrastructures().Get(context.TODO(), infrastructureResource, metav1.GetOptions{})
+func (c *EBSVolumeTagsController) getInfrastructure() (*configv1.Infrastructure, error) {
+	infra, err := c.commonClient.ConfigClientSet.ConfigV1().Infrastructures().Get(context.TODO(),
+		infrastructureResource, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to retrieve Infrastructure resource: %v", err)
+		return nil, fmt.Errorf("failed to retrieve Infrastructure resource: %v", err)
 	}
 
-	if infra.Status.PlatformStatus == nil || infra.Status.PlatformStatus.AWS == nil {
-		return "", fmt.Errorf("AWS platform status not found in Infrastructure resource")
-	}
-
-	return infra.Status.PlatformStatus.AWS.Region, nil
-}
-
-// handleAdd is called when an Infrastructure resource is added
-func (c *EBSVolumeTagController) handleAdd(obj interface{}) {
-	infra := obj.(*configv1.Infrastructure)
-	klog.Infof("Infrastructure resource added: %s", infra.Name)
-	c.processInfrastructure(infra)
-}
-
-// handleUpdate is called when an Infrastructure resource is updated
-func (c *EBSVolumeTagController) handleUpdate(oldObj, newObj interface{}) {
-	oldInfra := oldObj.(*configv1.Infrastructure)
-	newInfra := newObj.(*configv1.Infrastructure)
-
-	klog.Infof("Infrastructure resource updated: %s", newInfra.Name)
-
-	if !reflect.DeepEqual(oldInfra.Status.PlatformStatus.AWS.ResourceTags, newInfra.Status.PlatformStatus.AWS.ResourceTags) {
-		klog.Infof("AWS ResourceTags changed: triggering processing")
-		c.processInfrastructure(newInfra)
-	}
-}
-
-// handleDelete is called when an Infrastructure resource is deleted
-func (c *EBSVolumeTagController) handleDelete(obj interface{}) {
-	infra := obj.(*configv1.Infrastructure)
-	klog.Infof("Infrastructure resource deleted: %s", infra.Name)
+	return infra, nil
 }
 
 // processInfrastructure processes the Infrastructure resource and updates EBS tags
-func (c *EBSVolumeTagController) processInfrastructure(infra *configv1.Infrastructure) {
+func (c *EBSVolumeTagsController) processInfrastructure(infra *configv1.Infrastructure, ec2Client *ec2.EC2) error {
 	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil &&
 		infra.Status.PlatformStatus.AWS.ResourceTags != nil {
 		awsInfra := infra.Status.PlatformStatus.AWS
-		err := c.fetchPVsAndUpdateTags(awsInfra.ResourceTags)
+		err := c.fetchPVsAndUpdateTags(awsInfra.ResourceTags, ec2Client)
 		if err != nil {
 			klog.Errorf("Error processing PVs for infrastructure update: %v", err)
+			return err
 		}
 	}
+	return nil
 }
 
-// fetchPVsAndUpdateTags retrieves all PVs and updates the AWS EBS tags
-func (c *EBSVolumeTagController) fetchPVsAndUpdateTags(resourceTags []configv1.AWSResourceTag) error {
-	pvs, err := c.coreClient.PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
+// fetchPVsAndUpdateTags retrieves all PVs and updates the AWS EBS tags in batches of 100
+func (c *EBSVolumeTagsController) fetchPVsAndUpdateTags(resourceTags []configv1.AWSResourceTag, ec2Client *ec2.EC2) error {
+	pvs, err := c.commonClient.KubeClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("error fetching PVs: %v", err)
 	}
 
+	// Collect the volume IDs
+	var volumeIDs []string
 	for _, pv := range pvs.Items {
 		if pv.Spec.CSI != nil && pv.Spec.CSI.Driver == driverName {
 			volumeID := pv.Spec.CSI.VolumeHandle
-			err = c.updateEBSTags(volumeID, resourceTags)
-			if err != nil {
-				klog.Errorf("Error updating tags for volume %s: %v", volumeID, err)
-			} else {
-				klog.Infof("Successfully updated tags for volume %s", volumeID)
-			}
+			volumeIDs = append(volumeIDs, volumeID)
 		}
+	}
+
+	// Process the volume IDs in batches of 100
+	const batchSize = 100
+	for i := 0; i < len(volumeIDs); i += batchSize {
+		end := i + batchSize
+		if end > len(volumeIDs) {
+			end = len(volumeIDs)
+		}
+		batch := volumeIDs[i:end]
+
+		err = c.updateEBSTags(batch, ec2Client, resourceTags)
+		if err != nil {
+			errorMessage := fmt.Sprintf("Error creating tags for volume %s: %v", volumeIDs, err)
+			c.handleFailure(volumeIDs, errorMessage)
+		}
+		c.handleSuccess(volumeIDs)
 	}
 
 	return nil
 }
 
 // updateEBSTags updates the tags of an AWS EBS volume
-func (c *EBSVolumeTagController) updateEBSTags(volumeID string, resourceTags []configv1.AWSResourceTag) error {
-	// get the infra resource region
-	awsRegion, err := getAWSRegionFromInfrastructure(c.configClient)
-	if err != nil {
-		return fmt.Errorf("error retrieving AWS region from infrastructure: %v", err)
-	}
-
-	// create ec2 Client
-	ec2Client, err := getEC2Client(context.Background(), c.coreClient, awsRegion)
-	if err != nil {
-		return fmt.Errorf("error retrieving AWS EC2 client: %v", err)
-	}
-
-	// Describe existing tags
-	existingTagsOutput, err := ec2Client.DescribeTags(&ec2.DescribeTagsInput{
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("resource-id"),
-				Values: []*string{aws.String(volumeID)},
-			},
-		},
-	})
-	if err != nil {
-		return err
-	}
+func (c *EBSVolumeTagsController) updateEBSTags(volumeIDs []string, ec2Client *ec2.EC2, resourceTags []configv1.AWSResourceTag) error {
 
 	// Merge the existing tags with new resource tags
-	mergedTags := mergeTags(existingTagsOutput.Tags, resourceTags)
+	mergedTags := newAndUpdatedTags(resourceTags)
 
-	klog.Infof("Updating EBS tags for volume ID %s with tags: %v", volumeID, mergedTags)
+	klog.Infof("Updating EBS tags for volume IDs %s with tags: %v", volumeIDs, mergedTags)
 
 	// Create or update the tags
-	_, err = ec2Client.CreateTags(&ec2.CreateTagsInput{
-		Resources: []*string{aws.String(volumeID)},
+	_, err := ec2Client.CreateTags(&ec2.CreateTagsInput{
+		Resources: volumesIDsToResourceIDs(volumeIDs),
 		Tags:      mergedTags,
 	})
 
 	if err != nil {
-		return fmt.Errorf("error creating tags for volume %s: %v", volumeID, err)
+		return fmt.Errorf("error creating tags for volume %s: %v", volumeIDs, err)
 	}
 
-	klog.Infof("Successfully updated tags for volume %s", volumeID)
+	klog.Infof("Successfully updated tags for volumes %s", volumeIDs)
 	return nil
 }
 
-// mergeTags merges existing AWS tags with new resource tags from OpenShift infrastructure
-func mergeTags(existingTags []*ec2.TagDescription, resourceTags []configv1.AWSResourceTag) []*ec2.Tag {
-	tagMap := make(map[string]string)
-
-	// Add existing tags to the map
-	for _, tagDesc := range existingTags {
-		tagMap[*tagDesc.Key] = *tagDesc.Value
-	}
-
-	// Override with new resource tags
-	for _, tag := range resourceTags {
-		tagMap[tag.Key] = tag.Value
-	}
-
+// newAndUpdatedTags adds and update existing AWS tags with new resource tags from OpenShift infrastructure
+func newAndUpdatedTags(resourceTags []configv1.AWSResourceTag) []*ec2.Tag {
 	// Convert map back to slice of ec2.Tag
-	var mergedTags []*ec2.Tag
-	for key, value := range tagMap {
-		mergedTags = append(mergedTags, &ec2.Tag{
-			Key:   aws.String(key),
-			Value: aws.String(value),
+	var tags []*ec2.Tag
+	for _, tag := range resourceTags {
+		tags = append(tags, &ec2.Tag{
+			Key:   aws.String(tag.Key),
+			Value: aws.String(tag.Value),
 		})
 	}
-
-	return mergedTags
+	return tags
 }
 
-// Run starts the controller and processes events from the informer
-func (c *EBSVolumeTagController) Run(ctx context.Context) {
-	defer c.queue.ShutDown()
+func volumesIDsToResourceIDs(volumeIDs []string) []*string {
+	var resourceIDs []*string
+	for _, volumeID := range volumeIDs {
+		resourceIDs = append(resourceIDs, aws.String(volumeID))
+	}
+	return resourceIDs
+}
 
-	klog.Infof("Starting EBSVolumeTagController")
-	go c.informer.Run(ctx.Done())
+// startFailedQueueWorker runs a worker that processes failed batches independently
+func (c *EBSVolumeTagsController) startFailedQueueWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			klog.Infof("Context canceled, stopping failed queue worker for ebs Volume Tags")
+			return // Stop the goroutine when the context is canceled
+		default:
+			// Get the next failed batch from the queue
+			item, quit := c.failedQueue.Get()
+			if quit {
+				klog.Infof("Failed queue worker is shutting down")
+				return
+			}
 
-	if !cache.WaitForCacheSync(ctx.Done(), c.informer.HasSynced) {
-		klog.Fatal("Failed to sync caches")
-		return
+			func(obj interface{}) {
+				defer c.failedQueue.Done(obj)
+
+				batch, ok := obj.(string)
+				if !ok {
+					klog.Errorf("Invalid batch type in failed queue, skipping")
+					c.failedQueue.Forget(obj) // Remove invalid object from the queue
+					return
+				}
+
+				klog.Infof("Retrying failed batch: %v", batch)
+
+				// Get the infrastructure and EC2 client
+				infra, err := c.getInfrastructure()
+				if err != nil {
+					klog.Errorf("Failed to get infrastructure for retry: %v", err)
+					c.failedQueue.AddRateLimited(batch) // Retry the failed batch again with backoff
+					return
+				}
+				var infraRegion = ""
+				if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
+					infraRegion = infra.Status.PlatformStatus.AWS.Region
+				}
+				ec2Client, err := c.getEC2Client(context.TODO(), infraRegion)
+				if err != nil {
+					klog.Errorf("Failed to get EC2 client for retry: %v", err)
+					c.failedQueue.AddRateLimited(batch) // Retry the failed batch again with backoff
+					return
+				}
+
+				// Retry updating the tags for the failed batch
+				if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
+					err = c.updateEBSTags(strings.Split(batch, ","), ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags)
+					if err != nil {
+						errorMessage := fmt.Sprintf("Error creating tags for volume %s: %v", batch, err)
+						c.handleFailure(strings.Split(batch, ","), errorMessage)
+					} else {
+						c.handleSuccess(strings.Split(batch, ","))
+						c.failedQueue.Forget(batch)
+					}
+				}
+			}(item)
+		}
+	}
+}
+
+func (c *EBSVolumeTagsController) setCSIDriverDegradedCondition(degraded bool, reason, message string) error {
+	return c.retryOperatorStatusUpdate(func(status *operatorapi.OperatorStatus) error {
+		conditionStatus := operatorapi.ConditionFalse
+		if degraded {
+			conditionStatus = operatorapi.ConditionTrue
+		}
+
+		v1helpers.SetOperatorCondition(&status.Conditions, operatorapi.OperatorCondition{
+			Type:    operatorapi.OperatorStatusTypeDegraded,
+			Status:  conditionStatus,
+			Reason:  reason,
+			Message: message,
+		})
+
+		return nil
+	})
+}
+
+func (c *EBSVolumeTagsController) setCSIDriverAvailableCondition(available bool, reason, message string) error {
+	return c.retryOperatorStatusUpdate(func(status *operatorapi.OperatorStatus) error {
+		conditionStatus := operatorapi.ConditionTrue
+		if !available {
+			conditionStatus = operatorapi.ConditionFalse
+		}
+
+		v1helpers.SetOperatorCondition(&status.Conditions, operatorapi.OperatorCondition{
+			Type:    operatorapi.OperatorStatusTypeAvailable,
+			Status:  conditionStatus,
+			Reason:  reason,
+			Message: message,
+		})
+
+		return nil
+	})
+}
+
+func (c *EBSVolumeTagsController) handleSuccess(batch []string) {
+	klog.Infof("Successfully processed tags for batch: %v", batch)
+
+	err := c.setCSIDriverDegradedCondition(false, "EBSVolumeTagsUpdateSucceeded", "Tagging operation succeeded")
+	if err != nil {
+		klog.Errorf("Error setting Degraded condition to False: %v", err)
 	}
 
-	<-ctx.Done()
+	err = c.setCSIDriverAvailableCondition(true, "EBSVolumeTagsUpdateSucceeded", "Driver available and healthy")
+	if err != nil {
+		klog.Errorf("Error setting Available condition to True: %v", err)
+	}
+}
 
-	klog.Infof("Shutting down EBSVolumeTagController")
+func (c *EBSVolumeTagsController) handleFailure(batch []string, errorMessage string) {
+	klog.Errorf("Error in batch %v: %v", batch, errorMessage)
+
+	// Emit a warning event for the failure
+	c.eventRecorder.Warning("EBSVolumeTagsUpdateFailed", fmt.Sprintf("Failed to update tags for batch %v: %v", batch, errorMessage))
+
+	err := c.setCSIDriverDegradedCondition(true, "EBSVolumeTagsUpdateFailed", errorMessage)
+	if err != nil {
+		klog.Errorf("Error setting Degraded condition to True: %v", err)
+	}
+
+	err = c.setCSIDriverAvailableCondition(false, "EBSVolumeTagsUpdateFailed", "Driver unavailable due to errors")
+	if err != nil {
+		klog.Errorf("Error setting Available condition to False: %v", err)
+	}
+
+	c.failedQueue.AddRateLimited(sliceToString(batch))
+}
+
+// retryOperatorStatusUpdate retries the status update for the ClusterCSIDriver in case of conflicts.
+func (c *EBSVolumeTagsController) retryOperatorStatusUpdate(updateFunc func(status *operatorapi.OperatorStatus) error) error {
+	return wait.ExponentialBackoff(wait.Backoff{
+		Duration: 100 * time.Millisecond, // Initial retry delay
+		Factor:   2.0,                    // Exponential factor
+		Jitter:   0.1,                    // Jitter to randomize delays slightly
+		Steps:    5,                      // Number of retries before giving up
+	}, func() (bool, error) {
+		_, status, resourceVersion, err := c.commonClient.OperatorClient.GetOperatorState()
+		if err != nil {
+			klog.Errorf("Failed to get operator state: %v", err)
+			return false, err
+		}
+
+		err = updateFunc(status)
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				klog.Warningf("Conflict while updating ClusterCSIDriver, retrying: %v", err)
+				return false, nil
+			}
+			return false, err
+		}
+
+		_, err = c.commonClient.OperatorClient.UpdateOperatorStatus(context.TODO(), resourceVersion, status)
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				klog.Warningf("Conflict while updating status, retrying: %v", err)
+				return false, nil
+			}
+			return false, err
+		}
+
+		return true, nil
+	})
+}
+
+// Convert the slice of volume IDs to a single string
+func sliceToString(slice []string) string {
+	return strings.Join(slice, ",")
 }
