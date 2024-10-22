@@ -49,11 +49,14 @@ type OperatorControllerConfig struct {
 	DeploymentHooks []deploymentcontroller.DeploymentHookFunc
 	// List of informers that should be added to the Deployment controller.
 	DeploymentInformers []factory.Informer
-	// List of secrets that should be watched by the Deployment controller. Change of content of these secrets
-	// will cause redeployment of the controller.
+	// List of secrets that should be watched by the Deployment controller. Any change of content of these secrets
+	// will cause redeployment of the controller. You will typically want to include your cloud credentials secret
+	// and metric certificate secret in here, if they exist/are required.
 	DeploymentWatchedSecretNames []string
 
-	// List of secrets that should be watched by daemonset controller
+	// List of secrets that should be watched by DaemonSet controller. Any change of content of these secrets
+	// will cause redeployment of the node pods. You will typically want to include your cloud credentials secret
+	// in here, if one exists/is required.
 	DaemonSetWatchedSecretNames []string
 
 	// List of library-go style controllers to run in the control-plane namespace.
