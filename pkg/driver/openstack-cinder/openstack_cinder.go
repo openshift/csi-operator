@@ -129,9 +129,10 @@ func GetOpenStackCinderOperatorControllerConfig(ctx context.Context, flavour gen
 
 	// Hooks to run on all clusters
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withConfigDeploymentHook)
-	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withConfigDaemonSetHook)
-
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
+
+	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withConfigDaemonSetHook)
+	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, cloudCredSecretName)
 
 	configMapSyncer, err := createConfigMapSyncer(c)
 	if err != nil {
