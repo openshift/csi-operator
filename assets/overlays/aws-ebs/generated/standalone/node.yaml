@@ -14,7 +14,6 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   annotations:
-    config.openshift.io/inject-proxy: csi-driver
     config.openshift.io/inject-proxy-cabundle: csi-driver
   name: aws-ebs-csi-driver-node
   namespace: ${NODE_NAMESPACE}
