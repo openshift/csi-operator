@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/openshift/csi-operator/assets"
@@ -21,7 +22,10 @@ import (
 	opv1 "github.com/openshift/api/operator/v1"
 	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	appsV1 "k8s.io/api/apps/v1"
+	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -172,6 +176,11 @@ func GetAzureFileOperatorControllerConfig(ctx context.Context, flavour generator
 			return nil, err
 		}
 		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer)
+
+		azureFileSecretProviderClass := strings.TrimSpace(os.Getenv("ARO_HCP_SECRET_PROVIDER_CLASS_FOR_FILE"))
+		if azureFileSecretProviderClass != "" {
+			cfg.DeploymentHooks = append(cfg.DeploymentHooks, withAROCSIVolume(azureFileSecretProviderClass))
+		}
 	} else {
 		standAloneConfigSyncer, err := syncCloudConfigStandAlone(c)
 		if err != nil {
@@ -274,4 +283,30 @@ func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroll
 func withClusterWideProxyDaemonSetHook(_ *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
 	hook := csidrivernodeservicecontroller.WithObservedProxyDaemonSetHook()
 	return hook, nil
+}
+
+func withAROCSIVolume(azureFileSecretProviderClass string) dc.DeploymentHookFunc {
+	hook := func(_ *opv1.OperatorSpec, deployment *appsV1.Deployment) error {
+		deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts,
+			coreV1.VolumeMount{
+				Name:      "azure-file",
+				MountPath: "/mnt/certs",
+				ReadOnly:  true,
+			})
+		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes,
+			coreV1.Volume{
+				Name: "azure-file",
+				VolumeSource: coreV1.VolumeSource{
+					CSI: &coreV1.CSIVolumeSource{
+						Driver:   "secrets-store.csi.k8s.io",
+						ReadOnly: ptr.To(true),
+						VolumeAttributes: map[string]string{
+							"secretProviderClass": azureFileSecretProviderClass,
+						},
+					},
+				},
+			})
+		return nil
+	}
+	return hook
 }
