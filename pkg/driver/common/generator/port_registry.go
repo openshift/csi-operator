@@ -22,4 +22,7 @@ const (
 
 	OpenStackCinderLoopbackMetricsPortStart = 8202
 	OpenStackCinderExposedMetricsPortStart  = 9202
+
+	OpenStackManilaLoopbackMetricsPortStart = 8202
+	OpenStackManilaExposedMetricsPortStart  = 9202
 )
