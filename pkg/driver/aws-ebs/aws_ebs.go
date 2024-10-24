@@ -163,6 +163,9 @@ func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, ctrl)
 	}
 
+	volumeTagController := NewEBSVolumeTagsController(ctx, cfg.GetControllerName("EBSVolumeTagsController"), c, c.EventRecorder)
+	cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, volumeTagController)
+
 	return cfg, nil
 }
 
