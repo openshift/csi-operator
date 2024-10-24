@@ -14,3 +14,4 @@ spec:
   selector:
     matchLabels:
       app: openstack-cinder-csi-driver-controller
+  unhealthyPodEvictionPolicy: AlwaysAllow
