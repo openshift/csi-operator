@@ -2,12 +2,11 @@ package aws_ebs
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
-	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,8 +15,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
@@ -33,6 +35,8 @@ const (
 	awsSecretName          = "ebs-cloud-credentials"
 	infrastructureResource = "cluster"
 	driverName             = "ebs.csi.aws.com"
+	tagHashAnnotationKey   = "ebs.csi.aws.com/volume-tags-hash"
+	batchSize              = 100
 )
 
 type EBSVolumeTagsController struct {
@@ -54,27 +58,6 @@ func NewEBSVolumeTagsController(
 		eventRecorder: eventRecorder,
 		failedQueue:   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
-	// Define the informer for watching Infrastructure resource changes
-	infraInformer := c.commonClient.ConfigInformers.Config().V1().Infrastructures().Informer()
-
-	// Add event handler to process updates only when ResourceTags change
-	infraInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			oldInfra := oldObj.(*configv1.Infrastructure)
-			newInfra := newObj.(*configv1.Infrastructure)
-
-			// Compare old and new AWS ResourceTags
-			if !reflect.DeepEqual(oldInfra.Status.PlatformStatus.AWS.ResourceTags, newInfra.Status.PlatformStatus.AWS.ResourceTags) {
-				klog.Infof("AWS ResourceTags changed: triggering reconciliation")
-				syncCtx := factory.NewSyncContext(c.name, eventRecorder)
-				err := c.Sync(context.TODO(), syncCtx)
-				if err != nil {
-					klog.Errorf("Error syncing AWS Infrastructure: %v", err)
-					return
-				}
-			}
-		},
-	})
 
 	go c.startFailedQueueWorker(ctx)
 
@@ -83,7 +66,7 @@ func NewEBSVolumeTagsController(
 	).ResyncEvery(
 		20*time.Minute,
 	).WithInformers(
-		infraInformer,
+		c.commonClient.ConfigInformers.Config().V1().Infrastructures().Informer(),
 	).ToController(
 		"EBSVolumeTagsController",
 		eventRecorder,
@@ -91,8 +74,8 @@ func NewEBSVolumeTagsController(
 }
 
 func (c *EBSVolumeTagsController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	klog.V(4).Infof("EBSVolumeTagsController sync started")
-	defer klog.V(4).Infof("EBSVolumeTagsController sync finished")
+	klog.Infof("EBSVolumeTagsController sync started")
+	defer klog.Infof("EBSVolumeTagsController sync finished")
 
 	opSpec, _, _, err := c.commonClient.OperatorClient.GetOperatorState()
 	if err != nil {
@@ -120,6 +103,67 @@ func (c *EBSVolumeTagsController) Sync(ctx context.Context, syncCtx factory.Sync
 	}
 
 	return nil
+}
+
+// startFailedQueueWorker runs a worker that processes failed batches independently
+func (c *EBSVolumeTagsController) startFailedQueueWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			klog.Infof("Context canceled, stopping failed queue worker for ebs Volume Tags")
+			return // Stop the goroutine when the context is canceled
+		default:
+			// Get the next failed batch from the queue
+			item, quit := c.failedQueue.Get()
+			if quit {
+				klog.Infof("Failed queue worker is shutting down")
+				return
+			}
+
+			func(obj interface{}) {
+				defer c.failedQueue.Done(obj)
+
+				batch, ok := obj.(string)
+				if !ok {
+					klog.Errorf("Invalid batch type in failed queue, skipping")
+					c.failedQueue.Forget(obj) // Remove invalid object from the queue
+					return
+				}
+
+				klog.Infof("Retrying failed batch: %v", batch)
+
+				// Get the infrastructure and EC2 client
+				infra, err := c.getInfrastructure()
+				if err != nil {
+					klog.Errorf("Failed to get infrastructure for retry: %v", err)
+					c.failedQueue.AddRateLimited(batch) // Retry the failed batch again with backoff
+					return
+				}
+				var infraRegion = ""
+				if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
+					infraRegion = infra.Status.PlatformStatus.AWS.Region
+				}
+				ec2Client, err := c.getEC2Client(context.TODO(), infraRegion)
+				if err != nil {
+					klog.Errorf("Failed to get EC2 client for retry: %v", err)
+					c.failedQueue.AddRateLimited(batch) // Retry the failed batch again with backoff
+					return
+				}
+
+				// Retry updating the tags for the failed batch
+				if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
+					err = c.updateEBSTags(strings.Split(batch, ","), ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags)
+					if err != nil {
+						errorMessage := fmt.Sprintf("Error creating tags for volume %s: %v", batch, err)
+						c.handleFailure(strings.Split(batch, ","), errorMessage)
+					} else {
+						c.handleSuccess(strings.Split(batch, ","))
+						c.failedQueue.Forget(batch)
+					}
+				}
+			}(item)
+		}
+	}
 }
 
 // getEC2Client retrieves AWS credentials from the secret and creates an AWS EC2 client using session.Options
@@ -239,17 +283,32 @@ func (c *EBSVolumeTagsController) fetchPVsAndUpdateTags(resourceTags []configv1.
 		return fmt.Errorf("error fetching PVs: %v", err)
 	}
 
-	// Collect the volume IDs
+	// Compute the hash for the new set of tags
+	newTagsHash := computeTagsHash(resourceTags)
+
+	// Collect the volume IDs and map them to the corresponding PV objects
 	var volumeIDs []string
+	pvMap := make(map[string]*v1.PersistentVolume)
+
 	for _, pv := range pvs.Items {
 		if pv.Spec.CSI != nil && pv.Spec.CSI.Driver == driverName {
 			volumeID := pv.Spec.CSI.VolumeHandle
-			volumeIDs = append(volumeIDs, volumeID)
+			existingHash := getPVTagHash(&pv)
+
+			if existingHash == "" || existingHash != newTagsHash {
+				volumeIDs = append(volumeIDs, volumeID)
+				pvMap[volumeID] = &pv
+			}
 		}
 	}
 
-	// Process the volume IDs in batches of 100
-	const batchSize = 100
+	// If there are no volumes to update, return early
+	if len(volumeIDs) == 0 {
+		klog.Infof("No volume tags to update as hashes are unchanged")
+		return nil
+	}
+
+	// Process the volume IDs in batches of 100 (as before)
 	for i := 0; i < len(volumeIDs); i += batchSize {
 		end := i + batchSize
 		if end > len(volumeIDs) {
@@ -257,12 +316,31 @@ func (c *EBSVolumeTagsController) fetchPVsAndUpdateTags(resourceTags []configv1.
 		}
 		batch := volumeIDs[i:end]
 
+		// Update tags on AWS EBS volumes
 		err = c.updateEBSTags(batch, ec2Client, resourceTags)
 		if err != nil {
 			errorMessage := fmt.Sprintf("Error creating tags for volume %s: %v", volumeIDs, err)
 			c.handleFailure(volumeIDs, errorMessage)
+			continue
 		}
-		c.handleSuccess(volumeIDs)
+
+		// Update PV annotations after successfully updating the tags in AWS
+		for _, volumeID := range batch {
+			pv := pvMap[volumeID]
+
+			// Set the new tag hash annotation in the PV object
+			setPVTagHash(pv, newTagsHash)
+
+			// Update the PV with the new annotations
+			_, err = c.commonClient.KubeClient.CoreV1().PersistentVolumes().Update(context.TODO(), pv, metav1.UpdateOptions{})
+			if err != nil {
+				klog.Errorf("Error updating PV annotations for volume %s: %v", volumeID, err)
+				continue
+			}
+			klog.Infof("Successfully updated PV annotations for volume %s", volumeID)
+		}
+
+		c.handleSuccess(batch)
 	}
 
 	return nil
@@ -311,67 +389,6 @@ func volumesIDsToResourceIDs(volumeIDs []string) []*string {
 	return resourceIDs
 }
 
-// startFailedQueueWorker runs a worker that processes failed batches independently
-func (c *EBSVolumeTagsController) startFailedQueueWorker(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			klog.Infof("Context canceled, stopping failed queue worker for ebs Volume Tags")
-			return // Stop the goroutine when the context is canceled
-		default:
-			// Get the next failed batch from the queue
-			item, quit := c.failedQueue.Get()
-			if quit {
-				klog.Infof("Failed queue worker is shutting down")
-				return
-			}
-
-			func(obj interface{}) {
-				defer c.failedQueue.Done(obj)
-
-				batch, ok := obj.(string)
-				if !ok {
-					klog.Errorf("Invalid batch type in failed queue, skipping")
-					c.failedQueue.Forget(obj) // Remove invalid object from the queue
-					return
-				}
-
-				klog.Infof("Retrying failed batch: %v", batch)
-
-				// Get the infrastructure and EC2 client
-				infra, err := c.getInfrastructure()
-				if err != nil {
-					klog.Errorf("Failed to get infrastructure for retry: %v", err)
-					c.failedQueue.AddRateLimited(batch) // Retry the failed batch again with backoff
-					return
-				}
-				var infraRegion = ""
-				if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
-					infraRegion = infra.Status.PlatformStatus.AWS.Region
-				}
-				ec2Client, err := c.getEC2Client(context.TODO(), infraRegion)
-				if err != nil {
-					klog.Errorf("Failed to get EC2 client for retry: %v", err)
-					c.failedQueue.AddRateLimited(batch) // Retry the failed batch again with backoff
-					return
-				}
-
-				// Retry updating the tags for the failed batch
-				if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
-					err = c.updateEBSTags(strings.Split(batch, ","), ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags)
-					if err != nil {
-						errorMessage := fmt.Sprintf("Error creating tags for volume %s: %v", batch, err)
-						c.handleFailure(strings.Split(batch, ","), errorMessage)
-					} else {
-						c.handleSuccess(strings.Split(batch, ","))
-						c.failedQueue.Forget(batch)
-					}
-				}
-			}(item)
-		}
-	}
-}
-
 func (c *EBSVolumeTagsController) setCSIDriverDegradedCondition(degraded bool, reason, message string) error {
 	return c.retryOperatorStatusUpdate(func(status *operatorapi.OperatorStatus) error {
 		conditionStatus := operatorapi.ConditionFalse
@@ -390,35 +407,12 @@ func (c *EBSVolumeTagsController) setCSIDriverDegradedCondition(degraded bool, r
 	})
 }
 
-func (c *EBSVolumeTagsController) setCSIDriverAvailableCondition(available bool, reason, message string) error {
-	return c.retryOperatorStatusUpdate(func(status *operatorapi.OperatorStatus) error {
-		conditionStatus := operatorapi.ConditionTrue
-		if !available {
-			conditionStatus = operatorapi.ConditionFalse
-		}
-
-		v1helpers.SetOperatorCondition(&status.Conditions, operatorapi.OperatorCondition{
-			Type:    operatorapi.OperatorStatusTypeAvailable,
-			Status:  conditionStatus,
-			Reason:  reason,
-			Message: message,
-		})
-
-		return nil
-	})
-}
-
 func (c *EBSVolumeTagsController) handleSuccess(batch []string) {
 	klog.Infof("Successfully processed tags for batch: %v", batch)
 
-	err := c.setCSIDriverDegradedCondition(false, "EBSVolumeTagsUpdateSucceeded", "Tagging operation succeeded")
+	err := c.setCSIDriverDegradedCondition(false, "EBSVolumeTagsControllerDegraded", "Volumes Tagging operation succeeded")
 	if err != nil {
 		klog.Errorf("Error setting Degraded condition to False: %v", err)
-	}
-
-	err = c.setCSIDriverAvailableCondition(true, "EBSVolumeTagsUpdateSucceeded", "Driver available and healthy")
-	if err != nil {
-		klog.Errorf("Error setting Available condition to True: %v", err)
 	}
 }
 
@@ -428,16 +422,10 @@ func (c *EBSVolumeTagsController) handleFailure(batch []string, errorMessage str
 	// Emit a warning event for the failure
 	c.eventRecorder.Warning("EBSVolumeTagsUpdateFailed", fmt.Sprintf("Failed to update tags for batch %v: %v", batch, errorMessage))
 
-	err := c.setCSIDriverDegradedCondition(true, "EBSVolumeTagsUpdateFailed", errorMessage)
+	err := c.setCSIDriverDegradedCondition(true, "EBSVolumeTagsControllerDegraded", errorMessage)
 	if err != nil {
 		klog.Errorf("Error setting Degraded condition to True: %v", err)
 	}
-
-	err = c.setCSIDriverAvailableCondition(false, "EBSVolumeTagsUpdateFailed", "Driver unavailable due to errors")
-	if err != nil {
-		klog.Errorf("Error setting Available condition to False: %v", err)
-	}
-
 	c.failedQueue.AddRateLimited(sliceToString(batch))
 }
 
@@ -480,4 +468,44 @@ func (c *EBSVolumeTagsController) retryOperatorStatusUpdate(updateFunc func(stat
 // Convert the slice of volume IDs to a single string
 func sliceToString(slice []string) string {
 	return strings.Join(slice, ",")
+}
+
+// setPVTagHash stores the hash in the PV annotations.
+func setPVTagHash(pv *v1.PersistentVolume, hash string) {
+	// Ensure the PV has an annotations map
+	if pv.Annotations == nil {
+		pv.Annotations = make(map[string]string)
+	}
+
+	// Set or update the tag hash annotation
+	pv.Annotations[tagHashAnnotationKey] = hash
+}
+
+// getPVTagHash gets the hash stored in the PV annotations.
+// If no annotation is found, it returns an empty string, indicating no tags have been applied yet.
+func getPVTagHash(pv *v1.PersistentVolume) string {
+	// Check if the annotation exists
+	if hash, found := pv.Annotations[tagHashAnnotationKey]; found {
+		return hash
+	}
+	// If no annotation is found, return an empty string
+	return ""
+}
+
+// computeTagsHash computes a hash for the sorted resource tags.
+func computeTagsHash(resourceTags []configv1.AWSResourceTag) string {
+	// Sort tags by key for consistency
+	sort.Slice(resourceTags, func(i, j int) bool {
+		return resourceTags[i].Key < resourceTags[j].Key
+	})
+
+	// Create a string representation of the sorted tags
+	var tagsString string
+	for _, tag := range resourceTags {
+		tagsString += tag.Key + "=" + tag.Value + ";"
+	}
+
+	// Compute SHA256 hash of the tags string
+	hash := sha256.Sum256([]byte(tagsString))
+	return hex.EncodeToString(hash[:])
 }
