@@ -14,3 +14,4 @@ spec:
   selector:
     matchLabels:
       app: smb-csi-driver-controller
+  unhealthyPodEvictionPolicy: AlwaysAllow
