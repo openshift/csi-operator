@@ -131,7 +131,7 @@ func GetOpenStackCinderOperatorControllerConfig(ctx context.Context, flavour gen
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withConfigDeploymentHook)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
 
-	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withConfigDaemonSetHook)
+	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withClusterWideProxyDaemonSetHook, withConfigDaemonSetHook)
 	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, cloudCredSecretName)
 
 	configMapSyncer, err := createConfigMapSyncer(c)
@@ -167,6 +167,12 @@ func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroll
 		c.GetConfigMapInformer(c.GuestNamespace).Informer(),
 	}
 	return hook, informers
+}
+
+// withClusterWideProxyHook adds the cluster-wide proxy config to the DaemonSet.
+func withClusterWideProxyDaemonSetHook(_ *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
+	hook := csidrivernodeservicecontroller.WithObservedProxyDaemonSetHook()
+	return hook, nil
 }
 
 // withConfigDeploymentHook adds annotations based on the hash of the config map containing our config,
