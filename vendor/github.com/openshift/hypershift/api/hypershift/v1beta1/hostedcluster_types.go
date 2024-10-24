@@ -21,6 +21,7 @@ func init() {
 			&HostedClusterList{},
 		)
 		metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
+
 		return nil
 	})
 }
@@ -134,8 +135,8 @@ const (
 	// AWSCredentialsFileSecretKey defines the Kubernetes secret key name that contains
 	// the customer AWS credentials in the unmanaged authentication strategy for AWS KMS secret encryption
 	AWSCredentialsFileSecretKey = "credentials"
-	// ControlPlaneComponent identifies a resource as belonging to a hosted control plane.
-	ControlPlaneComponent = "hypershift.openshift.io/control-plane-component"
+	// ControlPlaneComponentLabel identifies a resource as belonging to a hosted control plane.
+	ControlPlaneComponentLabel = "hypershift.openshift.io/control-plane-component"
 
 	// OperatorComponent identifies a component as belonging to the operator.
 	OperatorComponent = "hypershift.openshift.io/operator-component"
@@ -267,6 +268,14 @@ const (
 	// the memory footprint of the kube-apiserver during upgrades.
 	KubeAPIServerGOMemoryLimitAnnotation = "hypershift.openshift.io/kube-apiserver-gomemlimit"
 
+	// KubeAPIServerMaximumRequestsInFlight allows overriding the default value for the kube-apiserver max-requests-inflight
+	// flag. This allows controlling how many concurrent requests can be handled by the Kube API server at any given time.
+	KubeAPIServerMaximumRequestsInFlight = "hypershift.openshift.io/kube-apiserver-max-requests-inflight"
+
+	// KubeAPIServerMaximumMutatingRequestsInFlight allows overring the default value for the kube-apiserver max-mutating-requests-inflight
+	// flag. This allows controlling how many mutating concurrent requests can be handled by the Kube API server at any given time.
+	KubeAPIServerMaximumMutatingRequestsInFlight = "hypershift.openshift.io/kube-apiserver-max-mutating-requests-inflight"
+
 	// AWSLoadBalancerSubnetsAnnotation allows specifying the subnets to use for control plane load balancers
 	// in the AWS platform.
 	AWSLoadBalancerSubnetsAnnotation = "hypershift.openshift.io/aws-load-balancer-subnets"
@@ -318,9 +327,32 @@ const (
 	// This annotation signals to the NodePool controller that it is safe to use TopologySpreadConstraints on a NodePool
 	// without triggering an unexpected update of KubeVirt VMs.
 	NodePoolSupportsKubevirtTopologySpreadConstraintsAnnotation = "hypershift.openshift.io/nodepool-supports-kubevirt-topology-spread-constraints"
+
+	// IsKubeVirtRHCOSVolumeLabelName labels rhcos DataVolumes and PVCs, to be able to filter them, e.g. for backup
+	IsKubeVirtRHCOSVolumeLabelName = "hypershift.openshift.io/is-kubevirt-rhcos"
+
+	// SkipControlPlaneNamespaceDeletionAnnotation tells the the hosted cluster controller not to delete the hosted control plane
+	// namespace during hosted cluster deletion when this annotation is set to the value "true".
+	SkipControlPlaneNamespaceDeletionAnnotation = "hypershift.openshift.io/skip-delete-hosted-controlplane-namespace"
+
+	// DisableIgnitionServerAnnotation controls skipping of the ignition server deployment.
+	DisableIgnitionServerAnnotation = "hypershift.openshift.io/disable-ignition-server"
+
+	// ControlPlaneOperatorV2Annotation tells the hosted cluster to set 'CPO_V2' env variable on the CPO deployment which enables
+	// the new manifest based CPO implementation.
+	ControlPlaneOperatorV2Annotation = "hypershift.openshift.io/cpo-v2"
+
+	// ControlPlaneOperatorV2EnvVar when set on the CPO deplyoment, enables the new manifest based CPO implementation.
+	ControlPlaneOperatorV2EnvVar = "CPO_V2"
 )
 
 // HostedClusterSpec is the desired behavior of a HostedCluster.
+
+// +kubebuilder:validation:XValidation:rule=`self.platform.type != "IBMCloud" ? self.services == oldSelf.services : true`, message="Services is immutable. Changes might result in unpredictable and disruptive behavior."
+// +kubebuilder:validation:XValidation:rule=`self.platform.type == "Azure" ? self.services.exists(s, s.service == "APIServer" && s.servicePublishingStrategy.type == "Route" && s.servicePublishingStrategy.route.hostname != "") : true`,message="Azure platform requires APIServer Route service with a hostname to be defined"
+// +kubebuilder:validation:XValidation:rule=`self.platform.type == "Azure" ? self.services.exists(s, s.service == "OAuthServer" && s.servicePublishingStrategy.type == "Route" && s.servicePublishingStrategy.route.hostname != "") : true`,message="Azure platform requires OAuthServer Route service with a hostname to be defined"
+// +kubebuilder:validation:XValidation:rule=`self.platform.type == "Azure" ? self.services.exists(s, s.service == "Konnectivity" && s.servicePublishingStrategy.type == "Route" && s.servicePublishingStrategy.route.hostname != "") : true`,message="Azure platform requires Konnectivity Route service with a hostname to be defined"
+// +kubebuilder:validation:XValidation:rule=`self.platform.type == "Azure" ? self.services.exists(s, s.service == "Ignition" && s.servicePublishingStrategy.type == "Route" && s.servicePublishingStrategy.route.hostname != "") : true`,message="Azure platform requires Ignition Route service with a hostname to be defined"
 type HostedClusterSpec struct {
 	// Release specifies the desired OCP release payload for the hosted cluster.
 	//
@@ -657,6 +689,7 @@ var (
 	Ignition ServiceType = "Ignition"
 
 	// OVNSbDb is the optional control plane ovn southbound database service used by OVNKubernetes CNI.
+	// Deprecated: This service is no longer used by OVNKubernetes CNI for >= 4.14.
 	OVNSbDb ServiceType = "OVNSbDb"
 )
 
@@ -1320,9 +1353,41 @@ type AWSPlatformSpec struct {
 
 	// MultiArch specifies whether the Hosted Cluster will be expected to support NodePools with different
 	// CPU architectures, i.e., supporting arm64 NodePools and supporting amd64 NodePools on the same Hosted Cluster.
+	// Deprecated: This field is no longer used. The HyperShift Operator now performs multi-arch validations
+	// automatically despite the platform type. The HyperShift Operator will set HostedCluster.Status.PayloadArch based
+	// on the HostedCluster release image. This field is used by the NodePool controller to validate the
+	// NodePool.Spec.Arch is supported.
 	// +kubebuilder:default=false
 	// +optional
 	MultiArch bool `json:"multiArch"`
+
+	// SharedVPC contains fields that must be specified if the HostedCluster must use a VPC that is
+	// created in a different AWS account and is shared with the AWS account where the HostedCluster
+	// will be created.
+	//
+	// +optional
+	SharedVPC *AWSSharedVPC `json:"sharedVPC,omitempty"`
+}
+
+// AWSSharedVPC contains fields needed to create a HostedCluster using a VPC that has been
+// created and shared from a different AWS account than the AWS account where the cluster
+// is getting created.
+type AWSSharedVPC struct {
+
+	// RolesRef contains references to roles in the VPC owner account that enable a
+	// HostedCluster on a shared VPC.
+	//
+	// +kubebuilder:validation:Required
+	// +required
+	RolesRef AWSSharedVPCRolesRef `json:"rolesRef"`
+
+	// LocalZoneID is the ID of the route53 hosted zone for [cluster-name].hypershift.local that is
+	// associated with the HostedCluster's VPC and exists in the VPC owner account.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=32
+	// +required
+	LocalZoneID string `json:"localZoneID"`
 }
 
 type AWSRoleCredentials struct {
@@ -1726,6 +1791,119 @@ type AWSRolesRef struct {
 	// }
 	// +immutable
 	ControlPlaneOperatorARN string `json:"controlPlaneOperatorARN"`
+}
+
+// AWSSharedVPCRolesRef contains references to AWS IAM roles required for a shared VPC hosted cluster.
+// These roles must exist in the VPC owner's account.
+type AWSSharedVPCRolesRef struct {
+	// IngressARN is an ARN value referencing the role in the VPC owner account that allows the
+	// ingress operator in the cluster account to create and manage records in the private DNS
+	// hosted zone.
+	//
+	// The referenced role must have a trust relationship that allows it to be assumed by the
+	// ingress operator role in the VPC creator account.
+	// Example:
+	// {
+	// 	 "Version": "2012-10-17",
+	// 	 "Statement": [
+	// 	 	{
+	// 	 		"Sid": "Statement1",
+	// 	 		"Effect": "Allow",
+	// 	 		"Principal": {
+	// 	 			"AWS": "arn:aws:iam::[cluster-creator-account-id]:role/[infra-id]-openshift-ingress"
+	// 	 		},
+	// 	 		"Action": "sts:AssumeRole"
+	// 	 	}
+	// 	 ]
+	// }
+	//
+	// The following is an example of the policy document for this role.
+	// (Based on https://docs.openshift.com/rosa/rosa_install_access_delete_clusters/rosa-shared-vpc-config.html#rosa-sharing-vpc-dns-and-roles_rosa-shared-vpc-config)
+	//
+	// {
+	// 	"Version": "2012-10-17",
+	// 	"Statement": [
+	// 		{
+	// 			"Effect": "Allow",
+	// 			"Action": [
+	// 				"route53:ListHostedZones",
+	// 				"route53:ListHostedZonesByName",
+	// 				"route53:ChangeTagsForResource",
+	// 				"route53:GetAccountLimit",
+	// 				"route53:GetChange",
+	// 				"route53:GetHostedZone",
+	// 				"route53:ListTagsForResource",
+	// 				"route53:UpdateHostedZoneComment",
+	// 				"tag:GetResources",
+	// 				"tag:UntagResources"
+	// 				"route53:ChangeResourceRecordSets",
+	// 				"route53:ListResourceRecordSets"
+	// 			],
+	// 			"Resource": "*"
+	// 		},
+	// 	]
+	// }
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern:=`^arn:(aws|aws-cn|aws-us-gov):iam::[0-9]{12}:role\/.*$`
+	// +required
+	IngressARN string `json:"ingressARN"`
+
+	// ControlPlaneARN is an ARN value referencing the role in the VPC owner account that allows
+	// the control plane operator in the cluster account to create and manage a VPC endpoint, its
+	// corresponding Security Group, and DNS records in the hypershift local hosted zone.
+	//
+	// The referenced role must have a trust relationship that allows it to be assumed by the
+	// control plane operator role in the VPC creator account.
+	// Example:
+	// {
+	// 	 "Version": "2012-10-17",
+	// 	 "Statement": [
+	// 	 	{
+	// 	 		"Sid": "Statement1",
+	// 	 		"Effect": "Allow",
+	// 	 		"Principal": {
+	// 	 			"AWS": "arn:aws:iam::[cluster-creator-account-id]:role/[infra-id]-control-plane-operator"
+	// 	 		},
+	// 	 		"Action": "sts:AssumeRole"
+	// 	 	}
+	// 	 ]
+	// }
+	//
+	// The following is an example of the policy document for this role.
+	//
+	// {
+	// 	"Version": "2012-10-17",
+	// 	"Statement": [
+	// 		{
+	// 			"Effect": "Allow",
+	// 			"Action": [
+	// 				"ec2:CreateVpcEndpoint",
+	// 				"ec2:DescribeVpcEndpoints",
+	// 				"ec2:ModifyVpcEndpoint",
+	// 				"ec2:DeleteVpcEndpoints",
+	// 				"ec2:CreateTags",
+	// 				"route53:ListHostedZones",
+	// 				"ec2:CreateSecurityGroup",
+	// 				"ec2:AuthorizeSecurityGroupIngress",
+	// 				"ec2:AuthorizeSecurityGroupEgress",
+	// 				"ec2:DeleteSecurityGroup",
+	// 				"ec2:RevokeSecurityGroupIngress",
+	// 				"ec2:RevokeSecurityGroupEgress",
+	// 				"ec2:DescribeSecurityGroups",
+	// 				"ec2:DescribeVpcs",
+	// 				"route53:ChangeResourceRecordSets",
+	// 				"route53:ListResourceRecordSets"
+	// 			],
+	// 			"Resource": "*"
+	// 		}
+	// 	]
+	// }
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern:=`^arn:(aws|aws-cn|aws-us-gov):iam::[0-9]{12}:role\/.*$`
+	// +required
+	ControlPlaneARN string `json:"controlPlaneARN"`
 }
 
 // AWSServiceEndpoint stores the configuration for services to
@@ -2533,6 +2711,34 @@ type AESCBCSpec struct {
 	BackupKey *corev1.LocalObjectReference `json:"backupKey,omitempty"`
 }
 
+type PayloadArchType string
+
+const (
+	AMD64   PayloadArchType = "AMD64"
+	PPC64LE PayloadArchType = "PPC64LE"
+	S390X   PayloadArchType = "S390X"
+	ARM64   PayloadArchType = "ARM64"
+	Multi   PayloadArchType = "Multi"
+)
+
+// ToPayloadArch converts a string to payloadArch.
+func ToPayloadArch(arch string) PayloadArchType {
+	switch arch {
+	case "amd64", string(AMD64):
+		return AMD64
+	case "arm64", string(ARM64):
+		return ARM64
+	case "ppc64le", string(PPC64LE):
+		return PPC64LE
+	case "s390x", string(S390X):
+		return S390X
+	case "multi", string(Multi):
+		return Multi
+	default:
+		return ""
+	}
+}
+
 // HostedClusterStatus is the latest observed status of a HostedCluster.
 type HostedClusterStatus struct {
 	// Version is the status of the release version applied to the
@@ -2576,6 +2782,12 @@ type HostedClusterStatus struct {
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// payloadArch represents the CPU architecture type of the HostedCluster.Spec.Release.Image. The valid values are:
+	// Multi, ARM64, AMD64, S390X, or PPC64LE.
+	// +kubebuilder:validation:Enum=Multi;ARM64;AMD64;PPC64LE;S390X
+	// +optional
+	PayloadArch PayloadArchType `json:"payloadArch,omitempty"`
 
 	// Platform contains platform-specific status of the HostedCluster
 	// +optional

@@ -52,9 +52,9 @@ func withClusterWideProxy(c *clients.Clients) (dc.DeploymentHookFunc, []factory.
 
 // withStandaloneReplicas sets control-plane replica count to on a standalone cluster.
 func withStandaloneReplicas(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
-	hook := csidrivercontrollerservicecontroller.WithReplicasHook(c.GetNodeInformer().Lister())
+	hook := csidrivercontrollerservicecontroller.WithReplicasHook(c.ConfigInformers)
 	informers := []factory.Informer{
-		c.GetNodeInformer().Informer(),
+		c.ConfigInformers.Config().V1().Infrastructures().Informer(),
 	}
 	return hook, informers
 }
