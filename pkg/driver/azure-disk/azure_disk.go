@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	snapshotapi "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
@@ -30,6 +31,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -215,6 +217,11 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 			return nil, err
 		}
 		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer)
+
+		azureDiskSecretProviderClass := strings.TrimSpace(os.Getenv("ARO_HCP_SECRET_PROVIDER_CLASS_FOR_DISK"))
+		if azureDiskSecretProviderClass != "" {
+			cfg.DeploymentHooks = append(cfg.DeploymentHooks, withAROCSIVolume(azureDiskSecretProviderClass))
+		}
 	} else {
 		standAloneConfigSyncer, err := syncCloudConfigStandAlone(c)
 		if err != nil {
@@ -422,4 +429,30 @@ func withAzureStackHubDaemonSetHook(runningOnAzureStackHub bool) csidrivernodese
 		}
 		return nil
 	}
+}
+
+func withAROCSIVolume(azureDiskSecretProviderClass string) dc.DeploymentHookFunc {
+	hook := func(_ *opv1.OperatorSpec, deployment *appsV1.Deployment) error {
+		deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts,
+			coreV1.VolumeMount{
+				Name:      "azure-disk",
+				MountPath: "/mnt/certs",
+				ReadOnly:  true,
+			})
+		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes,
+			coreV1.Volume{
+				Name: "azure-disk",
+				VolumeSource: coreV1.VolumeSource{
+					CSI: &coreV1.CSIVolumeSource{
+						Driver:   "secrets-store.csi.k8s.io",
+						ReadOnly: ptr.To(true),
+						VolumeAttributes: map[string]string{
+							"secretProviderClass": azureDiskSecretProviderClass,
+						},
+					},
+				},
+			})
+		return nil
+	}
+	return hook
 }
