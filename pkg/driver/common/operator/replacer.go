@@ -64,6 +64,7 @@ func DefaultReplacements(controlPlaneNamespace, guestNamespace string) []string 
 	if csiDriver != "" {
 		pairs = append(pairs, []string{"${HYPERSHIFT_IMAGE}", hyperShiftImage}...)
 	}
+
 	pairs = append(pairs, []string{"${NAMESPACE}", controlPlaneNamespace}...)
 	pairs = append(pairs, []string{"${NODE_NAMESPACE}", guestNamespace}...)
 	return pairs

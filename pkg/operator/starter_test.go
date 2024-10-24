@@ -8,6 +8,7 @@ import (
 	"github.com/openshift/csi-operator/assets"
 	azure_disk "github.com/openshift/csi-operator/pkg/driver/azure-disk"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
+	openstack_manila "github.com/openshift/csi-operator/pkg/driver/openstack-manila"
 	generated_assets "github.com/openshift/csi-operator/pkg/generated-assets"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
@@ -124,6 +125,13 @@ func TestDefaultReplacements(t *testing.T) {
 			flavor:                generator.FlavourHyperShift,
 			controlPlaneNamespace: "clusters-foo",
 			GuestNamespace:        "openshift-cluster-csi-drivers",
+		},
+		{
+			name:                  "Testing replacement of OpenStack manila assets without Hypershift",
+			opConfig:              openstack_manila.GetOpenStackManilaOperatorConfig(),
+			flavor:                generator.FlavourStandalone,
+			controlPlaneNamespace: "openshift-manila-csi-driver",
+			GuestNamespace:        "openshift-manila-csi-driver",
 		},
 	}
 
