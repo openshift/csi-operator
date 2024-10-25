@@ -23,6 +23,7 @@
 # livenessprobe.yaml: Added arguments [--probe-timeout=3s]
 # Applied strategic merge patch livenessprobe.yaml
 # Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
+# Applied JSON patch common/hypershift/controller_add_kubeconfig_volume.yaml.patch
 # Applied strategic merge patch overlays/aws-ebs/patches/controller_add_hypershift_controller_minter.yaml
 #
 #

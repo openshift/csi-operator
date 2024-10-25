@@ -23,6 +23,7 @@
 # livenessprobe.yaml: Added arguments [--probe-timeout=3s]
 # Applied strategic merge patch livenessprobe.yaml
 # Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
+# Applied JSON patch common/hypershift/controller_add_kubeconfig_volume.yaml.patch
 # Applied strategic merge patch overlays/azure-file/patches/controller_add_hypershift_controller.yaml
 # Applied JSON patch overlays/azure-file/patches/controller_add_driver_kubeconfig_hypershift.yaml.patch
 #
@@ -407,13 +408,13 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: azure-file-csi-driver-controller-metrics-serving-cert
-      - emptyDir:
-          medium: Memory
-        name: bound-sa-token
       - name: hosted-kubeconfig
         secret:
           defaultMode: 420
           secretName: service-network-admin-kubeconfig
+      - emptyDir:
+          medium: Memory
+        name: bound-sa-token
       - name: cloud-config
         secret:
           secretName: azure-file-csi-config
