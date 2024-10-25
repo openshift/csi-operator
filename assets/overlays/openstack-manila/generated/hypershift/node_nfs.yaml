@@ -1,0 +1,82 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/openstack-manila/base/node_nfs.yaml
+#
+#
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: csi-nodeplugin-nfsplugin
+  namespace: ${NODE_NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: openstack-manila-csi
+      component: nfs-nodeplugin
+  template:
+    metadata:
+      annotations:
+        openshift.io/required-scc: privileged
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        app: openstack-manila-csi
+        component: nfs-nodeplugin
+    spec:
+      containers:
+      - args:
+        - --v=${LOG_LEVEL}
+        - --nodeid=$(NODE_ID)
+        - --endpoint=unix://plugin/csi.sock
+        - --mount-permissions=0777
+        env:
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: ${NFS_DRIVER_IMAGE}
+        name: csi-driver
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /plugin
+          name: plugin-dir
+        - mountPath: /var/lib/kubelet/pods
+          mountPropagation: Bidirectional
+          name: pods-mount-dir
+        - mountPath: /etc/selinux
+          name: etc-selinux
+        - mountPath: /sys/fs
+          name: sys-fs
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      priorityClassName: system-node-critical
+      serviceAccount: manila-csi-driver-node-sa
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/lib/kubelet/plugins/csi-nfsplugin
+          type: DirectoryOrCreate
+        name: plugin-dir
+      - hostPath:
+          path: /var/lib/kubelet/pods
+          type: DirectoryOrCreate
+        name: pods-mount-dir
+      - hostPath:
+          path: /etc/selinux
+          type: DirectoryOrCreate
+        name: etc-selinux
+      - hostPath:
+          path: /sys/fs
+          type: Directory
+        name: sys-fs
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate
