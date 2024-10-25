@@ -24,8 +24,8 @@
 # Applied strategic merge patch livenessprobe.yaml
 # Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
 # Applied JSON patch common/hypershift/controller_add_kubeconfig_volume.yaml.patch
+# Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
 # Applied strategic merge patch overlays/azure-file/patches/controller_add_hypershift_controller.yaml
-# Applied JSON patch overlays/azure-file/patches/controller_add_driver_kubeconfig_hypershift.yaml.patch
 #
 #
 
