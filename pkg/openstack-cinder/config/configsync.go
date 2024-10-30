@@ -159,7 +159,7 @@ func translateConfigMap(sourceConfig *v1.ConfigMap, sourceConfigKey string, enab
 			{"secret-namespace", "kube-system"},
 			{"kubeconfig-path", ""},
 		} {
-			if global.Key(o.k).String() != o.v {
+			if global.HasKey(o.k) && global.Key(o.k).String() != o.v {
 				return nil, fmt.Errorf("'[Global] %s' is set to a non-default value", o.k)
 			}
 			global.DeleteKey(o.k)

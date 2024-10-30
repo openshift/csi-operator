@@ -53,11 +53,7 @@ cloud       = openstack`,
 		}, {
 			name: "Non-empty config",
 			source: `[BlockStorage]
-trust-device-path = /dev/sdb1
-
-[Global]
-secret-name = openstack-credentials
-secret-namespace = kube-system`,
+trust-device-path = /dev/sdb1`,
 			target: `[Global]
 use-clouds  = true
 clouds-file = /etc/kubernetes/secret/clouds.yaml
