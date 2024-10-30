@@ -139,7 +139,7 @@ func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool, g
 	// Process the cloud configuration
 	content, ok := cloudConfig.Data[sourceConfigKey]
 	if !ok {
-		return nil, fmt.Errorf("OpenStack config map did not contain key %s", sourceConfigKey)
+		return nil, fmt.Errorf("OpenStack config map %s/%s did not contain key %s", cloudConfig.Namespace, cloudConfig.Name, sourceConfigKey)
 	}
 
 	cfg, err := ini.Load([]byte(content))
