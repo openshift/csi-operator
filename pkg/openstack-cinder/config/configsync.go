@@ -39,7 +39,6 @@ type ConfigSyncController struct {
 const (
 	resyncInterval = 20 * time.Minute
 
-	sourceConfigKey   = "config"
 	targetConfigKey   = "cloud.conf"
 	enableTopologyKey = "enable_topology"
 
@@ -100,6 +99,7 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var sourceConfig *v1.ConfigMap
 
 	// First, we try to retrieve from the Cinder CSI-specific config map
+	sourceConfigKey := "config"
 	sourceConfig, err = c.configMapLister.ConfigMaps(util.OpenShiftConfigNamespace).Get("cinder-csi-config")
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -107,6 +107,7 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		}
 
 		// Failing that, we attempt to retrieve from the cloud provider-specific config map
+		sourceConfigKey = infra.Spec.CloudConfig.Key
 		sourceConfig, err = c.configMapLister.ConfigMaps(util.OpenShiftConfigNamespace).Get(infra.Spec.CloudConfig.Name)
 		if err != nil {
 			if !errors.IsNotFound(err) {
@@ -119,7 +120,7 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		}
 	}
 
-	targetConfig, err := translateConfigMap(sourceConfig, enableTopologyFeature, c.guestNamespace)
+	targetConfig, err := translateConfigMap(sourceConfig, sourceConfigKey, enableTopologyFeature, c.guestNamespace)
 	if err != nil {
 		return err
 	}
@@ -135,11 +136,11 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 // to those used by the external CSI driver that this operator manages. It also does some basic
 // validation of the config map, setting attributes to values expected by other parts of the
 // operator.
-func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool, guestNamespace string) (*v1.ConfigMap, error) {
+func translateConfigMap(sourceConfig *v1.ConfigMap, sourceConfigKey string, enableTopologyFeature bool, guestNamespace string) (*v1.ConfigMap, error) {
 	// Process the cloud configuration
-	content, ok := cloudConfig.Data[sourceConfigKey]
+	content, ok := sourceConfig.Data[sourceConfigKey]
 	if !ok {
-		return nil, fmt.Errorf("OpenStack config map %s/%s did not contain key %s", cloudConfig.Namespace, cloudConfig.Name, sourceConfigKey)
+		return nil, fmt.Errorf("OpenStack config map %s/%s did not contain key %s", sourceConfig.Namespace, sourceConfig.Name, sourceConfigKey)
 	}
 
 	cfg, err := ini.Load([]byte(content))
@@ -207,7 +208,7 @@ func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool, g
 	}
 
 	// Process the topology feature flag
-	enableTopologyValue, ok := cloudConfig.Data[enableTopologyKey]
+	enableTopologyValue, ok := sourceConfig.Data[enableTopologyKey]
 	if ok {
 		// use the user-configured value if provided...
 		klog.Infof("%s configuration found; using user-provided configuration...", enableTopologyKey)
@@ -216,7 +217,7 @@ func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool, g
 		enableTopologyValue = strconv.FormatBool(enableTopologyFeature)
 	}
 
-	config := v1.ConfigMap{
+	targetConfig := v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.CinderConfigName,
 			Namespace: guestNamespace,
@@ -227,5 +228,5 @@ func translateConfigMap(cloudConfig *v1.ConfigMap, enableTopologyFeature bool, g
 		},
 	}
 
-	return &config, nil
+	return &targetConfig, nil
 }

@@ -137,11 +137,11 @@ cloud       = openstack`,
 					Namespace: "openshift-cluster-csi-drivers",
 				},
 				Data: map[string]string{
-					"config":          tc.target,
+					targetConfigKey:   tc.target,
 					"enable_topology": tc.expectedTopologyValue,
 				},
 			}
-			actualConfigMap, err := translateConfigMap(&sourceConfigMap, tc.generatedTopologyValue, expectedConfigMap.Namespace)
+			actualConfigMap, err := translateConfigMap(&sourceConfigMap, "config", tc.generatedTopologyValue, expectedConfigMap.Namespace)
 			if tc.errMsg != "" {
 				g.Expect(err).Should(MatchError(tc.errMsg))
 				return
@@ -149,7 +149,7 @@ cloud       = openstack`,
 				g.Expect(err).ToNot(HaveOccurred())
 				// First, compare the value of the clouds.conf value
 				// Note that the output is unsorted so we must reload and reparse the strings
-				expected, _ := expectedConfigMap.Data[sourceConfigKey]
+				expected, _ := expectedConfigMap.Data[targetConfigKey]
 				actual, _ := actualConfigMap.Data[targetConfigKey]
 				g.Expect(err).ToNot(HaveOccurred())
 
