@@ -2,7 +2,6 @@ package openstack_cinder
 
 import (
 	"context"
-	"fmt"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
@@ -16,7 +15,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -112,11 +110,6 @@ func GetOpenStackCinderOperatorConfig() *config.OperatorConfig {
 // GetOpenStackCinderOperatorControllerConfig returns second half of runtime configuration of the CSI driver operator,
 // after a client connection + cluster flavour are established.
 func GetOpenStackCinderOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
-	if flavour != generator.FlavourStandalone {
-		klog.Error(nil, "Flavour HyperShift is not supported!")
-		return nil, fmt.Errorf("Flavour HyperShift is not supported!")
-	}
-
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "OpenStackCinder")
 
 	go c.ConfigInformers.Start(ctx.Done())
