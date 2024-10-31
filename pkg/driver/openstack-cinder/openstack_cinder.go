@@ -172,8 +172,11 @@ func withClusterWideProxyDaemonSetHook(_ *clients.Clients) (csidrivernodeservice
 	return hook, nil
 }
 
-// withConfigDeploymentHook adds annotations based on the hash of the config map containing our config,
-// ensuring we restart if that changes
+// withConfigDeploymentHook adds annotations based on the hash of the config map containing our
+// config, ensuring we restart if that changes. These watch the control plane namespace and use
+// the control plane clients since in a Hypershift deployment the controllers run in the management
+// cluster. In a standalone cluster the control plane and guest namespace and clients are the same
+// thing).
 func withConfigDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
 	hook := csidrivercontrollerservicecontroller.WithConfigMapHashAnnotationHook(
 		c.ControlPlaneNamespace,
@@ -184,13 +187,15 @@ func withConfigDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []fact
 	return hook, informers
 }
 
-// withConfigDeploymentHook adds annotations based on the hash of the config map containing our config,
-// ensuring we restart if that changes
+// withConfigDaemonSetHook adds annotations based on the hash of the config map containing our
+// config, ensuring we restart if that changes. These watch the guest namespace and use the guest
+// plane clients since, in a Hypershift deployment the drivers run in the guest cluster. In
+// a standalone cluster the control plane and guest namespace and clients are the same thing.
 func withConfigDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
 	hook := csidrivernodeservicecontroller.WithConfigMapHashAnnotationHook(
-		c.ControlPlaneNamespace,
+		c.GuestNamespace,
 		cinderConfigName,
-		c.GetControlPlaneConfigMapInformer(c.ControlPlaneNamespace),
+		c.GetConfigMapInformer(c.GuestNamespace),
 	)
 	informers := []factory.Informer{}
 	return hook, informers
