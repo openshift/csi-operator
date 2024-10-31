@@ -28,7 +28,7 @@ import (
 
 // Builder is a helper to create Clients.
 type Builder struct {
-	userAgwent             string
+	userAgent              string
 	csiDriverName          string
 	guestNamespace         string
 	resync                 time.Duration
@@ -44,7 +44,7 @@ type Builder struct {
 // NewBuilder creates a new Builder.
 func NewBuilder(userAgent string, csiDriverName, guestNamespace string, controlPlaneNamespaces []string, controllerConfig *controllercmd.ControllerContext, resync time.Duration) *Builder {
 	return &Builder{
-		userAgwent:             userAgent,
+		userAgent:              userAgent,
 		csiDriverName:          csiDriverName,
 		guestNamespace:         guestNamespace,
 		resync:                 resync,
@@ -70,7 +70,7 @@ func (b *Builder) WithHyperShiftGuest(kubeConfigFile string, cloudConfigNamespac
 
 // BuildOrDie creates new Kubernetes clients.
 func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
-	controlPlaneRestConfig := rest.AddUserAgent(b.controllerConfig.KubeConfig, b.userAgwent)
+	controlPlaneRestConfig := rest.AddUserAgent(b.controllerConfig.KubeConfig, b.userAgent)
 	controlPlaneKubeClient := kubeclient.NewForConfigOrDie(controlPlaneRestConfig)
 	controlPlaneKubeInformers := v1helpers.NewKubeInformersForNamespaces(controlPlaneKubeClient, b.controlPlaneNamespaces...)
 
@@ -97,7 +97,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		if err != nil {
 			klog.Fatalf("error reading guesKubeConfig from %s: %v", b.guestKubeConfigFile, err)
 		}
-		guestKubeConfig = rest.AddUserAgent(guestKubeConfig, b.userAgwent)
+		guestKubeConfig = rest.AddUserAgent(guestKubeConfig, b.userAgent)
 		guestKubeClient = kubeclient.NewForConfigOrDie(guestKubeConfig)
 
 		// Create all events in the GUEST cluster.
@@ -108,7 +108,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 		if err != nil {
 			klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
 		}
-		b.client.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(b.guestNamespace), b.userAgwent, controllerRef)
+		b.client.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(b.guestNamespace), b.userAgent, controllerRef)
 
 		b.client.ControlPlaneHypeClient = hypextclient.NewForConfigOrDie(controlPlaneRestConfig)
 		b.client.ControlPlaneHypeInformer = hypextinformers.NewFilteredSharedInformerFactory(b.client.ControlPlaneHypeClient, b.resync, b.controllerConfig.OperatorNamespace, nil)
