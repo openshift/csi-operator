@@ -80,6 +80,7 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			Assets: commongenerator.DefaultControllerAssets,
 			AssetPatches: commongenerator.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
 				"controller.yaml", "overlays/openstack-manila/patches/controller_add_hypershift_volumes.yaml",
+				"controller.yaml", "overlays/openstack-manila/patches/controller_rename_config_map.yaml",
 			),
 		},
 

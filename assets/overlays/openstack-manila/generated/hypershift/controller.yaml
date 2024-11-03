@@ -18,6 +18,7 @@
 # Applied strategic merge patch livenessprobe.yaml
 # Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/controller_add_hypershift_volumes.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/controller_rename_config_map.yaml
 #
 #
 
@@ -365,7 +366,7 @@ spec:
           items:
           - key: ca-bundle.pem
             path: ca-bundle.pem
-          name: cloud-provider-config
+          name: openstack-cloud-config
           optional: true
         name: cacert
       - name: hosted-kubeconfig
