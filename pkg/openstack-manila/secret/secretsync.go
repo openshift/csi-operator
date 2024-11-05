@@ -115,6 +115,13 @@ func (c *SecretSyncController) translateSecret(cloudSecret *v1.Secret) (*v1.Secr
 
 	data := cloudToConf(cloud)
 
+	// In the hypershift secret, the clouds.yaml field might not have the cacert defined. The content of the certificate
+	// is defined in the ca-bundle.pem field instead.
+	_, ok = cloudSecret.Data["ca-bundle.pem"]
+	if ok {
+		data["os-certAuthorityPath"] = []byte(cacertPath)
+	}
+
 	secret := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.ManilaSecretName,
