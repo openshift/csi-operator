@@ -25,9 +25,6 @@ const (
 	cinderConfigName      = "cloud-conf"
 	cloudCredSecretName   = "openstack-cloud-credentials"
 	metricsCertSecretName = "openstack-cinder-csi-driver-controller-metrics-serving-cert"
-	infrastructureName    = "cluster"
-	cloudConfigNamespace  = "openshift-config-managed"
-	cloudConfigName       = "kube-cloud-config"
 	caBundleKey           = "ca-bundle.pem"
 	trustedCAConfigMap    = "openstack-cinder-csi-driver-trusted-ca-bundle"
 
