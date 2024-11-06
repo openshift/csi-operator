@@ -19,42 +19,44 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
-	"k8s.io/klog/v2"
 
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/openstack-cinder/util"
 )
 
-// This ConfigSyncController translates the ConfigMap provided by the user
-// containing configuration information for the Cinder CSI driver.
+// This ConfigSyncController generates the configuration file needed for the Cinder CSI controller
+// and driver, including optional configuration from the user, and save it to a config map in a
+// well-known location that both services can use
 type ConfigSyncController struct {
 	operatorClient       v1helpers.OperatorClient
 	kubeClient           kubernetes.Interface
 	configMapLister      corelisters.ConfigMapLister
 	infrastructureLister configv1listers.InfrastructureLister
-	guestNamespace       string
+	namespace            string
 	eventRecorder        events.Recorder
 }
 
 const (
 	resyncInterval = 20 * time.Minute
 
-	targetConfigKey   = "cloud.conf"
-	enableTopologyKey = "enable_topology"
-
 	infrastructureResourceName = "cluster"
 )
 
+type configSource struct {
+	Namespace string
+	Name      string
+	Key       string
+}
+
+// NewConfigSyncController creates a new instance of ConfigSyncController
 func NewConfigSyncController(c *clients.Clients) factory.Controller {
-	// Read configmap from user-managed namespace and save the translated one
-	// to the operator namespace
 	configMapInformer := c.GetConfigMapInformer(util.OpenShiftConfigNamespace)
 	controller := &ConfigSyncController{
 		operatorClient:       c.OperatorClient,
 		kubeClient:           c.KubeClient,
 		configMapLister:      configMapInformer.Lister(),
 		infrastructureLister: c.GetInfraInformer().Lister(),
-		guestNamespace:       c.GuestNamespace,
+		namespace:            c.GuestNamespace,
 		eventRecorder:        c.EventRecorder.WithComponentSuffix("ConfigSync"),
 	}
 	return factory.New().WithSync(
@@ -86,45 +88,59 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		return nil
 	}
 
-	enableTopologyFeature, err := enableTopologyFeature()
-	if err != nil {
-		return err
-	}
-
 	infra, err := c.infrastructureLister.Get(infrastructureResourceName)
 	if err != nil {
 		return err
 	}
 
-	var sourceConfig *v1.ConfigMap
-
-	// First, we try to retrieve from the Cinder CSI-specific config map
-	sourceConfigKey := "config"
-	sourceConfig, err = c.configMapLister.ConfigMaps(util.OpenShiftConfigNamespace).Get("cinder-csi-config")
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return err
-		}
-
+	sourceConfig, enableTopology, err := getSourceConfig(
+		c.configMapLister,
+		// First, we try to retrieve from the Cinder CSI-specific config map
+		configSource{util.OpenShiftConfigNamespace, "cinder-csi-config", "config"},
 		// Failing that, we attempt to retrieve from the cloud provider-specific config map
-		sourceConfigKey = infra.Spec.CloudConfig.Key
-		sourceConfig, err = c.configMapLister.ConfigMaps(util.OpenShiftConfigNamespace).Get(infra.Spec.CloudConfig.Name)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return err
-			}
-
-			// TODO: report error after some while?
-			klog.V(2).Infof("Waiting for config map %s from %s", infra.Spec.CloudConfig.Name, util.OpenShiftConfigNamespace)
-			return nil
-		}
-	}
-
-	targetConfig, err := translateConfigMap(sourceConfig, sourceConfigKey, enableTopologyFeature, c.guestNamespace)
+		// TODO(stephenfin): We should stop retrieving this once Installer creates the new config
+		configSource{util.OpenShiftConfigNamespace, infra.Spec.CloudConfig.Name, infra.Spec.CloudConfig.Key},
+	)
 	if err != nil {
 		return err
 	}
 
+	if enableTopology == "" {
+		// Fallback to the auto-generated default if no user-provided configuration is given
+		enableTopologyFeature, err := enableTopologyFeature()
+		if err != nil {
+			return err
+		}
+		enableTopology = strconv.FormatBool(enableTopologyFeature)
+	}
+
+	// FIXME(stephenfin): We extract the CA cert from the cloud-provider-config because we know
+	// it will exist here in both a standalone (IPI) deployment and in both clusters in a
+	// Hypershift deployment. However, this is less than ideal: cloud providers and CSI drivers are
+	// now separate things and we should be able to get this information from the credentials
+	// secret, along with our clouds.yaml. Fixing this will requires changes to
+	// cloud-credential-operator and hypershift (because the latter doesn't currently use the
+	// former). Once we have that feature, we should rejig this.
+	caCert, err := getCACert(c.configMapLister, c.namespace, "cloud-provider-config")
+	if err != nil {
+		return err
+	}
+
+	generatedConfig, err := generateConfig(sourceConfig, caCert)
+	if err != nil {
+		return err
+	}
+
+	targetConfig := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.CinderConfigName,
+			Namespace: c.namespace,
+		},
+		Data: map[string]string{
+			"cloud.conf":      generatedConfig,
+			"enable_topology": enableTopology,
+		},
+	}
 	_, _, err = resourceapply.ApplyConfigMap(ctx, c.kubeClient.CoreV1(), c.eventRecorder, targetConfig)
 	if err != nil {
 		return err
@@ -132,47 +148,96 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 	return nil
 }
 
-// translateConfigMap handles translation of config maps for the legacy, in-tree Cinder CSI driver
-// to those used by the external CSI driver that this operator manages. It also does some basic
-// validation of the config map, setting attributes to values expected by other parts of the
-// operator.
-func translateConfigMap(sourceConfig *v1.ConfigMap, sourceConfigKey string, enableTopologyFeature bool, guestNamespace string) (*v1.ConfigMap, error) {
-	// Process the cloud configuration
-	content, ok := sourceConfig.Data[sourceConfigKey]
-	if !ok {
-		return nil, fmt.Errorf("OpenStack config map %s/%s did not contain key %s", sourceConfig.Namespace, sourceConfig.Name, sourceConfigKey)
-	}
-
-	cfg, err := ini.Load([]byte(content))
+// getCACert gets the (optional) embedded CA Cert provided in a config map by either the Installer
+// or the hypershift-operator so that we can inject it into our config files
+func getCACert(configMapLister corelisters.ConfigMapLister, ns, name string) (*string, error) {
+	cm, err := configMapLister.ConfigMaps(ns).Get(name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the cloud.conf: %w", err)
+		if !errors.IsNotFound(err) {
+			return nil, err
+		}
+		return nil, nil
+	}
+	caCert, ok := cm.Data["ca-bundle.pem"]
+	if !ok || len(caCert) == 0 {
+		return nil, nil
+	}
+	return &caCert, nil
+}
+
+// getSourceConfig extracts any source configuration present in any of the provided for the legacy,
+// in-tree Cinder CSI driver to those used by the external CSI driver that this operator manages
+func getSourceConfig(
+	configMapLister corelisters.ConfigMapLister,
+	sources ...configSource,
+) ([]byte, string, error) {
+	extractConfig := func(cm *v1.ConfigMap, key string) ([]byte, string, error) {
+		// Process the cloud configuration
+		content, ok := cm.Data[key]
+		if !ok {
+			return nil, "", fmt.Errorf("config map %s/%s did not contain key %s", cm.Namespace, cm.Name, key)
+		}
+
+		// This value may not be set and that's okay
+		enableTopology, _ := cm.Data["enable_topology"]
+
+		return []byte(content), enableTopology, nil
 	}
 
-	// Set the static, must-have keys in the '[Global]' section. If these are
-	// already set by the user then tough luck
-	global, _ := cfg.GetSection("Global")
-	if global != nil {
-		klog.Infof("[Global] section found; dropping any legacy settings...")
-		// Use a slice to preserve keys order
-		for _, o := range []struct{ k, v string }{
-			{"secret-name", "openstack-credentials"},
-			{"secret-namespace", "kube-system"},
-			{"kubeconfig-path", ""},
-		} {
-			if global.HasKey(o.k) && global.Key(o.k).String() != o.v {
-				return nil, fmt.Errorf("'[Global] %s' is set to a non-default value", o.k)
+	for _, source := range sources {
+		sourceConfig, err := configMapLister.ConfigMaps(source.Namespace).Get(source.Name)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, "", err
 			}
-			global.DeleteKey(o.k)
+		} else {
+			return extractConfig(sourceConfig, source.Key)
+		}
+	}
+
+	return nil, "", nil
+}
+
+// generateConfig handles generation of config files for the CSI controller and driver. An
+// optional, user-defined config file may be provided. If these are provided then the
+// '[BlockStorage]' section (and only that section) will be used in generation.
+func generateConfig(
+	sourceContent []byte,
+	caCert *string,
+) (string, error) {
+	var cfg *ini.File
+
+	if sourceContent != nil {
+		var err error
+		cfg, err = ini.Load(sourceContent)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate cloud.conf: %w", err)
 		}
 	} else {
-		// This probably isn't common but at least handling this allows us to
-		// recover gracefully
-		global, err = cfg.NewSection("Global")
-		if err != nil {
-			return nil, fmt.Errorf("failed to modify the provided configuration: %w", err)
+		cfg = ini.Empty()
+	}
+
+	for _, section := range cfg.Sections() {
+		// We want to preserve the BlockStorage section and *nothing* else
+		if section.Name() == "BlockStorage" {
+			// ...and even then, there are some legacy values we don't want
+			if key, _ := section.GetKey("trust-device-path"); key != nil {
+				section.DeleteKey("trust-device-path")
+			}
+
+			// If that was the only key, delete the section.
+			if len(section.KeyStrings()) == 0 {
+				cfg.DeleteSection(section.Name())
+			}
+		} else {
+			cfg.DeleteSection(section.Name())
 		}
 	}
-	// Use a slice to preserve keys order
+
+	global, err := cfg.NewSection("Global")
+	if err != nil {
+		return "", err
+	}
 	for _, o := range []struct{ k, v string }{
 		{"use-clouds", "true"},
 		{"clouds-file", "/etc/kubernetes/secret/clouds.yaml"},
@@ -180,22 +245,18 @@ func translateConfigMap(sourceConfig *v1.ConfigMap, sourceConfigKey string, enab
 	} {
 		_, err = global.NewKey(o.k, o.v)
 		if err != nil {
-			return nil, fmt.Errorf("failed to modify the provided configuration: %w", err)
+			return "", err
 		}
 	}
 
-	// Now, modify the '[BlockStorage]' section as necessary
-	blockStorage, _ := cfg.GetSection("BlockStorage")
-	if blockStorage != nil {
-		klog.Infof("[BlockStorage] section found; dropping any legacy settings...")
-		// Remove the legacy keys, once we ensure they're not overridden
-		if key, _ := blockStorage.GetKey("trust-device-path"); key != nil {
-			blockStorage.DeleteKey("trust-device-path")
-		}
-
-		// If that was the only key, remove the section also
-		if len(blockStorage.KeyStrings()) == 0 {
-			cfg.DeleteSection("BlockStorage")
+	if caCert != nil {
+		// We don't have a (non-deprecated) way to inject the CA cert itself into the config
+		// file, so instead we pass a file path. The path itself may look like a magic value but
+		// its where we have configured both the deployment (for controller) and daemonset (for
+		// driver) assets to mount the cert, if present.
+		_, err = global.NewKey("ca-file", "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bundle.pem")
+		if err != nil {
+			return "", err
 		}
 	}
 
@@ -204,29 +265,8 @@ func translateConfigMap(sourceConfig *v1.ConfigMap, sourceConfigKey string, enab
 
 	_, err = cfg.WriteTo(&buf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to modify the provided configuration: %w", err)
+		return "", err
 	}
 
-	// Process the topology feature flag
-	enableTopologyValue, ok := sourceConfig.Data[enableTopologyKey]
-	if ok {
-		// use the user-configured value if provided...
-		klog.Infof("%s configuration found; using user-provided configuration...", enableTopologyKey)
-	} else {
-		// ...but fallback to the automatic configuration if not
-		enableTopologyValue = strconv.FormatBool(enableTopologyFeature)
-	}
-
-	targetConfig := v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.CinderConfigName,
-			Namespace: guestNamespace,
-		},
-		Data: map[string]string{
-			targetConfigKey:   buf.String(),
-			enableTopologyKey: enableTopologyValue,
-		},
-	}
-
-	return &targetConfig, nil
+	return buf.String(), nil
 }
