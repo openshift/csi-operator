@@ -74,6 +74,12 @@ type OperatorControllerConfig struct {
 
 	// ExtraReplacements defines additional replacements that should be made to assets
 	ExtraReplacementsFunc func() []string
+
+	// Precondition to run operator
+	Precondition func() (bool, error)
+
+	// List of informers that should be added to the precondition controller
+	PreconditionInformers []factory.Informer
 }
 
 func (o *OperatorControllerConfig) AddCredentialsRequestHook(hook credentialsrequestcontroller.CredentialsRequestHook) {

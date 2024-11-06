@@ -42,16 +42,14 @@ type Builder struct {
 }
 
 // NewBuilder creates a new Builder.
-func NewBuilder(userAgent string, csiDriverName, guestNamespace string, controllerConfig *controllercmd.ControllerContext, resync time.Duration) *Builder {
+func NewBuilder(userAgent string, csiDriverName, guestNamespace string, controlPlaneNamespaces []string, controllerConfig *controllercmd.ControllerContext, resync time.Duration) *Builder {
 	return &Builder{
-		userAgwent:       userAgent,
-		csiDriverName:    csiDriverName,
-		guestNamespace:   guestNamespace,
-		resync:           resync,
-		controllerConfig: controllerConfig,
-		controlPlaneNamespaces: []string{
-			controllerConfig.OperatorNamespace,
-		},
+		userAgwent:             userAgent,
+		csiDriverName:          csiDriverName,
+		guestNamespace:         guestNamespace,
+		resync:                 resync,
+		controllerConfig:       controllerConfig,
+		controlPlaneNamespaces: controlPlaneNamespaces,
 		guestNamespaces: []string{
 			"",
 			guestNamespace,
