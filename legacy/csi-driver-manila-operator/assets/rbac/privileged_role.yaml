@@ -1,9 +1,0 @@
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: manila-privileged-role
-rules:
-  - apiGroups: ["security.openshift.io"]
-    resourceNames: ["privileged"]
-    resources: ["securitycontextconstraints"]
-    verbs: ["use"]
