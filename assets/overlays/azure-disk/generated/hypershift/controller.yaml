@@ -99,6 +99,8 @@ spec:
           value: /etc/kubernetes/cloud.conf
         - name: CSI_ENDPOINT
           value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+        - name: AZURE_SDK_GO_LOGGING
+          value: all
         image: ${DRIVER_IMAGE}
         imagePullPolicy: IfNotPresent
         livenessProbe:
