@@ -1,88 +1,13 @@
 package aws_ebs
 
 import (
-	"context"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	configv1 "github.com/openshift/api/config/v1"
-	opv1 "github.com/openshift/api/operator/v1"
-	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
-	"github.com/openshift/client-go/config/informers/externalversions"
-	"github.com/openshift/csi-operator/pkg/clients"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 	"testing"
 )
-
-type FakeOperator struct {
-	metav1.ObjectMeta
-	Spec   opv1.OperatorSpec
-	Status opv1.OperatorStatus
-}
-
-func TestEBSVolumeTagsController_Sync(t *testing.T) {
-	ctx := context.TODO()
-
-	fakeConfigClient := fakeconfig.NewSimpleClientset()
-	informerFactory := externalversions.NewSharedInformerFactory(fakeConfigClient, 0)
-	informerFactory.Config().V1().Infrastructures().Informer()
-
-	// Test getEC2Client with valid and invalid AWS credentials
-	t.Run("TestGetEC2Client", func(t *testing.T) {
-		fakeCoreClient := fake.NewSimpleClientset()
-
-		// Case 1: Valid credentials
-		validSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      awsEBSSecretName,
-				Namespace: awsEBSSecretNamespace,
-			},
-			Data: map[string][]byte{
-				"aws_access_key_id":     []byte("test-access-key"),
-				"aws_secret_access_key": []byte("test-secret-key"),
-			},
-		}
-		_, err := fakeCoreClient.CoreV1().Secrets(awsEBSSecretNamespace).Create(ctx, validSecret, metav1.CreateOptions{})
-		if err != nil {
-			t.Fatalf("Failed to create secret for valid credentials: %v", err)
-		}
-
-		controller := &EBSVolumeTagsController{
-			commonClient: &clients.Clients{KubeClient: fakeCoreClient},
-		}
-
-		awsRegion := "us-east-1"
-		ec2Client, err := controller.getEC2Client(ctx, awsRegion)
-		if err != nil {
-			t.Fatalf("Expected EC2 client to be created without errors for valid credentials, but got: %v", err)
-		}
-		if ec2Client == nil {
-			t.Fatalf("Expected non-nil EC2 client, but got nil")
-		}
-
-		// Case 2: Missing credentials
-		invalidSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      awsEBSSecretName,
-				Namespace: awsEBSSecretNamespace,
-			},
-			Data: map[string][]byte{
-				"some_other_field": []byte("some-value"),
-			},
-		}
-		_, err = fakeCoreClient.CoreV1().Secrets(awsEBSSecretNamespace).Update(ctx, invalidSecret, metav1.UpdateOptions{})
-		if err != nil {
-			t.Fatalf("Failed to create secret for invalid credentials: %v", err)
-		}
-
-		_, err = controller.getEC2Client(ctx, awsRegion)
-		if err == nil {
-			t.Fatalf("Expected error for missing AWS credentials, but got none")
-		}
-	})
-}
 
 // TestNewAndUpdatedTags checks that newAndUpdatedTags converts OpenShift AWS resource tags to AWS ec2.Tags correctly
 func TestNewAndUpdatedTags(t *testing.T) {
