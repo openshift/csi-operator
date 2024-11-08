@@ -24,16 +24,33 @@ import (
 	"github.com/openshift/csi-operator/pkg/openstack-cinder/util"
 )
 
+// configSource stores the location of a config file source
+type configSource struct {
+	Namespace string
+	Name      string
+	Key       string
+}
+
+type configDestination struct {
+	namespace  string
+	name       string
+	kubeClient kubernetes.Interface
+}
+
 // This ConfigSyncController generates the configuration file needed for the Cinder CSI controller
 // and driver, including optional configuration from the user, and save it to a config map in a
 // well-known location that both services can use
 type ConfigSyncController struct {
-	operatorClient       v1helpers.OperatorClient
-	kubeClient           kubernetes.Interface
-	configMapLister      corelisters.ConfigMapLister
-	infrastructureLister configv1listers.InfrastructureLister
-	namespace            string
-	eventRecorder        events.Recorder
+	operatorClient         v1helpers.OperatorClient
+	controlPlaneKubeClient kubernetes.Interface
+	guestKubeClient        kubernetes.Interface
+	controlPlaneInformers  v1helpers.KubeInformersForNamespaces
+	guestInformers         v1helpers.KubeInformersForNamespaces
+	infrastructureLister   configv1listers.InfrastructureLister
+	controlPlaneNamespace  string
+	guestNamespace         string
+	eventRecorder          events.Recorder
+	isHypershift           bool
 }
 
 const (
@@ -42,22 +59,19 @@ const (
 	infrastructureResourceName = "cluster"
 )
 
-type configSource struct {
-	Namespace string
-	Name      string
-	Key       string
-}
-
 // NewConfigSyncController creates a new instance of ConfigSyncController
-func NewConfigSyncController(c *clients.Clients) factory.Controller {
-	configMapInformer := c.GetConfigMapInformer(util.OpenShiftConfigNamespace)
+func NewConfigSyncController(c *clients.Clients, isHypershift bool) (factory.Controller, error) {
 	controller := &ConfigSyncController{
-		operatorClient:       c.OperatorClient,
-		kubeClient:           c.KubeClient,
-		configMapLister:      configMapInformer.Lister(),
-		infrastructureLister: c.GetInfraInformer().Lister(),
-		namespace:            c.GuestNamespace,
-		eventRecorder:        c.EventRecorder.WithComponentSuffix("ConfigSync"),
+		operatorClient:         c.OperatorClient,
+		controlPlaneKubeClient: c.ControlPlaneKubeClient,
+		guestKubeClient:        c.KubeClient,
+		controlPlaneInformers:  c.ControlPlaneKubeInformers,
+		guestInformers:         c.KubeInformers,
+		infrastructureLister:   c.GetInfraInformer().Lister(),
+		controlPlaneNamespace:  c.ControlPlaneNamespace,
+		guestNamespace:         c.GuestNamespace,
+		eventRecorder:          c.EventRecorder.WithComponentSuffix("ConfigSync"),
+		isHypershift:           isHypershift,
 	}
 	return factory.New().WithSync(
 		controller.sync,
@@ -67,8 +81,10 @@ func NewConfigSyncController(c *clients.Clients) factory.Controller {
 		c.OperatorClient,
 	).WithInformers(
 		c.OperatorClient.Informer(),
-		configMapInformer.Informer(),
-	).ToController("ConfigSync", c.EventRecorder)
+		c.GetConfigMapInformer(util.OpenShiftConfigNamespace).Informer(),
+		c.GetControlPlaneConfigMapInformer(c.ControlPlaneNamespace).Informer(),
+		c.GetConfigMapInformer(c.GuestNamespace).Informer(),
+	).ToController("ConfigSync", c.EventRecorder), nil
 }
 
 func (c *ConfigSyncController) Name() string {
@@ -78,6 +94,9 @@ func (c *ConfigSyncController) Name() string {
 // sync syncs user-defined configuration from one of the two potential locations to the
 // operator-defined location
 func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	var configSources []configSource
+	var configDestinations []configDestination
+	var configMapLister corelisters.ConfigMapLister
 	var err error
 
 	opSpec, _, _, err := c.operatorClient.GetOperatorState()
@@ -88,19 +107,45 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		return nil
 	}
 
-	infra, err := c.infrastructureLister.Get(infrastructureResourceName)
-	if err != nil {
-		return err
+	if !c.isHypershift {
+		// If we're in a standalone deployment then we try to source potential user-provided
+		// configuration from one of two config maps
+		infra, err := c.infrastructureLister.Get(infrastructureResourceName)
+		if err != nil {
+			return err
+		}
+
+		configSources = []configSource{
+			// First, we try to retrieve from the Cinder CSI-specific config map
+			{util.OpenShiftConfigNamespace, "cinder-csi-config", "config"},
+			// Failing that, we attempt to retrieve from the cloud provider-specific config map
+			// TODO(stephenfin): We should stop retrieving this once Installer creates the new
+			// config, which will allow us to simplify things somewhat here
+			{util.OpenShiftConfigNamespace, infra.Spec.CloudConfig.Name, infra.Spec.CloudConfig.Key},
+		}
+
+		// ...while saving it to the only cluster we have
+		configDestinations = []configDestination{
+			{c.controlPlaneNamespace, util.CinderConfigName, c.controlPlaneKubeClient},
+		}
+
+		// ...and watching the openshift-config namespace
+		configMapLister = c.guestInformers.InformersFor(util.OpenShiftConfigNamespace).Core().V1().ConfigMaps().Lister()
+	} else {
+		// ...and we don't currently support user-defined configuration so there's nothing to set
+		// for that
+
+		// ...but we now have two clusters to save to
+		configDestinations = []configDestination{
+			{c.controlPlaneNamespace, util.CinderConfigName, c.controlPlaneKubeClient},
+			{c.guestNamespace, util.CinderConfigName, c.guestKubeClient},
+		}
+
+		// ...and we watch the clusters-${NAME} namespace (on the control plane cluster)
+		configMapLister = c.controlPlaneInformers.InformersFor(c.controlPlaneNamespace).Core().V1().ConfigMaps().Lister()
 	}
 
-	sourceConfig, enableTopology, err := getSourceConfig(
-		c.configMapLister,
-		// First, we try to retrieve from the Cinder CSI-specific config map
-		configSource{util.OpenShiftConfigNamespace, "cinder-csi-config", "config"},
-		// Failing that, we attempt to retrieve from the cloud provider-specific config map
-		// TODO(stephenfin): We should stop retrieving this once Installer creates the new config
-		configSource{util.OpenShiftConfigNamespace, infra.Spec.CloudConfig.Name, infra.Spec.CloudConfig.Key},
-	)
+	sourceConfig, enableTopology, err := getSourceConfig(configMapLister, configSources...)
 	if err != nil {
 		return err
 	}
@@ -114,6 +159,9 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		enableTopology = strconv.FormatBool(enableTopologyFeature)
 	}
 
+	// ...and we watch the clusters-${NAME} namespace (on the control plane cluster)
+	configMapLister = c.guestInformers.InformersFor(c.guestNamespace).Core().V1().ConfigMaps().Lister()
+
 	// FIXME(stephenfin): We extract the CA cert from the cloud-provider-config because we know
 	// it will exist here in both a standalone (IPI) deployment and in both clusters in a
 	// Hypershift deployment. However, this is less than ideal: cloud providers and CSI drivers are
@@ -121,7 +169,7 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 	// secret, along with our clouds.yaml. Fixing this will requires changes to
 	// cloud-credential-operator and hypershift (because the latter doesn't currently use the
 	// former). Once we have that feature, we should rejig this.
-	caCert, err := getCACert(c.configMapLister, c.namespace, "cloud-provider-config")
+	caCert, err := getCACert(configMapLister, c.guestNamespace, "cloud-provider-config")
 	if err != nil {
 		return err
 	}
@@ -131,19 +179,21 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		return err
 	}
 
-	targetConfig := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.CinderConfigName,
-			Namespace: c.namespace,
-		},
-		Data: map[string]string{
-			"cloud.conf":      generatedConfig,
-			"enable_topology": enableTopology,
-		},
-	}
-	_, _, err = resourceapply.ApplyConfigMap(ctx, c.kubeClient.CoreV1(), c.eventRecorder, targetConfig)
-	if err != nil {
-		return err
+	for _, configDestination := range configDestinations {
+		targetConfig := &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      configDestination.name,
+				Namespace: configDestination.namespace,
+			},
+			Data: map[string]string{
+				"cloud.conf":      generatedConfig,
+				"enable_topology": enableTopology,
+			},
+		}
+		_, _, err = resourceapply.ApplyConfigMap(ctx, configDestination.kubeClient.CoreV1(), c.eventRecorder, targetConfig)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

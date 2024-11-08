@@ -129,7 +129,7 @@ func GetOpenStackCinderOperatorControllerConfig(ctx context.Context, flavour gen
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withClusterWideProxyDaemonSetHook, withConfigDaemonSetHook)
 	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, cloudCredSecretName)
 
-	configMapSyncer, err := createConfigMapSyncer(c)
+	configMapSyncer, err := createConfigMapSyncer(c, flavour)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +202,8 @@ func withConfigDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller
 // createConfigMapSyncer syncs config maps containing configuration for the CSI driver from the
 // user-managed namespace to the operator namespace, validating it and potentially transforming it
 // in the process
-func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
-	configSyncController := configsync.NewConfigSyncController(c)
-	return configSyncController, nil
+func createConfigMapSyncer(c *clients.Clients, flavour generator.ClusterFlavour) (factory.Controller, error) {
+	isHypershift := flavour == generator.FlavourHyperShift
+	configSyncController, err := configsync.NewConfigSyncController(c, isHypershift)
+	return configSyncController, err
 }
