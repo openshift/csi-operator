@@ -8,7 +8,6 @@ import (
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -22,6 +21,7 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
+	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/openstack-cinder/util"
 )
 
@@ -37,6 +37,8 @@ type ConfigSyncController struct {
 }
 
 const (
+	resyncInterval = 20 * time.Minute
+
 	sourceConfigKey   = "config"
 	targetConfigKey   = "cloud.conf"
 	enableTopologyKey = "enable_topology"
@@ -44,30 +46,22 @@ const (
 	infrastructureResourceName = "cluster"
 )
 
-func NewConfigSyncController(
-	operatorClient v1helpers.OperatorClient,
-	kubeClient kubernetes.Interface,
-	informers v1helpers.KubeInformersForNamespaces,
-	configInformers configinformers.SharedInformerFactory,
-	guestNamespace string,
-	resyncInterval time.Duration,
-	eventRecorder events.Recorder) factory.Controller {
-
+func NewConfigSyncController(c *clients.Clients) factory.Controller {
 	// Read configmap from user-managed namespace and save the translated one
 	// to the operator namespace
-	configMapInformer := informers.InformersFor(util.OpenShiftConfigNamespace)
-	c := &ConfigSyncController{
-		operatorClient:       operatorClient,
-		kubeClient:           kubeClient,
+	configMapInformer := c.KubeInformers.InformersFor(util.OpenShiftConfigNamespace)
+	controller := &ConfigSyncController{
+		operatorClient:       c.OperatorClient,
+		kubeClient:           c.KubeClient,
 		configMapLister:      configMapInformer.Core().V1().ConfigMaps().Lister(),
-		infrastructureLister: configInformers.Config().V1().Infrastructures().Lister(),
-		guestNamespace:       guestNamespace,
-		eventRecorder:        eventRecorder.WithComponentSuffix("ConfigSync"),
+		infrastructureLister: c.ConfigInformers.Config().V1().Infrastructures().Lister(),
+		guestNamespace:       c.GuestNamespace,
+		eventRecorder:        c.EventRecorder.WithComponentSuffix("ConfigSync"),
 	}
-	return factory.New().WithSync(c.sync).ResyncEvery(resyncInterval).WithSyncDegradedOnError(operatorClient).WithInformers(
-		operatorClient.Informer(),
+	return factory.New().WithSync(controller.sync).ResyncEvery(resyncInterval).WithSyncDegradedOnError(c.OperatorClient).WithInformers(
+		c.OperatorClient.Informer(),
 		configMapInformer.Core().V1().ConfigMaps().Informer(),
-	).ToController("ConfigSync", eventRecorder)
+	).ToController("ConfigSync", c.EventRecorder)
 }
 
 func (c *ConfigSyncController) Name() string {

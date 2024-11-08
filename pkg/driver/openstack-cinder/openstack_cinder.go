@@ -3,7 +3,6 @@ package openstack_cinder
 import (
 	"context"
 	"fmt"
-	"time"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
@@ -21,7 +20,6 @@ import (
 )
 
 const (
-	resyncInterval        = 20 * time.Minute
 	cinderConfigName      = "cloud-conf"
 	cloudCredSecretName   = "openstack-cloud-credentials"
 	metricsCertSecretName = "openstack-cinder-csi-driver-controller-metrics-serving-cert"
@@ -205,14 +203,6 @@ func withConfigDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller
 // user-managed namespace to the operator namespace, validating it and potentially transforming it
 // in the process
 func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
-	configSyncController := configsync.NewConfigSyncController(
-		c.OperatorClient,
-		c.KubeClient,
-		c.KubeInformers,
-		c.ConfigInformers,
-		c.GuestNamespace,
-		resyncInterval,
-		c.EventRecorder)
-
+	configSyncController := configsync.NewConfigSyncController(c)
 	return configSyncController, nil
 }
