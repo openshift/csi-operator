@@ -49,18 +49,24 @@ const (
 func NewConfigSyncController(c *clients.Clients) factory.Controller {
 	// Read configmap from user-managed namespace and save the translated one
 	// to the operator namespace
-	configMapInformer := c.KubeInformers.InformersFor(util.OpenShiftConfigNamespace)
+	configMapInformer := c.GetConfigMapInformer(util.OpenShiftConfigNamespace)
 	controller := &ConfigSyncController{
 		operatorClient:       c.OperatorClient,
 		kubeClient:           c.KubeClient,
-		configMapLister:      configMapInformer.Core().V1().ConfigMaps().Lister(),
-		infrastructureLister: c.ConfigInformers.Config().V1().Infrastructures().Lister(),
+		configMapLister:      configMapInformer.Lister(),
+		infrastructureLister: c.GetInfraInformer().Lister(),
 		guestNamespace:       c.GuestNamespace,
 		eventRecorder:        c.EventRecorder.WithComponentSuffix("ConfigSync"),
 	}
-	return factory.New().WithSync(controller.sync).ResyncEvery(resyncInterval).WithSyncDegradedOnError(c.OperatorClient).WithInformers(
+	return factory.New().WithSync(
+		controller.sync,
+	).ResyncEvery(
+		resyncInterval,
+	).WithSyncDegradedOnError(
+		c.OperatorClient,
+	).WithInformers(
 		c.OperatorClient.Informer(),
-		configMapInformer.Core().V1().ConfigMaps().Informer(),
+		configMapInformer.Informer(),
 	).ToController("ConfigSync", c.EventRecorder)
 }
 
