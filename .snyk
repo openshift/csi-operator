@@ -4,3 +4,10 @@
 exclude:
   global:
     - vendor/**
+ignore:
+  d4eae1cf-1400-4b06-a906-bc189fed8faf:
+    - '*':
+        reason: Developer-only CLI
+        expires: ''
+        created: 2024-11-12T09:56:38.552Z
+patch: {}
