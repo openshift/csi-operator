@@ -3,4 +3,18 @@
 # https://docs.snyk.io/snyk-cli/commands/ignore
 exclude:
   global:
-    - vendor/**
+    - 'vendor/**'
+    # Skip file with warnings. We should be able to ignore these, but that interface does not
+    # currently work so we skip the whole file instead.
+    #
+    # Unsanitized input from a CLI argument flows into os.RemoveAll, where it is used as a path.
+    # This may result in a Path Traversal vulnerability and allow an attacker to delete arbitrary
+    # files.
+    - 'cmd/generator/main.go'
+  # ignore:
+  #   'd4eae1cf-1400-4b06-a906-bc189fed8faf':
+  #     - '*':
+  #         reason: 'Developer-only CLI'
+  #         expires: ''
+  #         created: '2024-11-12T09:56:38.552Z'
+patch: {}
