@@ -1,5 +1,0 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: manila-csi-driver-node-sa
-  namespace: openshift-manila-csi-driver
