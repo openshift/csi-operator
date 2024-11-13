@@ -415,7 +415,7 @@ spec:
           items:
           - key: ca-bundle.pem
             path: ca-bundle.pem
-          name: cloud-provider-config
+          name: cloud-conf
           optional: true
         name: cacert
       - name: hosted-kubeconfig

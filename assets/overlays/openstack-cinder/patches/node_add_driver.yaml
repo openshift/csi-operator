@@ -77,7 +77,7 @@ spec:
           # is not preset there. The certificate file will be created once the
           # ConfigMap is created / the certificate is added to it.
           configMap:
-            name: cloud-provider-config
+            name: cloud-conf
             items:
             - key: ca-bundle.pem
               path: ca-bundle.pem

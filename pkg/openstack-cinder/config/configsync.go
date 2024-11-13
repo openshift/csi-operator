@@ -190,6 +190,9 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 				"enable_topology": enableTopology,
 			},
 		}
+		if caCert != nil {
+			targetConfig.Data["ca-bundle.pem"] = *caCert
+		}
 		_, _, err = resourceapply.ApplyConfigMap(ctx, configDestination.kubeClient.CoreV1(), c.eventRecorder, targetConfig)
 		if err != nil {
 			return err
