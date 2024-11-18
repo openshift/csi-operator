@@ -4,10 +4,6 @@ aliases:
   openstack-approvers:
   - EmilienM
   - mandre
-  - MaysaMacedo
-  - mdbooth
-  - pierreprinetti
-  - stephenfin
   openshift-storage-maintainers:
   - jsafrane
   - tsmetana
