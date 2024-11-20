@@ -160,7 +160,7 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 	}
 
 	// ...and we watch the clusters-${NAME} namespace (on the control plane cluster)
-	configMapLister = c.guestInformers.InformersFor(c.guestNamespace).Core().V1().ConfigMaps().Lister()
+	configMapLister = c.controlPlaneInformers.InformersFor(c.controlPlaneNamespace).Core().V1().ConfigMaps().Lister()
 
 	// FIXME(stephenfin): We extract the CA cert from the cloud-provider-config because we know
 	// it will exist here in both a standalone (IPI) deployment and in both clusters in a
@@ -169,7 +169,12 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 	// secret, along with our clouds.yaml. Fixing this will requires changes to
 	// cloud-credential-operator and hypershift (because the latter doesn't currently use the
 	// former). Once we have that feature, we should rejig this.
-	caCert, err := getCACert(configMapLister, c.guestNamespace, "cloud-provider-config")
+	cloudProviderConfig := "cloud-provider-config"
+	if c.isHypershift {
+		// unfortunately hypershift uses a different name
+		cloudProviderConfig = "openstack-cloud-config"
+	}
+	caCert, err := getCACert(configMapLister, c.controlPlaneNamespace, cloudProviderConfig)
 	if err != nil {
 		return err
 	}
@@ -206,10 +211,7 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 func getCACert(configMapLister corelisters.ConfigMapLister, ns, name string) (*string, error) {
 	cm, err := configMapLister.ConfigMaps(ns).Get(name)
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, err
-		}
-		return nil, nil
+		return nil, err
 	}
 	caCert, ok := cm.Data["ca-bundle.pem"]
 	if !ok || len(caCert) == 0 {
