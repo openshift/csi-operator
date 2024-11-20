@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -78,8 +77,11 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--probe-timeout=10s",
 				),
 			},
-			Assets:       commongenerator.DefaultControllerAssets,
-			AssetPatches: commongenerator.DefaultAssetPatches,
+			Assets: commongenerator.DefaultControllerAssets,
+			AssetPatches: commongenerator.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
+				"controller.yaml", "overlays/openstack-manila/patches/controller_add_hypershift_volumes.yaml",
+				"controller.yaml", "overlays/openstack-manila/patches/controller_rename_config_map.yaml",
+			),
 		},
 
 		GuestConfig: &generator.GuestConfig{
@@ -98,7 +100,6 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/openstack-manila/base/node_nfs.yaml",
 			),
 		},
-		StandaloneOnly: true,
 	}
 }
 
@@ -123,10 +124,6 @@ func GetOpenStackManilaOperatorConfig() *config.OperatorConfig {
 // GetOpenStackManilaOperatorControllerConfig returns second half of runtime configuration of the CSI driver operator,
 // after a client connection + cluster flavour are established.
 func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
-	if flavour != generator.FlavourStandalone {
-		klog.Error(nil, "Flavour HyperShift is not supported!")
-		return nil, fmt.Errorf("flavour HyperShift is not supported")
-	}
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "OpenStackManila")
 
 	go c.ConfigInformers.Start(ctx.Done())

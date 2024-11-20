@@ -1,0 +1,375 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/controller_add_driver.yaml
+# Applied strategic merge patch common/sidecars/controller_driver_kube_rbac_proxy.yaml
+# provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
+# provisioner.yaml: Added arguments [--timeout=120s --feature-gates=Topology=true]
+# provisioner.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
+# Applied strategic merge patch provisioner.yaml
+# resizer.yaml: Loaded from common/sidecars/resizer.yaml
+# resizer.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
+# Applied strategic merge patch resizer.yaml
+# snapshotter.yaml: Loaded from common/sidecars/snapshotter.yaml
+# snapshotter.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
+# Applied strategic merge patch snapshotter.yaml
+# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
+# livenessprobe.yaml: Added arguments [--probe-timeout=10s]
+# Applied strategic merge patch livenessprobe.yaml
+# Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/controller_add_hypershift_volumes.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/controller_rename_config_map.yaml
+#
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+  name: openstack-manila-csi-controllerplugin
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: openstack-manila-csi
+      component: controllerplugin
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: socket-dir
+        openshift.io/required-scc: restricted-v2
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        app: openstack-manila-csi
+        component: controllerplugin
+        hypershift.openshift.io/hosted-control-plane: ${NAMESPACE}
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: hypershift.openshift.io/control-plane
+                operator: In
+                values:
+                - "true"
+            weight: 50
+          - preference:
+              matchExpressions:
+              - key: hypershift.openshift.io/cluster
+                operator: In
+                values:
+                - ${NAMESPACE}
+            weight: 100
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  hypershift.openshift.io/hosted-control-plane: ${NAMESPACE}
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: manila-csi-driver-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - --v=${LOG_LEVEL}
+        - --cluster-id=${CLUSTER_ID}
+        - --nodeid=$(NODE_ID)
+        - --endpoint=$(CSI_ENDPOINT)
+        - --drivername=$(DRIVER_NAME)
+        - --share-protocol-selector=$(MANILA_SHARE_PROTO)
+        - --fwdendpoint=$(FWD_CSI_ENDPOINT)
+        env:
+        - name: DRIVER_NAME
+          value: manila.csi.openstack.org
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: CSI_ENDPOINT
+          value: unix:///plugin/csi.sock
+        - name: MANILA_SHARE_PROTO
+          value: NFS
+        - name: FWD_CSI_ENDPOINT
+          value: unix:///plugin/csi-nfs.sock
+        image: ${DRIVER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 10
+        name: csi-driver
+        ports:
+        - containerPort: 10306
+          name: healthz
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /plugin
+          name: socket-dir
+        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+          name: cacert
+      - args:
+        - --nodeid=$(NODE_ID)
+        - --endpoint=unix://plugin/csi-nfs.sock
+        - --mount-permissions=0777
+        env:
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: ${NFS_DRIVER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-driver-nfs
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /plugin
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9202
+        - --upstream=http://127.0.0.1:8202/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: kube-rbac-proxy-8202
+        ports:
+        - containerPort: 9202
+          name: driver-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8203
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=${NODE_NAMESPACE}
+        - --v=${LOG_LEVEL}
+        - --timeout=120s
+        - --feature-gates=Topology=true
+        - --kubeconfig=$(KUBECONFIG)
+        env:
+        - name: KUBECONFIG
+          value: /etc/hosted-kubernetes/kubeconfig
+        image: ${PROVISIONER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-provisioner
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+        - mountPath: /etc/hosted-kubernetes
+          name: hosted-kubeconfig
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:9203
+        - --upstream=http://127.0.0.1:8203/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: provisioner-kube-rbac-proxy
+        ports:
+        - containerPort: 9203
+          name: provisioner-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8204
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=${NODE_NAMESPACE}
+        - --v=${LOG_LEVEL}
+        - --kubeconfig=$(KUBECONFIG)
+        env:
+        - name: KUBECONFIG
+          value: /etc/hosted-kubernetes/kubeconfig
+        image: ${RESIZER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-resizer
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+        - mountPath: /etc/hosted-kubernetes
+          name: hosted-kubeconfig
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:9204
+        - --upstream=http://127.0.0.1:8204/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: resizer-kube-rbac-proxy
+        ports:
+        - containerPort: 9204
+          name: resizer-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --metrics-address=localhost:8205
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=${NODE_NAMESPACE}
+        - --v=${LOG_LEVEL}
+        - --kubeconfig=$(KUBECONFIG)
+        env:
+        - name: KUBECONFIG
+          value: /etc/hosted-kubernetes/kubeconfig
+        image: ${SNAPSHOTTER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-snapshotter
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+        - mountPath: /etc/hosted-kubernetes
+          name: hosted-kubeconfig
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:9205
+        - --upstream=http://127.0.0.1:8205/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: snapshotter-kube-rbac-proxy
+        ports:
+        - containerPort: 9205
+          name: snapshotter-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --health-port=10306
+        - --v=${LOG_LEVEL}
+        - --probe-timeout=10s
+        env: []
+        image: ${LIVENESS_PROBE_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-liveness-probe
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      priorityClassName: hypershift-control-plane
+      serviceAccount: manila-csi-driver-controller-sa
+      tolerations:
+      - effect: NoSchedule
+        key: hypershift.openshift.io/control-plane
+        operator: Equal
+        value: "true"
+      - effect: NoSchedule
+        key: hypershift.openshift.io/cluster
+        operator: Equal
+        value: ${NAMESPACE}
+      volumes:
+      - emptyDir: {}
+        name: socket-dir
+      - name: metrics-serving-cert
+        secret:
+          secretName: manila-csi-driver-controller-metrics-serving-cert
+      - configMap:
+          items:
+          - key: ca-bundle.pem
+            path: ca-bundle.pem
+          name: openstack-cloud-config
+          optional: true
+        name: cacert
+      - name: hosted-kubeconfig
+        secret:
+          defaultMode: 420
+          secretName: service-network-admin-kubeconfig
