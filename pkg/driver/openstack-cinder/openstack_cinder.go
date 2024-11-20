@@ -2,8 +2,6 @@ package openstack_cinder
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
@@ -17,17 +15,12 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
-	"k8s.io/klog/v2"
 )
 
 const (
-	resyncInterval        = 20 * time.Minute
 	cinderConfigName      = "cloud-conf"
 	cloudCredSecretName   = "openstack-cloud-credentials"
 	metricsCertSecretName = "openstack-cinder-csi-driver-controller-metrics-serving-cert"
-	infrastructureName    = "cluster"
-	cloudConfigNamespace  = "openshift-config-managed"
-	cloudConfigName       = "kube-cloud-config"
 	caBundleKey           = "ca-bundle.pem"
 	trustedCAConfigMap    = "openstack-cinder-csi-driver-trusted-ca-bundle"
 
@@ -62,7 +55,7 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--timeout=3m",
 					"--feature-gates=Topology=$(ENABLE_TOPOLOGY)",
 					"--default-fstype=ext4",
-				).WithPatches(generator.StandaloneOnly,
+				).WithPatches(generator.AllFlavours,
 					"controller.yaml", "overlays/openstack-cinder/patches/provisioner_add_envvars.yaml",
 				),
 				commongenerator.DefaultAttacher.WithExtraArguments(
@@ -76,8 +69,10 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--probe-timeout=10s",
 				),
 			},
-			Assets:       commongenerator.DefaultControllerAssets,
-			AssetPatches: commongenerator.DefaultAssetPatches,
+			Assets: commongenerator.DefaultControllerAssets,
+			AssetPatches: commongenerator.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
+				"controller.yaml", "overlays/openstack-cinder/patches/controller_add_hypershift_volumes.yaml",
+			),
 		},
 
 		GuestConfig: &generator.GuestConfig{
@@ -96,9 +91,6 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/openstack-cinder/base/volumesnapshotclass.yaml",
 			),
 		},
-
-		// TODO(stephenfin): We'd like to support HyperShift. When we do, we should change this.
-		StandaloneOnly: true,
 	}
 }
 
@@ -118,11 +110,6 @@ func GetOpenStackCinderOperatorConfig() *config.OperatorConfig {
 // GetOpenStackCinderOperatorControllerConfig returns second half of runtime configuration of the CSI driver operator,
 // after a client connection + cluster flavour are established.
 func GetOpenStackCinderOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
-	if flavour != generator.FlavourStandalone {
-		klog.Error(nil, "Flavour HyperShift is not supported!")
-		return nil, fmt.Errorf("Flavour HyperShift is not supported!")
-	}
-
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "OpenStackCinder")
 
 	go c.ConfigInformers.Start(ctx.Done())
@@ -134,7 +121,7 @@ func GetOpenStackCinderOperatorControllerConfig(ctx context.Context, flavour gen
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withClusterWideProxyDaemonSetHook, withConfigDaemonSetHook)
 	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, cloudCredSecretName)
 
-	configMapSyncer, err := createConfigMapSyncer(c)
+	configMapSyncer, err := createConfigMapSyncer(c, flavour)
 	if err != nil {
 		return nil, err
 	}
@@ -175,8 +162,11 @@ func withClusterWideProxyDaemonSetHook(_ *clients.Clients) (csidrivernodeservice
 	return hook, nil
 }
 
-// withConfigDeploymentHook adds annotations based on the hash of the config map containing our config,
-// ensuring we restart if that changes
+// withConfigDeploymentHook adds annotations based on the hash of the config map containing our
+// config, ensuring we restart if that changes. These watch the control plane namespace and use
+// the control plane clients since in a Hypershift deployment the controllers run in the management
+// cluster. In a standalone cluster the control plane and guest namespace and clients are the same
+// thing).
 func withConfigDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
 	hook := csidrivercontrollerservicecontroller.WithConfigMapHashAnnotationHook(
 		c.ControlPlaneNamespace,
@@ -187,13 +177,15 @@ func withConfigDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []fact
 	return hook, informers
 }
 
-// withConfigDeploymentHook adds annotations based on the hash of the config map containing our config,
-// ensuring we restart if that changes
+// withConfigDaemonSetHook adds annotations based on the hash of the config map containing our
+// config, ensuring we restart if that changes. These watch the guest namespace and use the guest
+// plane clients since, in a Hypershift deployment the drivers run in the guest cluster. In
+// a standalone cluster the control plane and guest namespace and clients are the same thing.
 func withConfigDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
 	hook := csidrivernodeservicecontroller.WithConfigMapHashAnnotationHook(
-		c.ControlPlaneNamespace,
+		c.GuestNamespace,
 		cinderConfigName,
-		c.GetControlPlaneConfigMapInformer(c.ControlPlaneNamespace),
+		c.GetConfigMapInformer(c.GuestNamespace),
 	)
 	informers := []factory.Informer{}
 	return hook, informers
@@ -202,15 +194,8 @@ func withConfigDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller
 // createConfigMapSyncer syncs config maps containing configuration for the CSI driver from the
 // user-managed namespace to the operator namespace, validating it and potentially transforming it
 // in the process
-func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
-	configSyncController := configsync.NewConfigSyncController(
-		c.OperatorClient,
-		c.KubeClient,
-		c.KubeInformers,
-		c.ConfigInformers,
-		c.GuestNamespace,
-		resyncInterval,
-		c.EventRecorder)
-
-	return configSyncController, nil
+func createConfigMapSyncer(c *clients.Clients, flavour generator.ClusterFlavour) (factory.Controller, error) {
+	isHypershift := flavour == generator.FlavourHyperShift
+	configSyncController, err := configsync.NewConfigSyncController(c, isHypershift)
+	return configSyncController, err
 }

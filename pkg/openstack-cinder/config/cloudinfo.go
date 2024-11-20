@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/gophercloud/gophercloud/v2"
@@ -11,6 +12,8 @@ import (
 	azutils "github.com/gophercloud/utils/v2/openstack/compute/v2/availabilityzones"
 	"github.com/openshift/csi-operator/pkg/version"
 )
+
+const caFile = "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bundle.pem"
 
 // CloudInfo caches data fetched from the user's openstack cloud
 type CloudInfo struct {
@@ -80,6 +83,15 @@ func getCloudInfo() (*CloudInfo, error) {
 	// we represent version using commits since we don't tag releases
 	ua := gophercloud.UserAgent{}
 	ua.Prepend(fmt.Sprintf("csi-operator/%s", version.Get().GitCommit))
+
+	// our assets mount the CA file at a known path and we don't want to rely on other things
+	// setting the 'cafile' value in our clouds.yaml file to the same path, so we explicitly
+	// override this if a CA file is present
+	if _, err := os.Stat(caFile); err == nil {
+		// NOTE(stephenfin): gophercloud (or rather, the clientconfig package) doesn't currently
+		// provide the way to override configuration other than via environment variables
+		os.Setenv("OS_CACERT", caFile)
+	}
 
 	ci.clients.computeClient, err = clientconfig.NewServiceClient(context.TODO(), "compute", opts)
 	if err != nil {

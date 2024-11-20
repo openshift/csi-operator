@@ -1,0 +1,19 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/rbac/volumesnapshot_reader_provisioner_binding.yaml
+#   because it's needed by controller sidecar common/sidecars/provisioner.yaml
+#
+#
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openstack-cinder-csi-volumesnapshot-reader-provisioner-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openshift-csi-provisioner-volumesnapshot-reader-role
+subjects:
+- kind: ServiceAccount
+  name: openstack-cinder-csi-driver-controller-sa
+  namespace: ${NODE_NAMESPACE}
