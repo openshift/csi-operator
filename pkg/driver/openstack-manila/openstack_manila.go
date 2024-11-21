@@ -169,12 +169,17 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 			return false, errors.New("manila does not provide any share types")
 		}
 
-		syncCSIDriver(ctx, c.KubeClient, c.EventRecorder)
+		err = syncCSIDriver(ctx, c.KubeClient, c.EventRecorder)
+		if err != nil {
+			return true, err
+		}
 
-		syncStorageClasses(ctx, shareTypes, c.KubeClient, c.EventRecorder, c.GuestNamespace)
+		err = syncStorageClasses(ctx, shareTypes, c.KubeClient, c.EventRecorder, c.GuestNamespace)
+		if err != nil {
+			return true, err
+		}
 
 		return true, nil
-
 	}
 
 	cfg.PreconditionInformers = []factory.Informer{c.GetCSIDriverInformer().Informer(), c.GetStorageClassInformer().Informer()}

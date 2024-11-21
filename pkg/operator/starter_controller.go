@@ -67,10 +67,11 @@ func (c *Controller) sync(ctx context.Context, syncCtx factory.SyncContext) erro
 		return nil
 	}
 
-	_, err = c.operatorControllerConfig.Precondition()
-	if err != nil {
+	valid, err := c.operatorControllerConfig.Precondition()
+	if !valid {
 		return c.setDisabledCondition(ctx, fmt.Sprintf("Pre-condition not satisfied: %v", err))
 	}
+
 	if !c.controllersRunning {
 		// Start controllers
 		for _, controller := range c.factoryControllers {
@@ -86,6 +87,11 @@ func (c *Controller) sync(ctx context.Context, syncCtx factory.SyncContext) erro
 			}(ctrl)
 		}
 		c.controllersRunning = true
+	}
+
+	// If the precondition was valid, let the controllers start and return any error after.
+	if err != nil {
+		return err
 	}
 
 	return c.setEnabledCondition(ctx)
