@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/cli"
+	"k8s.io/utils/clock"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 
@@ -37,6 +38,7 @@ func NewOperatorCommand() *cobra.Command {
 		"create-efs-volume",
 		version.Get(),
 		runOperatorWithCredentialsConfig,
+		clock.RealClock{},
 	)
 	// we don't need leader election and metrics for CLI commands
 	ctrlCmdConfig.DisableLeaderElection = true

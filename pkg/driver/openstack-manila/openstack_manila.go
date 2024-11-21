@@ -341,6 +341,7 @@ func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
 		Name:      util.CloudConfigName,
 	}
 	certController := resourcesynccontroller.NewResourceSyncController(
+		string(opv1.ManilaCSIDriver),
 		c.OperatorClient,
 		c.KubeInformers,
 		c.KubeClient.CoreV1(),
