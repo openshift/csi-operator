@@ -11,6 +11,7 @@ Lifecycle Manager (OLM).
 * azure-disk-csi-driver-operator
 * azure-file-csi-driver-operator
 * openstack-cinder-csi-driver-operator
+* openstack-manila-csi-driver-operator
 * smb-csi-driver-operator
 
 ## Automatic generation of CSI driver assets
