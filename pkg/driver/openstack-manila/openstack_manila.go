@@ -45,7 +45,7 @@ const (
 	nfsImageEnvName                      = "NFS_DRIVER_IMAGE"
 )
 
-// GetOpenStackCinderGeneratorConfig returns configuration for generating assets of Manila CSI driver operator.
+// GetOpenStackManilaGeneratorConfig returns configuration for generating assets of Manila CSI driver operator.
 func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 	return &generator.CSIDriverGeneratorConfig{
 		AssetPrefix:      "manila-csi-driver",
@@ -71,7 +71,10 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--timeout=120s",
 					"--feature-gates=Topology=true",
 				),
-				commongenerator.DefaultResizer.WithExtraArguments(),
+				commongenerator.DefaultResizer.WithExtraArguments(
+					"--timeout=240s",
+					"--handle-volume-inuse-error=false",
+				),
 				commongenerator.DefaultSnapshotter.WithExtraArguments(),
 				commongenerator.DefaultLivenessProbe.WithExtraArguments(
 					"--probe-timeout=10s",
@@ -268,6 +271,7 @@ func generateStorageClass(shareType sharetypes.ShareType, guestNamespace string)
 	storageClassName := util.StorageClassNamePrefix + strings.ToLower(strings.Replace(shareType.Name, "_", "-", -1))
 	delete := corev1.PersistentVolumeReclaimDelete
 	immediate := storagev1.VolumeBindingImmediate
+	allowVolumeExpansion := true
 	sc := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: storageClassName,
@@ -275,15 +279,18 @@ func generateStorageClass(shareType sharetypes.ShareType, guestNamespace string)
 		Provisioner: "manila.csi.openstack.org",
 		Parameters: map[string]string{
 			"type": shareType.Name,
-			"csi.storage.k8s.io/provisioner-secret-name":       util.ManilaSecretName,
-			"csi.storage.k8s.io/provisioner-secret-namespace":  guestNamespace,
-			"csi.storage.k8s.io/node-stage-secret-name":        util.ManilaSecretName,
-			"csi.storage.k8s.io/node-stage-secret-namespace":   guestNamespace,
-			"csi.storage.k8s.io/node-publish-secret-name":      util.ManilaSecretName,
-			"csi.storage.k8s.io/node-publish-secret-namespace": guestNamespace,
+			"csi.storage.k8s.io/provisioner-secret-name":            util.ManilaSecretName,
+			"csi.storage.k8s.io/provisioner-secret-namespace":       guestNamespace,
+			"csi.storage.k8s.io/node-stage-secret-name":             util.ManilaSecretName,
+			"csi.storage.k8s.io/node-stage-secret-namespace":        guestNamespace,
+			"csi.storage.k8s.io/node-publish-secret-name":           util.ManilaSecretName,
+			"csi.storage.k8s.io/node-publish-secret-namespace":      guestNamespace,
+			"csi.storage.k8s.io/controller-expand-secret-name":      util.ManilaSecretName,
+			"csi.storage.k8s.io/controller-expand-secret-namespace": guestNamespace,
 		},
-		ReclaimPolicy:     &delete,
-		VolumeBindingMode: &immediate,
+		ReclaimPolicy:        &delete,
+		VolumeBindingMode:    &immediate,
+		AllowVolumeExpansion: &allowVolumeExpansion,
 	}
 	return sc
 }
