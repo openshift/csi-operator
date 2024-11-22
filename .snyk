@@ -4,3 +4,4 @@
 exclude:
   global:
     - vendor/**
+    - cmd/generator/main.go
