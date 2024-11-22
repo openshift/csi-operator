@@ -15,6 +15,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
@@ -38,7 +39,7 @@ func NewDefaultOperatorControllerConfig(flavour generator.ClusterFlavour, c *cli
 		cfg.AddDeploymentHookBuilders(c, withClusterWideProxy, withStandaloneReplicas)
 	} else {
 		// HyperShift
-		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftControlPlaneImages)
+		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftControlPlaneImages, withHyperShiftCustomTolerations)
 	}
 
 	return cfg
@@ -92,6 +93,27 @@ func withHyperShiftNodeSelector(c *clients.Clients) (dc.DeploymentHookFunc, []fa
 	return hook, informers
 }
 
+// withHyperShiftNodeSelector sets Deployment node selector on a HyperShift hosted control-plane.
+func withHyperShiftCustomTolerations(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		podSpec := &deployment.Spec.Template.Spec
+		// Add Custom Tolerations
+		customTolerations, err := getHostedControlPlaneTolerations(
+			c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Lister(),
+			c.ControlPlaneNamespace)
+		if err != nil {
+			return err
+		}
+		podSpec.Tolerations = append(podSpec.Tolerations, customTolerations...)
+
+		return nil
+	}
+	informers := []factory.Informer{
+		c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Informer(),
+	}
+	return hook, informers
+}
+
 // getHostedControlPlaneNodeSelector returns the node selector from the HostedControlPlane CR.
 func getHostedControlPlaneNodeSelector(hostedControlPlaneLister hypev1beta1listers.HostedControlPlaneLister, namespace string) (map[string]string, error) {
 	hcp, err := getHostedControlPlane(hostedControlPlaneLister, namespace)
@@ -104,6 +126,19 @@ func getHostedControlPlaneNodeSelector(hostedControlPlaneLister hypev1beta1liste
 	}
 	klog.V(4).Infof("Using node selector %v", nodeSelector)
 	return nodeSelector, nil
+}
+
+func getHostedControlPlaneTolerations(hostedControlPlaneLister hypev1beta1listers.HostedControlPlaneLister, namespace string) ([]corev1.Toleration, error) {
+	hcp, err := getHostedControlPlane(hostedControlPlaneLister, namespace)
+	if err != nil {
+		return nil, err
+	}
+	tolerations := hcp.Spec.Tolerations
+	if len(hcp.Spec.Tolerations) == 0 {
+		return nil, nil
+	}
+	klog.V(4).Infof("Using tolerations %v", tolerations)
+	return tolerations, nil
 }
 
 // getHostedControlPlane returns the HostedControlPlane CR.
