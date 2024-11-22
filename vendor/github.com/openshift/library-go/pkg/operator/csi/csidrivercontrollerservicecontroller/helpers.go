@@ -239,14 +239,6 @@ func WithServingInfo() dc.ManifestHookFunc {
 			return nil, fmt.Errorf("failed to unmarshal the observedConfig: %w", err)
 		}
 
-		cipherSuites, cipherSuitesFound, err := unstructured.NestedStringSlice(config, csiconfigobservercontroller.CipherSuitesPath()...)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't get the servingInfo.cipherSuites config from observed config: %w", err)
-		}
-		if !cipherSuitesFound && bytes.Contains(manifest, []byte("${TLS_CIPHER_SUITES}")) {
-			return nil, fmt.Errorf("could not find the servingInfo.cipherSuites config from observed config")
-		}
-
 		minTLSVersion, minTLSVersionFound, err := unstructured.NestedString(config, csiconfigobservercontroller.MinTLSVersionPath()...)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't get the servingInfo.minTLSVersion config from observed config: %v", err)
@@ -255,11 +247,19 @@ func WithServingInfo() dc.ManifestHookFunc {
 			return nil, fmt.Errorf("could not find the servingInfo.minTLSVersion config from observed config")
 		}
 
+		cipherSuites, cipherSuitesFound, err := unstructured.NestedStringSlice(config, csiconfigobservercontroller.CipherSuitesPath()...)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't get the servingInfo.cipherSuites config from observed config: %w", err)
+		}
+		if !cipherSuitesFound && bytes.Contains(manifest, []byte("${TLS_CIPHER_SUITES}")) {
+			return nil, fmt.Errorf("could not find the servingInfo.cipherSuites config from observed config")
+		}
+
 		pairs := []string{}
-		if cipherSuitesFound && len(cipherSuites) > 0 {
+//		if cipherSuitesFound && len(cipherSuites) > 0 {
 			pairs = append(pairs, []string{"${TLS_CIPHER_SUITES}", strings.Join(cipherSuites, ",")}...)
 
-		}
+//		}
 
 		// It is possible to set a custom profile with no MinTLSVersion.
 		// In this case, the observer will return an empty string, and we
