@@ -6,6 +6,9 @@ metadata:
     config.openshift.io/inject-proxy-cabundle: csi-driver
 spec:
   template:
+    metadata:
+      annotations:
+        openshift.io/required-scc: restricted-v2
     spec:
       ## Removing this for now
       # hostNetwork: true # although not needed for other drivers, this is required for the Azure File driver

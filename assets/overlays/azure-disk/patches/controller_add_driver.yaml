@@ -6,6 +6,9 @@ metadata:
     config.openshift.io/inject-proxy-cabundle: csi-driver
 spec:
   template:
+    metadata:
+      annotations:
+        openshift.io/required-scc: restricted-v2
     spec:
       containers:
         - name: csi-driver
