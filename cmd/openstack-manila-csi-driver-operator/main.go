@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"k8s.io/component-base/cli"
+	"k8s.io/utils/clock"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 
@@ -37,6 +38,7 @@ func NewOperatorCommand() *cobra.Command {
 		"openstack-manila-csi-driver-operator",
 		version.Get(),
 		runCSIDriverOperator,
+		clock.RealClock{},
 	).NewCommand()
 
 	guestKubeconfig = ctrlCmd.Flags().String("guest-kubeconfig", "", "Path to the guest kubeconfig file. This flag enables hypershift integration.")

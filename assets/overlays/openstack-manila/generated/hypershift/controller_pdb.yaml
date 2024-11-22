@@ -14,3 +14,4 @@ spec:
   selector:
     matchLabels:
       app: manila-csi-driver-controller
+  unhealthyPodEvictionPolicy: AlwaysAllow

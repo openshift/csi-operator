@@ -1,10 +1,11 @@
 package operator
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
+	configv1 "github.com/openshift/api/config/v1"
+	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator/test_manifests"
 	hypev1beta1api "github.com/openshift/hypershift/api/hypershift/v1beta1"
@@ -12,71 +13,61 @@ import (
 	hypescheme "github.com/openshift/hypershift/client/clientset/clientset/scheme"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
-)
-
-const (
-	masterLabel = "node-role.kubernetes.io/master"
-	workerLabel = "node-role.kubernetes.io/worker"
 )
 
 func getTestDeployment() *appsv1.Deployment {
 	return resourceread.ReadDeploymentV1OrDie(test_manifests.ReadFileOrDie("aws_ebs_controller_hypershift.yaml"))
 }
 
+func makeInfrastructure() *configv1.Infrastructure {
+	return &configv1.Infrastructure{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Status: configv1.InfrastructureStatus{
+			PlatformStatus: &configv1.PlatformStatus{
+				AWS: &configv1.AWSPlatformStatus{},
+			},
+		},
+	}
+}
+
+func makeInfraWithCPTopology(mode configv1.TopologyMode) *configv1.Infrastructure {
+	infra := makeInfrastructure()
+	infra.Status.ControlPlaneTopology = mode
+	return infra
+}
+
 func Test_WithStandaloneReplicas(t *testing.T) {
 	tests := []struct {
-		name string
-		// map "node label" -> nr. of nodes with this label
-		nodeCounts       map[string]int
+		name             string
+		infra            *configv1.Infrastructure
 		expectedReplicas int32
 	}{
 		{
-			name: "3 masters 3 workers",
-			nodeCounts: map[string]int{
-				masterLabel: 3,
-				workerLabel: 3,
-			},
+			name:             "HighlyAvailableTopologyMode",
+			infra:            makeInfraWithCPTopology(configv1.HighlyAvailableTopologyMode),
 			expectedReplicas: 2,
 		},
 		{
-			name: "single node openshift",
-			nodeCounts: map[string]int{
-				masterLabel: 1,
-			},
+			name:             "SingleReplicaTopologyMode",
+			infra:            makeInfraWithCPTopology(configv1.SingleReplicaTopologyMode),
 			expectedReplicas: 1,
 		},
 		{
-			// Error case: this should not crash.
-			name:             "no nodes",
-			nodeCounts:       map[string]int{},
-			expectedReplicas: 1, // default fallback
+			name:             "ExternalTopologyMode",
+			infra:            makeInfraWithCPTopology(configv1.ExternalTopologyMode),
+			expectedReplicas: 1,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cr := clients.GetFakeOperatorCR()
 			c := clients.NewFakeClients("test", cr)
-			// Arrange: inject desired nr. of nodes to the client
-			kubeTracker := c.KubeClient.(*fake.Clientset).Tracker()
-			nodeID := 0
-			for label, count := range tt.nodeCounts {
-				for i := 0; i < count; i++ {
-					nodeID++
-					node := &v1.Node{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{
-								label: "",
-							},
-							Name: fmt.Sprintf("node%d", nodeID),
-						},
-					}
-					kubeTracker.Add(node)
-				}
-			}
+			// Inject custom infrastructure
+			c.ConfigClientSet.(*fakeconfig.Clientset).Tracker().Add(tt.infra)
 			hook, _ := withStandaloneReplicas(c)
 			deployment := getTestDeployment()
 			// Sync the informers with the client as the last step, withStandaloneReplicas()

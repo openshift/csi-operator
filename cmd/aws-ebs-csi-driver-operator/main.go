@@ -4,10 +4,11 @@ import (
 	"context"
 	"os"
 
-	"github.com/openshift/csi-operator/pkg/driver/aws-ebs"
+	aws_ebs "github.com/openshift/csi-operator/pkg/driver/aws-ebs"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/cli"
+	"k8s.io/utils/clock"
 
 	"github.com/openshift/csi-operator/pkg/operator"
 	"github.com/openshift/csi-operator/pkg/version"
@@ -36,6 +37,7 @@ func NewOperatorCommand() *cobra.Command {
 		version.Get(),
 		// operator.RunOperator,
 		runCSIDriverOperator,
+		clock.RealClock{},
 	).NewCommand()
 
 	guestKubeconfig = ctrlCmd.Flags().String("guest-kubeconfig", "", "Path to the guest kubeconfig file. This flag enables hypershift integration.")
