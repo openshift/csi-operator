@@ -12,7 +12,7 @@ require (
 	github.com/gophercloud/utils/v2 v2.0.0-20240812072210-8ce1fc0f2894
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
 	github.com/onsi/gomega v1.33.1
-	github.com/openshift/api v0.0.0-20241001152557-e415140e5d5f
+	github.com/openshift/api v0.0.0-20241121204516-053bb8a33f6d
 	github.com/openshift/build-machinery-go v0.0.0-20240613134303-8359781da660
 	github.com/openshift/client-go v0.0.0-20241001162912-da6d55e4611f
 	github.com/openshift/hypershift v0.1.39
@@ -127,7 +127,3 @@ require (
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
-
-// There is an error with newer versions of prometheus
-// vendor/github.com/prometheus/client_golang/prometheus/testutil/promlint/promlint.go:71:38: undefined: expfmt.FmtText
-replace github.com/openshift/api => github.com/openshift/api v0.0.0-20241121204516-053bb8a33f6d
