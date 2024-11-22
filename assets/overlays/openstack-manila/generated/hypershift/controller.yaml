@@ -156,7 +156,8 @@ spec:
         - --upstream=http://127.0.0.1:8202/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-cipher-suites
+        - ${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
@@ -208,7 +209,8 @@ spec:
         - --upstream=http://127.0.0.1:8203/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-cipher-suites
+        - ${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
@@ -258,7 +260,8 @@ spec:
         - --upstream=http://127.0.0.1:8204/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-cipher-suites
+        - ${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
@@ -308,7 +311,8 @@ spec:
         - --upstream=http://127.0.0.1:8205/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-cipher-suites
+        - ${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}

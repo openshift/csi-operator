@@ -110,7 +110,8 @@ spec:
         - --upstream=http://127.0.0.1:8211/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-cipher-suites
+        - ${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
@@ -158,7 +159,8 @@ spec:
         - --upstream=http://127.0.0.1:8212/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-cipher-suites
+        - ${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
@@ -203,7 +205,8 @@ spec:
         - --upstream=http://127.0.0.1:8213/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-cipher-suites
+        - ${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
@@ -249,7 +252,8 @@ spec:
         - --upstream=http://127.0.0.1:8214/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-cipher-suites
+        - ${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
@@ -294,7 +298,8 @@ spec:
         - --upstream=http://127.0.0.1:8215/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-cipher-suites
+        - ${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
