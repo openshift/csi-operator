@@ -8,6 +8,7 @@
 # provisioner.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
 # Applied strategic merge patch provisioner.yaml
 # resizer.yaml: Loaded from common/sidecars/resizer.yaml
+# resizer.yaml: Added arguments [--timeout=240s --handle-volume-inuse-error=false]
 # resizer.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
 # Applied strategic merge patch resizer.yaml
 # snapshotter.yaml: Loaded from common/sidecars/snapshotter.yaml
@@ -235,6 +236,8 @@ spec:
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
         - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
+        - --timeout=240s
+        - --handle-volume-inuse-error=false
         - --kubeconfig=$(KUBECONFIG)
         env:
         - name: KUBECONFIG

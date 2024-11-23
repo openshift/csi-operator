@@ -7,6 +7,7 @@
 # provisioner.yaml: Added arguments [--timeout=120s --feature-gates=Topology=true]
 # Applied strategic merge patch provisioner.yaml
 # resizer.yaml: Loaded from common/sidecars/resizer.yaml
+# resizer.yaml: Added arguments [--timeout=240s --handle-volume-inuse-error=false]
 # Applied strategic merge patch resizer.yaml
 # snapshotter.yaml: Loaded from common/sidecars/snapshotter.yaml
 # Applied strategic merge patch snapshotter.yaml
@@ -199,6 +200,8 @@ spec:
         - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
         - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
+        - --timeout=240s
+        - --handle-volume-inuse-error=false
         env: []
         image: ${RESIZER_IMAGE}
         imagePullPolicy: IfNotPresent

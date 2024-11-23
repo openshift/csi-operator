@@ -26,3 +26,5 @@ DriverInfo:
     multipods: true
     RWX: true
     multiplePVsSameID: true
+    controllerExpansion: true
+    nodeExpansion: false
