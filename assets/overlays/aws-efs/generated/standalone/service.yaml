@@ -2,7 +2,6 @@
 #
 # Loaded from base/controller_metrics_service.yaml
 # Applied strategic merge patch common/metrics/service_add_port.yaml
-# Applied strategic merge patch common/metrics/service_add_port.yaml
 #
 #
 
@@ -21,10 +20,6 @@ spec:
     port: 9212
     protocol: TCP
     targetPort: provisioner-m
-  - name: driver-m
-    port: 9211
-    protocol: TCP
-    targetPort: driver-m
   selector:
     app: aws-efs-csi-driver-controller
   sessionAffinity: None
