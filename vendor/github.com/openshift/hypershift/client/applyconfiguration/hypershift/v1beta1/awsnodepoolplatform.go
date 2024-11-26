@@ -27,6 +27,7 @@ type AWSNodePoolPlatformApplyConfiguration struct {
 	SecurityGroups  []AWSResourceReferenceApplyConfiguration `json:"securityGroups,omitempty"`
 	RootVolume      *VolumeApplyConfiguration                `json:"rootVolume,omitempty"`
 	ResourceTags    []AWSResourceTagApplyConfiguration       `json:"resourceTags,omitempty"`
+	Placement       *PlacementOptionsApplyConfiguration      `json:"placement,omitempty"`
 }
 
 // AWSNodePoolPlatformApplyConfiguration constructs an declarative configuration of the AWSNodePoolPlatform type for use with
@@ -98,5 +99,13 @@ func (b *AWSNodePoolPlatformApplyConfiguration) WithResourceTags(values ...*AWSR
 		}
 		b.ResourceTags = append(b.ResourceTags, *values[i])
 	}
+	return b
+}
+
+// WithPlacement sets the Placement field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Placement field is set to the value of the last call.
+func (b *AWSNodePoolPlatformApplyConfiguration) WithPlacement(value *PlacementOptionsApplyConfiguration) *AWSNodePoolPlatformApplyConfiguration {
+	b.Placement = value
 	return b
 }

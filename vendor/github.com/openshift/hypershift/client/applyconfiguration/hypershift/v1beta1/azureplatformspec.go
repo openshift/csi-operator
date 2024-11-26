@@ -24,15 +24,15 @@ import (
 // AzurePlatformSpecApplyConfiguration represents an declarative configuration of the AzurePlatformSpec type for use
 // with apply.
 type AzurePlatformSpecApplyConfiguration struct {
-	Credentials       *v1.LocalObjectReference `json:"credentials,omitempty"`
-	Cloud             *string                  `json:"cloud,omitempty"`
-	Location          *string                  `json:"location,omitempty"`
-	ResourceGroupName *string                  `json:"resourceGroup,omitempty"`
-	VnetID            *string                  `json:"vnetID,omitempty"`
-	SubnetID          *string                  `json:"subnetID,omitempty"`
-	SubscriptionID    *string                  `json:"subscriptionID,omitempty"`
-	MachineIdentityID *string                  `json:"machineIdentityID,omitempty"`
-	SecurityGroupID   *string                  `json:"securityGroupID,omitempty"`
+	Credentials       *v1.LocalObjectReference                          `json:"credentials,omitempty"`
+	Cloud             *string                                           `json:"cloud,omitempty"`
+	Location          *string                                           `json:"location,omitempty"`
+	ResourceGroupName *string                                           `json:"resourceGroup,omitempty"`
+	VnetID            *string                                           `json:"vnetID,omitempty"`
+	SubnetID          *string                                           `json:"subnetID,omitempty"`
+	SubscriptionID    *string                                           `json:"subscriptionID,omitempty"`
+	SecurityGroupID   *string                                           `json:"securityGroupID,omitempty"`
+	ManagedIdentities *AzureResourceManagedIdentitiesApplyConfiguration `json:"managedIdentities,omitempty"`
 }
 
 // AzurePlatformSpecApplyConfiguration constructs an declarative configuration of the AzurePlatformSpec type for use with
@@ -97,18 +97,18 @@ func (b *AzurePlatformSpecApplyConfiguration) WithSubscriptionID(value string) *
 	return b
 }
 
-// WithMachineIdentityID sets the MachineIdentityID field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the MachineIdentityID field is set to the value of the last call.
-func (b *AzurePlatformSpecApplyConfiguration) WithMachineIdentityID(value string) *AzurePlatformSpecApplyConfiguration {
-	b.MachineIdentityID = &value
-	return b
-}
-
 // WithSecurityGroupID sets the SecurityGroupID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the SecurityGroupID field is set to the value of the last call.
 func (b *AzurePlatformSpecApplyConfiguration) WithSecurityGroupID(value string) *AzurePlatformSpecApplyConfiguration {
 	b.SecurityGroupID = &value
+	return b
+}
+
+// WithManagedIdentities sets the ManagedIdentities field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ManagedIdentities field is set to the value of the last call.
+func (b *AzurePlatformSpecApplyConfiguration) WithManagedIdentities(value *AzureResourceManagedIdentitiesApplyConfiguration) *AzurePlatformSpecApplyConfiguration {
+	b.ManagedIdentities = value
 	return b
 }

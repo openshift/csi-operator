@@ -17,11 +17,15 @@ limitations under the License.
 
 package v1beta1
 
+import (
+	v1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+)
+
 // DiagnosticsApplyConfiguration represents an declarative configuration of the Diagnostics type for use
 // with apply.
 type DiagnosticsApplyConfiguration struct {
-	StorageAccountType *string `json:"storageAccountType,omitempty"`
-	StorageAccountURI  *string `json:"storageAccountURI,omitempty"`
+	StorageAccountType *v1beta1.AzureDiagnosticsStorageAccountType `json:"storageAccountType,omitempty"`
+	UserManaged        *UserManagedDiagnosticsApplyConfiguration   `json:"userManaged,omitempty"`
 }
 
 // DiagnosticsApplyConfiguration constructs an declarative configuration of the Diagnostics type for use with
@@ -33,15 +37,15 @@ func Diagnostics() *DiagnosticsApplyConfiguration {
 // WithStorageAccountType sets the StorageAccountType field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the StorageAccountType field is set to the value of the last call.
-func (b *DiagnosticsApplyConfiguration) WithStorageAccountType(value string) *DiagnosticsApplyConfiguration {
+func (b *DiagnosticsApplyConfiguration) WithStorageAccountType(value v1beta1.AzureDiagnosticsStorageAccountType) *DiagnosticsApplyConfiguration {
 	b.StorageAccountType = &value
 	return b
 }
 
-// WithStorageAccountURI sets the StorageAccountURI field in the declarative configuration to the given value
+// WithUserManaged sets the UserManaged field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the StorageAccountURI field is set to the value of the last call.
-func (b *DiagnosticsApplyConfiguration) WithStorageAccountURI(value string) *DiagnosticsApplyConfiguration {
-	b.StorageAccountURI = &value
+// If called multiple times, the UserManaged field is set to the value of the last call.
+func (b *DiagnosticsApplyConfiguration) WithUserManaged(value *UserManagedDiagnosticsApplyConfiguration) *DiagnosticsApplyConfiguration {
+	b.UserManaged = value
 	return b
 }
