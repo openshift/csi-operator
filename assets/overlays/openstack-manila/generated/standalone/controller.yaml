@@ -96,6 +96,15 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
+        startupProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - test -S /plugin/csi-nfs.sock
+          failureThreshold: 6
+          initialDelaySeconds: 30
+          periodSeconds: 5
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /plugin

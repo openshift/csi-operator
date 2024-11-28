@@ -81,6 +81,17 @@ spec:
             timeoutSeconds: 10
             periodSeconds: 30
             failureThreshold: 5
+          # CSI driver initialization requires that the NFS driver socket
+          # exists which should take less than a minute.
+          startupProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - "test -S /plugin/csi-nfs.sock"
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 6
           volumeMounts:
             - name: socket-dir
               mountPath: /plugin
