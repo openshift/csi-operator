@@ -1,0 +1,5 @@
+spec:
+  selector:
+    matchLabels:
+      app: openstack-manila-csi
+      component: controllerplugin

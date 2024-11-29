@@ -20,6 +20,7 @@
 # Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/controller_add_hypershift_volumes.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/controller_rename_config_map.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/modify_anti_affinity_selector.yaml
 #
 #
 
@@ -82,7 +83,8 @@ spec:
           - podAffinityTerm:
               labelSelector:
                 matchLabels:
-                  app: manila-csi-driver-controller
+                  app: openstack-manila-csi
+                  component: controllerplugin
               topologyKey: kubernetes.io/hostname
             weight: 100
       containers:
