@@ -15,6 +15,7 @@
 # livenessprobe.yaml: Added arguments [--probe-timeout=10s]
 # Applied strategic merge patch livenessprobe.yaml
 # Applied strategic merge patch common/standalone/controller_add_affinity.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/modify_anti_affinity_selector.yaml
 #
 #
 
@@ -52,7 +53,8 @@ spec:
           - podAffinityTerm:
               labelSelector:
                 matchLabels:
-                  app: manila-csi-driver-controller
+                  app: openstack-manila-csi
+                  component: controllerplugin
               topologyKey: kubernetes.io/hostname
             weight: 100
       containers:

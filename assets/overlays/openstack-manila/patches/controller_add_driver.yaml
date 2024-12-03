@@ -33,16 +33,6 @@ spec:
         - key: node-role.kubernetes.io/master
           operator: Exists
           effect: "NoSchedule"
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: openstack-manila-csi
-                    component: controllerplugin
-                topologyKey: kubernetes.io/hostname
       containers:
         - name: csi-driver
           image: ${DRIVER_IMAGE}

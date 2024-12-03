@@ -1,6 +1,7 @@
 # Generated file. Do not edit. Update using "make update".
 #
 # Loaded from base/controller_pdb.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/modify_match_labels.yaml
 #
 #
 
@@ -13,5 +14,6 @@ spec:
   maxUnavailable: 1
   selector:
     matchLabels:
-      app: manila-csi-driver-controller
+      app: openstack-manila-csi
+      component: controllerplugin
   unhealthyPodEvictionPolicy: AlwaysAllow
