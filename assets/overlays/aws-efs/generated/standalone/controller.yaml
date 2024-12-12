@@ -2,6 +2,7 @@
 #
 # Loaded from base/controller.yaml
 # Applied strategic merge patch overlays/aws-efs/patches/controller_add_driver.yaml
+# Applied strategic merge patch common/sidecars/controller_driver_kube_rbac_proxy.yaml
 # provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
 # provisioner.yaml: Added arguments [--feature-gates=Topology=true --extra-create-metadata=true --timeout=5m --worker-threads=1]
 # Applied strategic merge patch provisioner.yaml
@@ -164,6 +165,29 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9211
+        - --upstream=http://127.0.0.1:8211/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: kube-rbac-proxy-8211
+        ports:
+        - containerPort: 9211
+          name: driver-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
       hostNetwork: true
       initContainers:
       - command:
