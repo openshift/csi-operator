@@ -16,8 +16,6 @@ spec:
   attachRequired: false
   fsGroupPolicy: None
   podInfoOnMount: true
-  tokenRequests:
-  - audience: api://AzureADTokenExchange
   volumeLifecycleModes:
   - Persistent
   - Ephemeral

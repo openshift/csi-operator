@@ -14,5 +14,3 @@ spec:
   volumeLifecycleModes:
     - Persistent
     - Ephemeral
-  tokenRequests:
-    - audience: api://AzureADTokenExchange
