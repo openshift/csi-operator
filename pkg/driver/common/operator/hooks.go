@@ -39,7 +39,7 @@ func NewDefaultOperatorControllerConfig(flavour generator.ClusterFlavour, c *cli
 		cfg.AddDeploymentHookBuilders(c, withClusterWideProxy, withStandaloneReplicas)
 	} else {
 		// HyperShift
-		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftControlPlaneImages, withHyperShiftCustomTolerations)
+		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftLabels, withHyperShiftControlPlaneImages, withHyperShiftCustomTolerations)
 	}
 
 	return cfg
@@ -139,6 +139,49 @@ func getHostedControlPlaneTolerations(hostedControlPlaneLister hypev1beta1lister
 	}
 	klog.V(4).Infof("Using tolerations %v", tolerations)
 	return tolerations, nil
+}
+
+// withHyperShiftLabels sets Deployment labels on a HyperShift hosted control-plane.
+func withHyperShiftLabels(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		labels, err := getHostedControlLabels(
+			c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Lister(),
+			c.ControlPlaneNamespace)
+		if err != nil {
+			return err
+		}
+
+		if deployment.Spec.Template.Labels == nil {
+			deployment.Spec.Template.Labels = map[string]string{}
+		}
+
+		for key, value := range labels {
+			// don't replace existing labels as they are used in the deployment's labelSelector.
+			if _, exist := deployment.Spec.Template.Labels[key]; !exist {
+				deployment.Spec.Template.Labels[key] = value
+			}
+		}
+		return nil
+	}
+	informers := []factory.Informer{
+		c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Informer(),
+	}
+	return hook, informers
+}
+
+// getHostedControlLabels returns the labels from the HostedControlPlane CR.
+func getHostedControlLabels(hostedControlPlaneLister hypev1beta1listers.HostedControlPlaneLister, namespace string) (map[string]string, error) {
+	hcp, err := getHostedControlPlane(hostedControlPlaneLister, namespace)
+	if err != nil {
+		return nil, err
+	}
+	labels := hcp.Spec.Labels
+	if len(labels) == 0 {
+		return nil, nil
+	}
+	klog.V(4).Infof("Using labels %v", labels)
+	return labels, nil
+
 }
 
 // getHostedControlPlane returns the HostedControlPlane CR.
