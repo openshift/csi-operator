@@ -3,8 +3,11 @@ package aws_ebs
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
+	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
@@ -13,6 +16,7 @@ import (
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
@@ -23,6 +27,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+
 	"k8s.io/klog/v2"
 )
 
@@ -35,6 +40,8 @@ const (
 	caBundleKey           = "ca-bundle.pem"
 	trustedCAConfigMap    = "aws-ebs-csi-driver-trusted-ca-bundle"
 	kmsKeyID              = "kmsKeyId"
+
+	operatorImageVersionEnvVarName = "OPERATOR_IMAGE_VERSION"
 
 	generatedAssetBase = "overlays/aws-ebs/generated"
 )
@@ -69,6 +76,8 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--kube-api-qps=20",
 					"--kube-api-burst=100",
 					"--worker-threads=100",
+				).WithAdditionalAssets(
+					"base/rbac/volumeattributesclass_reader_provisioner_binding.yaml",
 				),
 				commongenerator.DefaultAttacher.WithExtraArguments(
 					"--timeout=60s",
@@ -81,6 +90,8 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--kube-api-qps=20",
 					"--kube-api-burst=100",
 					"--workers=100",
+				).WithAdditionalAssets(
+					"base/rbac/volumeattributesclass_reader_resizer_binding.yaml",
 				),
 				commongenerator.DefaultSnapshotter.WithExtraArguments(
 					"--extra-create-metadata",
@@ -136,12 +147,43 @@ func GetAWSEBSOperatorConfig() *config.OperatorConfig {
 func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEBS")
 
+	// We need featuregate accessor made available to the operator pods
+	desiredVersion := os.Getenv(operatorImageVersionEnvVarName)
+	missingVersion := "0.0.1-snapshot"
+
+	featureGateAccessor := featuregates.NewFeatureGateAccess(
+		desiredVersion,
+		missingVersion,
+		c.ConfigInformers.Config().V1().ClusterVersions(),
+		c.ConfigInformers.Config().V1().FeatureGates(),
+		c.EventRecorder,
+	)
+	go featureGateAccessor.Run(ctx)
+	go c.ConfigInformers.Start(ctx.Done())
+
+	var featureGates featuregates.FeatureGate
+
+	select {
+	case <-featureGateAccessor.InitialFeatureGatesObserved():
+		featureGates, _ = featureGateAccessor.CurrentFeatureGates()
+		klog.Info("FeatureGates initialized", "knownFeatures", featureGates.KnownFeatures())
+	case <-time.After(1 * time.Minute):
+		klog.Error(nil, "timed out waiting for FeatureGate detection")
+		return nil, fmt.Errorf("timed out waiting for FeatureGate detection")
+	}
+
 	// Hooks to run on all clusters
 	cfg.AddDeploymentHookBuilders(c,
 		withAWSRegion,
 		withCustomTags,
 		withCustomEndPoint,
-		withCABundleDeploymentHook)
+		withCABundleDeploymentHook,
+	)
+
+	if featureGates.Enabled(configv1.FeatureGateName("VolumeAttributesClass")) {
+		cfg.AddDeploymentHookBuilders(c, withVolumeAttributesClassHook)
+	}
+
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook)
 	cfg.AddStorageClassHookBuilders(c, withKMSKeyHook)
 
@@ -433,4 +475,19 @@ func withKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHo
 		return nil
 	}
 	return hook
+}
+
+func withVolumeAttributesClassHook(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		newArg := "--feature-gates=VolumeAttributesClass=true"
+		for i := range deployment.Spec.Template.Spec.Containers {
+			container := &deployment.Spec.Template.Spec.Containers[i]
+			if container.Name == "csi-provisioner" || container.Name == "csi-resizer" {
+				container.Args = append(container.Args, newArg)
+			}
+		}
+
+		return nil
+	}
+	return hook, nil
 }
