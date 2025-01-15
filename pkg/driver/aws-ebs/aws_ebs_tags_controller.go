@@ -211,7 +211,7 @@ func (c *EBSVolumeTagsController) processInfrastructure(ctx context.Context, inf
 		infra.Status.PlatformStatus.AWS.ResourceTags != nil {
 		err := c.fetchPVsAndUpdateTags(ctx, infra)
 		if err != nil {
-			klog.Errorf("Error processing PVs for infrastructure update: %v", err)
+			klog.Errorf("error processing PVs for infrastructure update: %v", err)
 			return err
 		}
 	}
@@ -350,10 +350,8 @@ func (c *EBSVolumeTagsController) filterUpdatableVolumes(volumes []*v1.Persisten
 	for _, volume := range volumes {
 		// Check if the volume is a CSI volume with the correct driver
 		if volume.Spec.CSI != nil && volume.Spec.CSI.Driver == driverName &&
-			// Ensure the volume is not already in the failed queue
-			!c.isVolumeInFailedQueue(volume.Name) &&
-			// Include volumes whose tag hash is missing or different from the new hash
-			getPVTagHash(volume) != newTagsHash {
+			// Ensure the volume is not already in the failed queue and include volumes whose tag hash is missing or different from the new hash
+			!c.isVolumeInFailedQueue(volume.Name) && getPVTagHash(volume) != newTagsHash {
 
 			// Add the volume to the list of updatable volumes
 			updatablePVs = append(updatablePVs, volume)
