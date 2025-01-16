@@ -86,7 +86,7 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"controller.yaml", "overlays/openstack-manila/patches/controller_rename_config_map.yaml",
 			).WithPatches(generator.AllFlavours,
 				"service.yaml", "overlays/openstack-manila/patches/modify_service_selector.yaml",
-				"controller_pdb.yaml", "overlays/openstack-manila/patches/modify_match_labels.yaml",
+				"controller_pdb.yaml", "overlays/openstack-manila/patches/modify_pdb.yaml",
 				"controller.yaml", "overlays/openstack-manila/patches/modify_anti_affinity_selector.yaml",
 			),
 		},

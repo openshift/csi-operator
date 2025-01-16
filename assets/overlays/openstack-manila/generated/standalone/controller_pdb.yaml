@@ -1,14 +1,14 @@
 # Generated file. Do not edit. Update using "make update".
 #
 # Loaded from base/controller_pdb.yaml
-# Applied strategic merge patch overlays/openstack-manila/patches/modify_match_labels.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/modify_pdb.yaml
 #
 #
 
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: manila-csi-driver-controller-pdb
+  name: openstack-manila-csi-controllerplugin-pdb
   namespace: ${NAMESPACE}
 spec:
   maxUnavailable: 1
