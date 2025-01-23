@@ -29,7 +29,7 @@ Some documentation is available via godoc. Usage:
 
 ```shell
 godoc &
-firefox localost:6060/pkg/github.com/openshift/csi-operator/
+firefox localhost:6060/pkg/github.com/openshift/csi-operator/
 ```
 
 Good starting points are `pkg/generator` and `pkg/generated-assets`.
