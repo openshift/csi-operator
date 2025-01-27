@@ -36,6 +36,8 @@ const (
 	batchSize             = 50
 
 	awsErrorVolumeNotFound = "InvalidVolume.NotFound"
+
+	defaultReSyncPeriod = 10 * time.Minute
 )
 
 type EBSVolumeTagsController struct {
@@ -65,6 +67,8 @@ func NewEBSVolumeTagsController(
 		c.Sync,
 	).WithInformers(
 		c.commonClient.ConfigInformers.Config().V1().Infrastructures().Informer(),
+	).ResyncEvery(
+		defaultReSyncPeriod,
 	).WithPostStartHooks(
 		c.startFailedQueueWorker,
 	).ToController(
