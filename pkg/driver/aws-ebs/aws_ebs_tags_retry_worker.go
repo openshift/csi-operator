@@ -19,12 +19,12 @@ func (c *EBSVolumeTagsController) startFailedQueueWorker(ctx context.Context, sy
 	for {
 		select {
 		case <-ctx.Done():
-			klog.Infof("Context canceled, stopping failed queue worker for EBS Volume Tags")
+			klog.Infof("context canceled, stopping failed queue worker for EBS Volume Tags")
 			return errors.New("context canceled, stopping failed queue worker for EBS Volume Tags")
 		default:
 			item, quit := c.failedQueue.Get()
 			if quit {
-				klog.Infof("Failed queue worker is shutting down")
+				klog.Infof("failed queue worker is shutting down")
 				return errors.New("failed queue worker is shutting down")
 			}
 			c.processFailedVolume(ctx, item)
@@ -36,16 +36,16 @@ func (c *EBSVolumeTagsController) startFailedQueueWorker(ctx context.Context, sy
 func (c *EBSVolumeTagsController) processFailedVolume(ctx context.Context, pvName string) {
 	defer c.failedQueue.Done(pvName)
 
-	klog.Infof("Retrying failed volume: %v", pvName)
+	klog.Infof("retrying failed volume: %v", pvName)
 
 	infra, err := c.getInfrastructure()
 	if err != nil {
-		klog.Errorf("Failed to get infrastructure object: %v", err)
+		klog.Errorf("failed to get infrastructure object: %v", err)
 		c.failedQueue.AddRateLimited(pvName)
 		return
 	}
 	if infra.Status.PlatformStatus == nil || infra.Status.PlatformStatus.AWS == nil || len(infra.Status.PlatformStatus.AWS.Region) == 0 {
-		klog.Infof("Skipping failed volume %v because no AWS region defined", pvName)
+		klog.Infof("skipping failed volume %v because no AWS region defined", pvName)
 		c.failedQueue.AddRateLimited(pvName)
 		return
 	}
@@ -53,11 +53,11 @@ func (c *EBSVolumeTagsController) processFailedVolume(ctx context.Context, pvNam
 	pv, err := c.getPersistentVolume(pvName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			klog.Infof("Skipping failed volume %v because it does not exist", pvName)
-			c.failedQueue.Forget(pvName)
+			klog.Infof("skipping failed volume %v because it does not exist", pvName)
+			c.removeFromFailedQueue(pvName)
 			return
 		}
-		klog.Errorf("Failed to get persistent volume %v: %v", pvName, err)
+		klog.Errorf("failed to get persistent volume %v: %v", pvName, err)
 		c.failedQueue.AddRateLimited(pvName)
 		return
 	}
@@ -65,8 +65,8 @@ func (c *EBSVolumeTagsController) processFailedVolume(ctx context.Context, pvNam
 	if c.needsTagUpdate(infra, pv) {
 		c.updateTags(ctx, pv, infra.Status.PlatformStatus.AWS.Region, infra.Status.PlatformStatus.AWS.ResourceTags)
 	} else {
-		klog.Infof("No update needed for volume %s as hashes match", pvName)
-		c.failedQueue.Forget(pvName)
+		klog.Infof("no update needed for volume %s as hashes match", pvName)
+		c.removeFromFailedQueue(pvName)
 	}
 }
 
@@ -74,7 +74,7 @@ func (c *EBSVolumeTagsController) processFailedVolume(ctx context.Context, pvNam
 func (c *EBSVolumeTagsController) getPersistentVolume(pvName string) (*v1.PersistentVolume, error) {
 	pv, err := c.commonClient.KubeInformers.InformersFor("").Core().V1().PersistentVolumes().Lister().Get(pvName)
 	if err != nil {
-		klog.Errorf("Failed to retrieve PV for volume %s: %v", pvName, err)
+		klog.Errorf("failed to retrieve PV for volume %s: %v", pvName, err)
 		return nil, err
 	}
 	return pv, nil
@@ -91,7 +91,7 @@ func (c *EBSVolumeTagsController) needsTagUpdate(infra *configv1.Infrastructure,
 func (c *EBSVolumeTagsController) updateTags(ctx context.Context, pv *v1.PersistentVolume, region string, resourceTags []configv1.AWSResourceTag) {
 	ec2Client, err := c.getEC2Client(ctx, region)
 	if err != nil {
-		klog.Errorf("Failed to get EC2 client for retry: %v", err)
+		klog.Errorf("failed to get EC2 client for retry: %v", err)
 		c.failedQueue.AddRateLimited(pv.Name)
 		return
 	}
@@ -101,8 +101,8 @@ func (c *EBSVolumeTagsController) updateTags(ctx context.Context, pv *v1.Persist
 		if awsErr, ok := err.(awserr.Error); ok {
 			switch awsErr.Code() {
 			case awsErrorVolumeNotFound:
-				klog.Errorf("Volume %s not found: %v , Removing the volume from the queue", pv.Spec.CSI.VolumeHandle, awsErr.Message())
-				c.failedQueue.Forget(pv.Name)
+				klog.Errorf("volume %s not found: %v , Removing the volume from the queue", pv.Spec.CSI.VolumeHandle, awsErr.Message())
+				c.removeFromFailedQueue(pv.Name)
 				return
 			}
 		}
@@ -115,11 +115,11 @@ func (c *EBSVolumeTagsController) updateTags(ctx context.Context, pv *v1.Persist
 
 	err = c.updateVolume(ctx, updatedVolume)
 	if err != nil {
-		klog.Errorf("Error updating PV annotations for volume %s: %v", pv.Name, err)
+		klog.Errorf("error updating PV annotations for volume %s: %v", pv.Name, err)
 		c.failedQueue.AddRateLimited(pv.Name)
 		return
 	}
 
-	klog.Infof("Successfully updated PV annotations for volume %s", pv.Name)
-	c.failedQueue.Forget(pv.Name)
+	klog.Infof("successfully updated PV annotations for volume %s", pv.Name)
+	c.removeFromFailedQueue(pv.Name)
 }

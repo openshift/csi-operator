@@ -8,6 +8,7 @@ import (
 	"golang.org/x/time/rate"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -45,6 +46,8 @@ type EBSVolumeTagsController struct {
 	commonClient  *clients.Clients
 	eventRecorder events.Recorder
 	failedQueue   workqueue.TypedRateLimitingInterface[string]
+	failedSet     map[string]struct{} // A set to track added volume names
+	mutex         sync.Mutex          // To prevent concurrent map access
 	rateLimiter   *rate.Limiter
 }
 
@@ -62,6 +65,8 @@ func NewEBSVolumeTagsController(
 		eventRecorder: eventRecorder,
 		failedQueue:   workqueue.NewTypedRateLimitingQueue[string](workqueue.NewTypedItemExponentialFailureRateLimiter[string](10*time.Second, 100*time.Hour)),
 		rateLimiter:   rateLimiter,
+		mutex:         sync.Mutex{},
+		failedSet:     make(map[string]struct{}),
 	}
 	return factory.New().WithSync(
 		c.Sync,
@@ -271,7 +276,7 @@ func (c *EBSVolumeTagsController) fetchPVsAndUpdateTags(ctx context.Context, inf
 			err = c.updateVolume(ctx, updatedVolume)
 			if err != nil {
 				klog.Errorf("Error updating PV annotations for volume %s: %v", volume.Name, err)
-				c.failedQueue.AddRateLimited(volume.Name) // Retry updating annotation if update fails
+				c.addToFailedQueue(volume.Name) // Retry updating annotation if update fails
 				continue
 			}
 			klog.Infof("Successfully updated PV annotations and tags for volume %s", volume.Name)
@@ -324,7 +329,7 @@ func (c *EBSVolumeTagsController) updateVolume(ctx context.Context, pv *v1.Persi
 func (c *EBSVolumeTagsController) handleTagUpdateFailure(batch []*v1.PersistentVolume, updateErr error) {
 	for _, pv := range batch {
 		klog.Errorf("Error updating volume %v tags: %v", pv.Name, updateErr)
-		c.failedQueue.AddRateLimited(pv.Name)
+		c.addToFailedQueue(pv.Name)
 	}
 	var pvNames []string
 	for _, pv := range batch {
@@ -366,8 +371,32 @@ func (c *EBSVolumeTagsController) filterUpdatableVolumes(volumes []*v1.Persisten
 
 // isVolumeInFailedQueue checks if a volume name is currently in the failed queue
 func (c *EBSVolumeTagsController) isVolumeInFailedQueue(volumeName string) bool {
-	// Check if the volume name is in the failed queue
-	return c.failedQueue.NumRequeues(volumeName) > 0
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Check if the volume name is in the set
+	_, exists := c.failedSet[volumeName]
+	return exists
+}
+
+// addToFailedQueue adds a volume name to the failed queue and tracks it in the set
+func (c *EBSVolumeTagsController) addToFailedQueue(volumeName string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Add volume name to the queue and set
+	c.failedQueue.AddRateLimited(volumeName)
+	c.failedSet[volumeName] = struct{}{}
+}
+
+// removeFromFailedQueue removes a volume name from the queue and the set
+func (c *EBSVolumeTagsController) removeFromFailedQueue(volumeName string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Remove volume name from the queue and set
+	c.failedQueue.Forget(volumeName)
+	delete(c.failedSet, volumeName)
 }
 
 func pvsToResourceIDs(volumes []*v1.PersistentVolume) []*string {
