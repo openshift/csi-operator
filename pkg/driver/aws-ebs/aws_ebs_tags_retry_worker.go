@@ -89,7 +89,7 @@ func (c *EBSVolumeTagsController) needsTagUpdate(infra *configv1.Infrastructure,
 
 // updateTags updates the EBS tags on AWS and the PersistentVolume annotations
 func (c *EBSVolumeTagsController) updateTags(ctx context.Context, pv *v1.PersistentVolume, region string, resourceTags []configv1.AWSResourceTag) {
-	ec2Client, err := c.getEC2Client(ctx, region)
+	ec2Client, err := c.getEC2Client(region)
 	if err != nil {
 		klog.Errorf("failed to get EC2 client for retry: %v", err)
 		c.failedQueue.AddRateLimited(pv.Name)

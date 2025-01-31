@@ -3,11 +3,15 @@ package aws_ebs
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"golang.org/x/time/rate"
+	"gopkg.in/ini.v1"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,8 +23,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/sts"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorapi "github.com/openshift/api/operator/v1"
@@ -38,17 +44,24 @@ const (
 
 	awsErrorVolumeNotFound = "InvalidVolume.NotFound"
 
-	defaultReSyncPeriod = 10 * time.Minute
+	defaultReSyncPeriod = 30 * time.Minute
 )
 
 type EBSVolumeTagsController struct {
-	name          string
-	commonClient  *clients.Clients
-	eventRecorder events.Recorder
-	failedQueue   workqueue.TypedRateLimitingInterface[string]
-	failedSet     map[string]struct{} // A set to track added volume names
-	mutex         sync.Mutex          // To prevent concurrent map access
-	rateLimiter   *rate.Limiter
+	name           string
+	commonClient   *clients.Clients
+	eventRecorder  events.Recorder
+	failedQueue    workqueue.TypedRateLimitingInterface[string]
+	failedSet      map[string]struct{}
+	mutex          sync.Mutex
+	awsSession     *session.Session
+	sessionExpTime int64
+	rateLimiter    *rate.Limiter
+}
+
+// TokenClaims represents the JWT claims
+type TokenClaims struct {
+	Exp int64 `json:"exp"` // Expiry timestamp
 }
 
 func NewEBSVolumeTagsController(
@@ -110,88 +123,124 @@ func (c *EBSVolumeTagsController) Sync(ctx context.Context, syncCtx factory.Sync
 }
 
 // getEC2Client retrieves AWS credentials from the secret and creates an AWS EC2 client using session.Options
-func (c *EBSVolumeTagsController) getEC2Client(ctx context.Context, awsRegion string) (*ec2.EC2, error) {
-	secret, err := c.getEBSCloudCredSecret(ctx)
+func (c *EBSVolumeTagsController) getEC2Client(awsRegion string) (*ec2.EC2, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if c.awsSession == nil || c.isSessionExpired() {
+		sess, err := c.createAWSSession(awsRegion)
+		if err != nil {
+			klog.Errorf("Failed to create AWS session: %v", err)
+			return nil, err
+		}
+		c.awsSession = sess
+		return ec2.New(c.awsSession), nil
+	}
+	return ec2.New(c.awsSession), nil
+}
+
+func (c *EBSVolumeTagsController) createAWSSession(awsRegion string) (*session.Session, error) {
+	secret, err := c.getEBSCloudCredSecret()
 	if err != nil {
+		klog.Errorf("error getting secret: %v", err)
 		return nil, fmt.Errorf("error retrieving AWS credentials secret: %v", err)
 	}
 
-	// Check for aws_access_key_id and aws_secret_access_key fields
-	awsAccessKeyID, accessKeyFound := secret.Data["aws_access_key_id"]
-	awsSecretAccessKey, secretKeyFound := secret.Data["aws_secret_access_key"]
-
-	if accessKeyFound && secretKeyFound {
-		return createEC2ClientWithStaticKeys(awsRegion, string(awsAccessKeyID), string(awsSecretAccessKey))
-	}
-
-	// Otherwise, check for credentials field and create session using that
 	credentialsData, credentialsFound := secret.Data["credentials"]
 	if credentialsFound {
-		tempFile, err := writeCredentialsToTempFile(credentialsData)
+		sess, err := c.createSessionWithCredentials(credentialsData, awsRegion)
 		if err != nil {
-			return nil, fmt.Errorf("error writing credentials to temporary file: %v", err)
+			klog.Errorf("error creating session: %v", err)
+			return nil, fmt.Errorf("error creating session: %v", err)
 		}
-
-		return createEC2ClientWithCredentialsFile(awsRegion, tempFile)
+		return sess, nil
 	}
-
 	return nil, fmt.Errorf("no valid AWS credentials found in secret")
 }
 
-// createEC2ClientWithStaticKeys creates an EC2 client using static credentials (access key and secret key)
-func createEC2ClientWithStaticKeys(awsRegion, awsAccessKeyID, awsSecretAccessKey string) (*ec2.EC2, error) {
-	awsSession, err := session.NewSession(&aws.Config{
-		Region:      aws.String(awsRegion),
-		Credentials: credentials.NewStaticCredentials(awsAccessKeyID, awsSecretAccessKey, ""),
+func (c *EBSVolumeTagsController) createSessionWithCredentials(credentialsData []byte, region string) (*session.Session, error) {
+	// Load INI file from credentialsData
+	cfg, err := ini.Load(credentialsData)
+	if err != nil {
+		klog.Errorf("Error parsing INI credentials: %v", err)
+		return nil, fmt.Errorf("error parsing credentials data: %v", err)
+	}
+
+	section := cfg.Section("default")
+	roleARN := section.Key("role_arn").String()
+	tokenFile := section.Key("web_identity_token_file").String()
+
+	// Validate required fields
+	if roleARN == "" || tokenFile == "" {
+		return nil, fmt.Errorf("missing required AWS credentials: role_arn or web_identity_token_file is empty")
+	}
+
+	tokenExpirationTime, err := c.awsSessionExpirationTime(tokenFile)
+	if err != nil {
+		klog.Errorf("Error getting expiration time : %v", err)
+		return nil, err
+	}
+
+	// Create base AWS session
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(region),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error creating AWS session with static credentials: %v", err)
+		klog.Errorf("Error creating base AWS session: %v", err)
+		return nil, fmt.Errorf("error creating AWS session: %v", err)
 	}
-	return ec2.New(awsSession), nil
+
+	// Configure WebIdentityRoleProvider
+	provider := stscreds.NewWebIdentityRoleProviderWithOptions(
+		sts.New(sess),
+		roleARN,
+		"aws-ebs-csi-driver-operator", // Role session name
+		stscreds.FetchTokenPath(tokenFile),
+	)
+
+	// Create new session with WebIdentity credentials
+	sess, err = session.NewSession(&aws.Config{
+		Region:      aws.String(region),
+		Credentials: credentials.NewCredentials(provider),
+	})
+	if err != nil {
+		klog.Errorf("Error creating AWS session with Web Identity: %v", err)
+		return nil, fmt.Errorf("error creating AWS session with Web Identity: %v", err)
+	}
+	c.sessionExpTime = tokenExpirationTime
+	return sess, nil
 }
 
-// createEC2ClientWithCredentialsFile creates an EC2 client using a temporary credentials file
-func createEC2ClientWithCredentialsFile(awsRegion, credentialsFilename string) (*ec2.EC2, error) {
-	klog.Infof("Creating AWS session using credentials file: %s", credentialsFilename)
-
-	defer func() {
-		err := os.Remove(credentialsFilename)
-		if err != nil {
-			klog.Warningf("Failed to remove temporary credentials file: %v", err)
-		} else {
-			klog.Infof("Temporary credentials file %s removed successfully.", credentialsFilename)
-		}
-	}()
-
-	awsOptions := session.Options{
-		Config: aws.Config{
-			Region: aws.String(awsRegion),
-		},
-		SharedConfigState: session.SharedConfigEnable,
-		SharedConfigFiles: []string{credentialsFilename},
+// awsSessionExpirationTime gives the token expiry time for session.
+func (c *EBSVolumeTagsController) awsSessionExpirationTime(tokenFile string) (int64, error) {
+	if tokenFile == "" {
+		return 0, fmt.Errorf("token file not specified")
 	}
-
-	awsSession, err := session.NewSessionWithOptions(awsOptions)
+	data, err := os.ReadFile(tokenFile)
 	if err != nil {
-		return nil, fmt.Errorf("error creating AWS session using credentials file: %v", err)
+		return 0, fmt.Errorf("failed to read token file: %v", err)
 	}
 
-	return ec2.New(awsSession), nil
+	parts := strings.Split(string(data), ".")
+	if len(parts) < 2 {
+		return 0, fmt.Errorf("invalid JWT token format")
+	}
+
+	// Decode the payload (second part of the JWT)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return 0, fmt.Errorf("failed to decode token payload: %v", err)
+	}
+
+	var claims TokenClaims
+	if err = json.Unmarshal(payload, &claims); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal token claims: %v", err)
+	}
+	return claims.Exp, nil
 }
 
-// writeCredentialsToTempFile writes credentials data to a temporary file and returns the filename
-func writeCredentialsToTempFile(data []byte) (string, error) {
-	f, err := os.CreateTemp("", "aws-shared-credentials")
-	if err != nil {
-		return "", fmt.Errorf("failed to create file for shared credentials: %v", err)
-	}
-	defer f.Close()
-
-	if _, err := f.Write(data); err != nil {
-		defer os.Remove(f.Name())
-		return "", fmt.Errorf("failed to write credentials to %s: %v", f.Name(), err)
-	}
-	return f.Name(), nil
+// isSessionExpired check if token expiry time is exceeded.
+func (c *EBSVolumeTagsController) isSessionExpired() bool {
+	return c.sessionExpTime < time.Now().Unix()
 }
 
 // getInfrastructure retrieves the Infrastructure resource in OpenShift
@@ -201,17 +250,16 @@ func (c *EBSVolumeTagsController) getInfrastructure() (*configv1.Infrastructure,
 		klog.Errorf("error listing infrastructures objects: %v", err)
 		return nil, err
 	}
-	return infra, err
+	return infra, nil
 }
 
-func (c *EBSVolumeTagsController) getEBSCloudCredSecret(ctx context.Context) (*v1.Secret, error) {
+func (c *EBSVolumeTagsController) getEBSCloudCredSecret() (*v1.Secret, error) {
 	awsCreds, err := c.commonClient.KubeInformers.InformersFor(awsEBSSecretNamespace).Core().V1().Secrets().Lister().Secrets(awsEBSSecretNamespace).Get(awsEBSSecretName)
 	if err != nil {
 		klog.Errorf("error getting secret object: %v", err)
 		return nil, err
 	}
 	return awsCreds, nil
-
 }
 
 // processInfrastructure processes the Infrastructure resource and updates EBS tags
@@ -247,7 +295,7 @@ func (c *EBSVolumeTagsController) fetchPVsAndUpdateTags(ctx context.Context, inf
 	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
 		infraRegion = infra.Status.PlatformStatus.AWS.Region
 	}
-	ec2Client, err := c.getEC2Client(ctx, infraRegion)
+	ec2Client, err := c.getEC2Client(infraRegion)
 	if err != nil {
 		return err
 	}
@@ -291,7 +339,7 @@ func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, pvBatch []*
 	err := c.rateLimiter.Wait(ctx)
 	// If context is cancelled or rate limit cannot be acquired, return error
 	if err != nil {
-		klog.Errorf("Rate limiter error: %v", err)
+		klog.Errorf("rate limiter error: %v", err)
 		return err
 	}
 
@@ -328,16 +376,16 @@ func (c *EBSVolumeTagsController) updateVolume(ctx context.Context, pv *v1.Persi
 
 func (c *EBSVolumeTagsController) handleTagUpdateFailure(batch []*v1.PersistentVolume, updateErr error) {
 	for _, pv := range batch {
-		klog.Errorf("Error updating volume %v tags: %v", pv.Name, updateErr)
+		klog.Errorf("error updating volume %v tags: %v", pv.Name, updateErr)
 		c.addToFailedQueue(pv.Name)
 	}
 	var pvNames []string
 	for _, pv := range batch {
 		pvNames = append(pvNames, pv.Name)
 	}
-	errorMessage := fmt.Sprintf("Error updating tags for volume %v: %v", pvNames, updateErr)
+	errorMessage := fmt.Sprintf("error updating tags for volume %v: %v", pvNames, updateErr)
 	// Emit a warning event for the failure
-	c.eventRecorder.Warning("EBSVolumeTagsUpdateFailed", fmt.Sprintf("Failed to update tags for batch %v: %v", pvNames, errorMessage))
+	c.eventRecorder.Warning("EBSVolumeTagsUpdateFailed", fmt.Sprintf("failed to update tags for batch %v: %v", pvNames, errorMessage))
 }
 
 // newAndUpdatedTags adds and update existing AWS tags with new resource tags from OpenShift infrastructure
