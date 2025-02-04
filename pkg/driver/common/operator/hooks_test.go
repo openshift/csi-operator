@@ -146,6 +146,63 @@ func Test_WithHyperShiftNodeSelector(t *testing.T) {
 	}
 }
 
+func Test_WithHyperShiftLabels(t *testing.T) {
+	tests := []struct {
+		name           string
+		hcp            *hypev1beta1api.HostedControlPlane
+		expectedLabels map[string]string
+	}{
+		{
+			name:           "no labels",
+			hcp:            getTestHostedControlPlane("hcp_no_labels.yaml"),
+			expectedLabels: nil,
+		},
+		{
+			name: "labels",
+			hcp:  getTestHostedControlPlane("hcp_labels.yaml"),
+			expectedLabels: map[string]string{
+				"foo": "bar",
+				"baz": "",
+			},
+		},
+		{
+			name: "existing labels should not be replaced",
+			hcp:  getTestHostedControlPlane("hcp_no_labels.yaml"),
+			expectedLabels: map[string]string{
+				"app": "aws-ebs-csi-driver-controller",
+				"hypershift.openshift.io/hosted-control-plane": "clusters-test",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cr := clients.GetFakeOperatorCR()
+			c := clients.NewFakeClients("clusters-test", cr)
+			// Arrange: inject HostedControlPlane to the clients
+			c.ControlPlaneHypeClient.(*fakehype.Clientset).Tracker().Add(tt.hcp)
+
+			hook, _ := withHyperShiftLabels(c)
+			deployment := getTestDeployment()
+			// Sync the informers with the client as the last step, withHyperShiftLabels()
+			// must create necessary informers before.
+			clients.SyncFakeInformers(t, c)
+
+			// Act
+			err := hook(&cr.Spec.OperatorSpec, deployment)
+			if err != nil {
+				t.Fatalf("unexpected hook error: %v", err)
+			}
+			// Assert
+			for key, expectedValue := range tt.expectedLabels {
+				value, exist := deployment.Spec.Template.Labels[key]
+				if !exist || value != expectedValue {
+					t.Errorf("expected labels %s to exist with value %s", key, expectedValue)
+				}
+			}
+		})
+	}
+}
+
 func Test_WithHyperShiftControlPlaneImages(t *testing.T) {
 	tests := []struct {
 		name string

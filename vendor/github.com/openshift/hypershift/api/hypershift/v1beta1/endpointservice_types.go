@@ -62,6 +62,9 @@ type AWSEndpointServiceStatus struct {
 	// +optional
 	DNSZoneID string `json:"dnsZoneID,omitempty"`
 
+	// SecurityGroupID is the ID for the VPC endpoint SecurityGroup
+	SecurityGroupID string `json:"securityGroupID,omitempty"`
+
 	// Conditions contains details for the current state of the Endpoint Service
 	// request If there is an error processing the request e.g. the NLB doesn't
 	// exist, then the Available condition will be false, reason AWSErrorReason,
@@ -89,8 +92,8 @@ type AWSEndpointService struct {
 	Status AWSEndpointServiceStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
 // AWSEndpointServiceList contains a list of AWSEndpointService
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type AWSEndpointServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

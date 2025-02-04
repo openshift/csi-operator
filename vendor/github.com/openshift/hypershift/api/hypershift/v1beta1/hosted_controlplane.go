@@ -117,6 +117,8 @@ type HostedControlPlaneSpec struct {
 
 	// Services defines metadata about how control plane services are published
 	// in the management cluster.
+	// +kubebuilder:validation:MaxItems=6
+	// +kubebuilder:validation:MinItems=4
 	Services []ServicePublishingStrategyMapping `json:"services"`
 
 	// AuditWebhook contains metadata for configuring an audit webhook
@@ -182,9 +184,22 @@ type HostedControlPlaneSpec struct {
 	//
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// labels when specified, define what custom labels are added to the hcp pods.
+	// Changing this day 2 will cause a rollout of all hcp pods.
+	// Duplicate keys are not supported. If duplicate keys are defined, only the last key/value pair is preserved.
+	// Valid values are those in https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+	//
+	// -kubebuilder:validation:XValidation:rule=`self.all(key, size(key) <= 317 && key.matches('^(([A-Za-z0-9]+(\\.[A-Za-z0-9]+)?)*[A-Za-z0-9]\\/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$'))`, message="label key must have two segments: an optional prefix and name, separated by a slash (/). The name segment is required and must be 63 characters or less, beginning and ending with an alphanumeric character ([a-z0-9A-Z]) with dashes (-), underscores (_), dots (.), and alphanumerics between. The prefix is optional. If specified, the prefix must be a DNS subdomain: a series of DNS labels separated by dots (.), not longer than 253 characters in total, followed by a slash (/)"
+	// -kubebuilder:validation:XValidation:rule=`self.all(key, size(self[key]) <= 63 && self[key].matches('^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$'))`, message="label value must be 63 characters or less (can be empty), consist of alphanumeric characters, dashes (-), underscores (_) or dots (.), and begin and end with an alphanumeric character"
+	// TODO: key/value validations break cost budget for <=4.17. We should figure why and enable it back.
+	// +kubebuilder:validation:MaxProperties=20
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
-// AvailabilityPolicy specifies a high level availability policy for components.
+// availabilityPolicy specifies a high level availability policy for components.
+// +kubebuilder:validation:Enum=HighlyAvailable;SingleReplica
 type AvailabilityPolicy string
 
 const (
@@ -313,8 +328,8 @@ type APIEndpoint struct {
 	Port int32 `json:"port"`
 }
 
-// +kubebuilder:object:root=true
 // HostedControlPlaneList contains a list of HostedControlPlanes.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type HostedControlPlaneList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
