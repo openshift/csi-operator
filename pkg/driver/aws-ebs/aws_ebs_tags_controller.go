@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/time/rate"
 	"gopkg.in/ini.v1"
 	"os"
 	"sort"
@@ -44,24 +43,30 @@ const (
 
 	awsErrorVolumeNotFound = "InvalidVolume.NotFound"
 
-	defaultReSyncPeriod = 30 * time.Minute
+	defaultReSyncPeriod  = 30 * time.Minute
+	updateTypeBatch      = "batch"
+	updateTypeIndividual = "individual"
 )
 
 type EBSVolumeTagsController struct {
 	name           string
 	commonClient   *clients.Clients
 	eventRecorder  events.Recorder
-	failedQueue    workqueue.TypedRateLimitingInterface[string]
-	failedSet      map[string]struct{}
+	queue          workqueue.TypedRateLimitingInterface[*pvUpdateQueueItem]
+	queueSet       map[string]struct{}
 	mutex          sync.Mutex
 	awsSession     *session.Session
 	sessionExpTime int64
-	rateLimiter    *rate.Limiter
 }
 
-// TokenClaims represents the JWT claims
-type TokenClaims struct {
+// tokenClaims represents the JWT claims
+type tokenClaims struct {
 	Exp int64 `json:"exp"` // Expiry timestamp
+}
+
+type pvUpdateQueueItem struct {
+	updateType string
+	pvNames    []string
 }
 
 func NewEBSVolumeTagsController(
@@ -69,17 +74,13 @@ func NewEBSVolumeTagsController(
 	commonClient *clients.Clients,
 	eventRecorder events.Recorder) factory.Controller {
 
-	// 10 qps, 100 bucket size.
-	rateLimiter := rate.NewLimiter(rate.Limit(10), 100)
-
 	c := &EBSVolumeTagsController{
 		name:          name,
 		commonClient:  commonClient,
 		eventRecorder: eventRecorder,
-		failedQueue:   workqueue.NewTypedRateLimitingQueue[string](workqueue.NewTypedItemExponentialFailureRateLimiter[string](10*time.Second, 100*time.Hour)),
-		rateLimiter:   rateLimiter,
+		queue:         workqueue.NewTypedRateLimitingQueue[*pvUpdateQueueItem](workqueue.NewTypedItemExponentialFailureRateLimiter[*pvUpdateQueueItem](10*time.Second, 36*time.Hour)),
 		mutex:         sync.Mutex{},
-		failedSet:     make(map[string]struct{}),
+		queueSet:      make(map[string]struct{}),
 	}
 	return factory.New().WithSync(
 		c.Sync,
@@ -88,7 +89,7 @@ func NewEBSVolumeTagsController(
 	).ResyncEvery(
 		defaultReSyncPeriod,
 	).WithPostStartHooks(
-		c.startFailedQueueWorker,
+		c.startTagsUpdateQueueWorker,
 	).ToController(
 		name,
 		eventRecorder,
@@ -114,18 +115,15 @@ func (c *EBSVolumeTagsController) Sync(ctx context.Context, syncCtx factory.Sync
 	if infra == nil {
 		return nil
 	}
-	err = c.processInfrastructure(ctx, infra)
+	err = c.processInfrastructure(infra)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // getEC2Client retrieves AWS credentials from the secret and creates an AWS EC2 client using session.Options
-func (c *EBSVolumeTagsController) getEC2Client(awsRegion string) (*ec2.EC2, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (c *EBSVolumeTagsController) getEC2Client(ctx context.Context, awsRegion string) (*ec2.EC2, error) {
 	if c.awsSession == nil || c.isSessionExpired() {
 		sess, err := c.createAWSSession(awsRegion)
 		if err != nil {
@@ -231,7 +229,7 @@ func (c *EBSVolumeTagsController) awsSessionExpirationTime(tokenFile string) (in
 		return 0, fmt.Errorf("failed to decode token payload: %v", err)
 	}
 
-	var claims TokenClaims
+	var claims tokenClaims
 	if err = json.Unmarshal(payload, &claims); err != nil {
 		return 0, fmt.Errorf("failed to unmarshal token claims: %v", err)
 	}
@@ -262,11 +260,11 @@ func (c *EBSVolumeTagsController) getEBSCloudCredSecret() (*v1.Secret, error) {
 	return awsCreds, nil
 }
 
-// processInfrastructure processes the Infrastructure resource and updates EBS tags
-func (c *EBSVolumeTagsController) processInfrastructure(ctx context.Context, infra *configv1.Infrastructure) error {
+// processInfrastructure processes the Infrastructure resource and push pvNames for tags update in retry queue worker.
+func (c *EBSVolumeTagsController) processInfrastructure(infra *configv1.Infrastructure) error {
 	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil &&
 		infra.Status.PlatformStatus.AWS.ResourceTags != nil {
-		err := c.fetchPVsAndUpdateTags(ctx, infra)
+		err := c.fetchAndPushPvsToQueue(infra)
 		if err != nil {
 			klog.Errorf("error processing PVs for infrastructure update: %v", err)
 			return err
@@ -275,8 +273,8 @@ func (c *EBSVolumeTagsController) processInfrastructure(ctx context.Context, inf
 	return nil
 }
 
-// fetchPVsAndUpdateTags retrieves all PVs and updates the AWS EBS tags in batches of 100
-func (c *EBSVolumeTagsController) fetchPVsAndUpdateTags(ctx context.Context, infra *configv1.Infrastructure) error {
+// fetchAndPushPvsToQueue retrieves all PVs, filters the updatable PVs and pushes the PVs to queue worker for tags update.
+func (c *EBSVolumeTagsController) fetchAndPushPvsToQueue(infra *configv1.Infrastructure) error {
 	pvs, err := c.listPersistentVolumes()
 	if err != nil {
 		return fmt.Errorf("error fetching PVs: %v", err)
@@ -291,15 +289,6 @@ func (c *EBSVolumeTagsController) fetchPVsAndUpdateTags(ctx context.Context, inf
 		return nil
 	}
 
-	var infraRegion = ""
-	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
-		infraRegion = infra.Status.PlatformStatus.AWS.Region
-	}
-	ec2Client, err := c.getEC2Client(infraRegion)
-	if err != nil {
-		return err
-	}
-
 	// Process the volumes in batches
 	for i := 0; i < len(pvsToBeUpdated); i += batchSize {
 		end := i + batchSize
@@ -307,47 +296,19 @@ func (c *EBSVolumeTagsController) fetchPVsAndUpdateTags(ctx context.Context, inf
 			end = len(pvsToBeUpdated)
 		}
 		batch := pvsToBeUpdated[i:end]
-
-		// Update tags on AWS EBS volumes
-		err = c.updateEBSTags(ctx, batch, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags)
-		if err != nil {
-			c.handleTagUpdateFailure(batch, err)
-			continue
-		}
-
-		// Update PV annotations after successfully updating the tags in AWS
-		for _, volume := range batch {
-			// Set the new tag hash annotation in the PV object
-			updatedVolume := setPVTagHash(volume, newTagsHash)
-
-			// Update the PV with the new annotations
-			err = c.updateVolume(ctx, updatedVolume)
-			if err != nil {
-				klog.Errorf("Error updating PV annotations for volume %s: %v", volume.Name, err)
-				c.addToFailedQueue(volume.Name) // Retry updating annotation if update fails
-				continue
-			}
-			klog.Infof("Successfully updated PV annotations and tags for volume %s", volume.Name)
-		}
+		c.addBatchVolumesToQueueWorker(batch)
 	}
 	return nil
 }
 
 // updateEBSTags updates the tags of an AWS EBS volume with rate limiting
-func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, pvBatch []*v1.PersistentVolume, ec2Client *ec2.EC2,
-	resourceTags []configv1.AWSResourceTag) error {
-	err := c.rateLimiter.Wait(ctx)
-	// If context is cancelled or rate limit cannot be acquired, return error
-	if err != nil {
-		klog.Errorf("rate limiter error: %v", err)
-		return err
-	}
-
+func (c *EBSVolumeTagsController) updateEBSTags(ec2Client *ec2.EC2, resourceTags []configv1.AWSResourceTag,
+	pvs ...*v1.PersistentVolume) error {
 	// Prepare tags
 	tags := newAndUpdatedTags(resourceTags)
 	// Create or update the tags
-	_, err = ec2Client.CreateTags(&ec2.CreateTagsInput{
-		Resources: pvsToResourceIDs(pvBatch),
+	_, err := ec2Client.CreateTags(&ec2.CreateTagsInput{
+		Resources: pvsToResourceIDs(pvs),
 		Tags:      tags,
 	})
 	if err != nil {
@@ -356,6 +317,7 @@ func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, pvBatch []*
 	return nil
 }
 
+// listPersistentVolumes lists the volume
 func (c *EBSVolumeTagsController) listPersistentVolumes() ([]*v1.PersistentVolume, error) {
 	pvList, err := c.commonClient.KubeInformers.InformersFor("").Core().V1().PersistentVolumes().Lister().List(labels.Everything())
 	if err != nil {
@@ -365,6 +327,7 @@ func (c *EBSVolumeTagsController) listPersistentVolumes() ([]*v1.PersistentVolum
 	return pvList, nil
 }
 
+// updateVolume updates the persistent volume.
 func (c *EBSVolumeTagsController) updateVolume(ctx context.Context, pv *v1.PersistentVolume) error {
 	_, err := c.commonClient.KubeClient.CoreV1().PersistentVolumes().Update(ctx, pv, metav1.UpdateOptions{})
 	if err != nil {
@@ -374,18 +337,31 @@ func (c *EBSVolumeTagsController) updateVolume(ctx context.Context, pv *v1.Persi
 	return nil
 }
 
-func (c *EBSVolumeTagsController) handleTagUpdateFailure(batch []*v1.PersistentVolume, updateErr error) {
-	for _, pv := range batch {
+// handleBatchTagUpdateFailure emits the event for tags update failure and requeue the pvNames individually.
+func (c *EBSVolumeTagsController) handleBatchTagUpdateFailure(pvList []*v1.PersistentVolume, updateErr error) {
+	// log the PVs name and add them back to queue individually
+	for _, pv := range pvList {
 		klog.Errorf("error updating volume %v tags: %v", pv.Name, updateErr)
-		c.addToFailedQueue(pv.Name)
+		c.queue.AddRateLimited(&pvUpdateQueueItem{
+			updateType: updateTypeIndividual,
+			pvNames:    convertPVsListToStringArray(pv),
+		})
 	}
 	var pvNames []string
-	for _, pv := range batch {
+	for _, pv := range pvList {
 		pvNames = append(pvNames, pv.Name)
 	}
 	errorMessage := fmt.Sprintf("error updating tags for volume %v: %v", pvNames, updateErr)
 	// Emit a warning event for the failure
 	c.eventRecorder.Warning("EBSVolumeTagsUpdateFailed", fmt.Sprintf("failed to update tags for batch %v: %v", pvNames, errorMessage))
+}
+
+// handleIndividualTagUpdateFailure emits the event for tags update failure.
+func (c *EBSVolumeTagsController) handleIndividualTagUpdateFailure(pv *v1.PersistentVolume, updateErr error) {
+	klog.Errorf("error updating volume %v tags: %v", pv.Name, updateErr)
+	errorMessage := fmt.Sprintf("error updating tags for volume %v: %v", pv.Name, updateErr)
+	// Emit a warning event for the failure
+	c.eventRecorder.Warning("EBSVolumeTagsUpdateFailed", fmt.Sprintf("failed to update tags for batch %v: %v", pv.Name, errorMessage))
 }
 
 // newAndUpdatedTags adds and update existing AWS tags with new resource tags from OpenShift infrastructure
@@ -401,6 +377,7 @@ func newAndUpdatedTags(resourceTags []configv1.AWSResourceTag) []*ec2.Tag {
 	return tags
 }
 
+// filterUpdatableVolumes filters the list of volumes whose tags needs to be updated.
 func (c *EBSVolumeTagsController) filterUpdatableVolumes(volumes []*v1.PersistentVolume, newTagsHash string) []*v1.PersistentVolume {
 	var updatablePVs []*v1.PersistentVolume
 
@@ -408,7 +385,7 @@ func (c *EBSVolumeTagsController) filterUpdatableVolumes(volumes []*v1.Persisten
 		// Check if the volume is a CSI volume with the correct driver
 		if volume.Spec.CSI != nil && volume.Spec.CSI.Driver == driverName &&
 			// Ensure the volume is not already in the failed queue and include volumes whose tag hash is missing or different from the new hash
-			!c.isVolumeInFailedQueue(volume.Name) && getPVTagHash(volume) != newTagsHash {
+			!c.isVolumeInQueue(volume.Name) && getPVTagHash(volume) != newTagsHash {
 
 			// Add the volume to the list of updatable volumes
 			updatablePVs = append(updatablePVs, volume)
@@ -417,36 +394,35 @@ func (c *EBSVolumeTagsController) filterUpdatableVolumes(volumes []*v1.Persisten
 	return updatablePVs
 }
 
-// isVolumeInFailedQueue checks if a volume name is currently in the failed queue
-func (c *EBSVolumeTagsController) isVolumeInFailedQueue(volumeName string) bool {
+// isVolumeInQueue checks if a volume name is currently in the failed queue
+func (c *EBSVolumeTagsController) isVolumeInQueue(volumeName string) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	// Check if the volume name is in the set
-	_, exists := c.failedSet[volumeName]
+	_, exists := c.queueSet[volumeName]
 	return exists
 }
 
-// addToFailedQueue adds a volume name to the failed queue and tracks it in the set
-func (c *EBSVolumeTagsController) addToFailedQueue(volumeName string) {
+// addVolumesToQueueSet adds a volume name to the failed queue and tracks it in the set
+func (c *EBSVolumeTagsController) addVolumesToQueueSet(volumes ...*v1.PersistentVolume) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-
-	// Add volume name to the queue and set
-	c.failedQueue.AddRateLimited(volumeName)
-	c.failedSet[volumeName] = struct{}{}
+	for _, volume := range volumes {
+		c.queueSet[volume.Name] = struct{}{}
+	}
 }
 
-// removeFromFailedQueue removes a volume name from the queue and the set
-func (c *EBSVolumeTagsController) removeFromFailedQueue(volumeName string) {
+// removeVolumesFromQueueSet removes a volume name from the queue and the set
+func (c *EBSVolumeTagsController) removeVolumesFromQueueSet(volumeNames ...string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-
-	// Remove volume name from the queue and set
-	c.failedQueue.Forget(volumeName)
-	delete(c.failedSet, volumeName)
+	for _, volumeName := range volumeNames {
+		delete(c.queueSet, volumeName)
+	}
 }
 
+// pvsToResourceIDs returns list of resource IDs from list of PV
 func pvsToResourceIDs(volumes []*v1.PersistentVolume) []*string {
 	var resourceIDs []*string
 	for _, volume := range volumes {
@@ -498,4 +474,37 @@ func computeTagsHash(resourceTags []configv1.AWSResourceTag) string {
 	// Compute SHA256 hash of the tags string
 	hash := sha256.Sum256([]byte(tagsString))
 	return hex.EncodeToString(hash[:])
+}
+
+// addBatchVolumesToQueueWorker adds PVs to queue and queueSet.
+func (c *EBSVolumeTagsController) addBatchVolumesToQueueWorker(pvs []*v1.PersistentVolume) {
+	if len(pvs) == 0 {
+		return
+	}
+	c.addVolumesToQueueSet(pvs...)
+	c.queue.AddRateLimited(&pvUpdateQueueItem{
+		updateType: updateTypeBatch,
+		pvNames:    convertPVsListToStringArray(pvs...),
+	})
+}
+
+// convertPVsListToStringArray converts a slice of *v1.PersistentVolume to []string of PV names.
+func convertPVsListToStringArray(pvs ...*v1.PersistentVolume) []string {
+	var pvNames []string
+	for _, pv := range pvs {
+		if pv != nil {
+			pvNames = append(pvNames, pv.Name)
+		}
+	}
+	return pvNames
+}
+
+// getPersistentVolumeByName returns PersistentVolume by name.
+func (c *EBSVolumeTagsController) getPersistentVolumeByName(pvName string) (*v1.PersistentVolume, error) {
+	pv, err := c.commonClient.KubeInformers.InformersFor("").Core().V1().PersistentVolumes().Lister().Get(pvName)
+	if err != nil {
+		klog.Errorf("Failed to retrieve PV for volume %s: %v", pvName, err)
+		return nil, err
+	}
+	return pv, nil
 }
