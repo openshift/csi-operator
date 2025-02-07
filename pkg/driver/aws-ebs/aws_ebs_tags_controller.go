@@ -43,9 +43,10 @@ const (
 
 	awsErrorVolumeNotFound = "InvalidVolume.NotFound"
 
-	defaultReSyncPeriod  = 30 * time.Minute
-	updateTypeBatch      = "batch"
-	updateTypeIndividual = "individual"
+	defaultReSyncPeriod = 30 * time.Minute
+
+	updateTypeBatch      updateType = "batch"
+	updateTypeIndividual updateType = "individual"
 )
 
 type EBSVolumeTagsController struct {
@@ -64,8 +65,10 @@ type tokenClaims struct {
 	Exp int64 `json:"exp"` // Expiry timestamp
 }
 
+type updateType string
+
 type pvUpdateQueueItem struct {
-	updateType string
+	updateType updateType
 	pvNames    []string
 }
 
@@ -340,16 +343,14 @@ func (c *EBSVolumeTagsController) updateVolume(ctx context.Context, pv *v1.Persi
 // handleBatchTagUpdateFailure emits the event for tags update failure and requeue the pvNames individually.
 func (c *EBSVolumeTagsController) handleBatchTagUpdateFailure(pvList []*v1.PersistentVolume, updateErr error) {
 	// log the PVs name and add them back to queue individually
+	var pvNames []string
 	for _, pv := range pvList {
 		klog.Errorf("error updating volume %v tags: %v", pv.Name, updateErr)
+		pvNames = append(pvNames, pv.Name)
 		c.queue.AddRateLimited(&pvUpdateQueueItem{
 			updateType: updateTypeIndividual,
 			pvNames:    convertPVsListToStringArray(pv),
 		})
-	}
-	var pvNames []string
-	for _, pv := range pvList {
-		pvNames = append(pvNames, pv.Name)
 	}
 	errorMessage := fmt.Sprintf("error updating tags for volume %v: %v", pvNames, updateErr)
 	// Emit a warning event for the failure
@@ -361,7 +362,7 @@ func (c *EBSVolumeTagsController) handleIndividualTagUpdateFailure(pv *v1.Persis
 	klog.Errorf("error updating volume %v tags: %v", pv.Name, updateErr)
 	errorMessage := fmt.Sprintf("error updating tags for volume %v: %v", pv.Name, updateErr)
 	// Emit a warning event for the failure
-	c.eventRecorder.Warning("EBSVolumeTagsUpdateFailed", fmt.Sprintf("failed to update tags for batch %v: %v", pv.Name, errorMessage))
+	c.eventRecorder.Warning("EBSVolumeTagsUpdateFailed", fmt.Sprintf("failed to update tags for volume %v: %v", pv.Name, errorMessage))
 }
 
 // newAndUpdatedTags adds and update existing AWS tags with new resource tags from OpenShift infrastructure
