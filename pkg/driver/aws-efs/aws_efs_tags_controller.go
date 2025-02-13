@@ -2,20 +2,16 @@ package aws_efs
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/service/sts"
-	"golang.org/x/time/rate"
-	"gopkg.in/ini.v1"
 	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"crypto/sha256"
+	"encoding/hex"
+	"gopkg.in/ini.v1"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,8 +21,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/efs"
+	"github.com/aws/aws-sdk-go/service/sts"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorapi "github.com/openshift/api/operator/v1"
@@ -46,20 +44,12 @@ const (
 )
 
 type EFSAccessPointTagsController struct {
-	name           string
-	commonClient   *clients.Clients
-	eventRecorder  events.Recorder
-	failedQueue    workqueue.TypedRateLimitingInterface[string]
-	failedSet      map[string]struct{} // A set to track added volume names
-	mutex          sync.Mutex
-	awsSession     *session.Session
-	sessionExpTime int64
-	rateLimiter    *rate.Limiter
-}
-
-// TokenClaims represents the JWT claims
-type TokenClaims struct {
-	Exp int64 `json:"exp"` // Expiry timestamp
+	name          string
+	commonClient  *clients.Clients
+	eventRecorder events.Recorder
+	queue         workqueue.TypedRateLimitingInterface[string]
+	queueSet      map[string]struct{} // A set to track added volume names
+	mutex         sync.Mutex
 }
 
 func NewEFSAccessPointTagsController(
@@ -71,9 +61,8 @@ func NewEFSAccessPointTagsController(
 		name:          name,
 		commonClient:  commonClient,
 		eventRecorder: eventRecorder,
-		failedQueue:   workqueue.NewTypedRateLimitingQueue[string](workqueue.NewTypedItemExponentialFailureRateLimiter[string](10*time.Second, 100*time.Hour)),
-		rateLimiter:   rate.NewLimiter(rate.Limit(10), 100),
-		failedSet:     make(map[string]struct{}),
+		queue:         workqueue.NewTypedRateLimitingQueue[string](workqueue.NewTypedItemExponentialFailureRateLimiter[string](10*time.Second, 100*time.Hour)),
+		queueSet:      make(map[string]struct{}),
 		mutex:         sync.Mutex{},
 	}
 	return factory.New().WithSync(
@@ -83,7 +72,7 @@ func NewEFSAccessPointTagsController(
 	).ResyncEvery(
 		defaultReSyncPeriod,
 	).WithPostStartHooks(
-		c.startFailedQueueWorker,
+		c.startTagsQueueWorker,
 	).ToController(
 		name,
 		eventRecorder,
@@ -106,7 +95,7 @@ func (c *EFSAccessPointTagsController) Sync(ctx context.Context, syncCtx factory
 	if err != nil {
 		return err
 	}
-	if infra == nil || infra.Status.PlatformStatus == nil || infra.Status.PlatformStatus.AWS == nil {
+	if infra == nil || infra.Status.PlatformStatus == nil || infra.Status.PlatformStatus.AWS == nil || !isHypershiftCluster(infra) {
 		return nil
 	}
 	err = c.processInfrastructure(ctx, infra)
@@ -117,23 +106,18 @@ func (c *EFSAccessPointTagsController) Sync(ctx context.Context, syncCtx factory
 	return nil
 }
 
-// getEFSClient retrieves AWS credentials from the secret and creates an AWS EFS client using session.Options
-func (c *EFSAccessPointTagsController) getEFSClient(awsRegion string) (*efs.EFS, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	if c.awsSession == nil || c.isSessionExpired() {
-		sess, err := c.createAWSSession(awsRegion)
-		if err != nil {
-			klog.Errorf("Failed to create AWS session: %v", err)
-			return nil, err
+// isHypershiftCluster validates whether the cluster is a HyperShift cluster based on the label.
+func isHypershiftCluster(infra *configv1.Infrastructure) bool {
+	if infra.Labels != nil {
+		if value, exists := infra.Labels["hypershift.openshift.io/managed"]; exists && value == "true" {
+			return true
 		}
-		c.awsSession = sess
-		return efs.New(c.awsSession), nil
 	}
-	return efs.New(c.awsSession), nil
+	return false
 }
 
-func (c *EFSAccessPointTagsController) createAWSSession(awsRegion string) (*session.Session, error) {
+// getEFSClient retrieves AWS credentials from the secret and creates an AWS EFS client.
+func (c *EFSAccessPointTagsController) getEFSClient(awsRegion string) (*efs.EFS, error) {
 	secret, err := c.getEFSCloudCredSecret()
 	if err != nil {
 		klog.Errorf("error getting secret: %v", err)
@@ -142,7 +126,7 @@ func (c *EFSAccessPointTagsController) createAWSSession(awsRegion string) (*sess
 
 	credentialsData, credentialsFound := secret.Data["credentials"]
 	if credentialsFound {
-		sess, err := c.createSessionWithCredentials(credentialsData, awsRegion)
+		sess, err := c.createClientWithCredentials(credentialsData, awsRegion)
 		if err != nil {
 			klog.Errorf("error creating session: %v", err)
 			return nil, fmt.Errorf("error creating session: %v", err)
@@ -152,7 +136,8 @@ func (c *EFSAccessPointTagsController) createAWSSession(awsRegion string) (*sess
 	return nil, fmt.Errorf("no valid AWS credentials found in secret")
 }
 
-func (c *EFSAccessPointTagsController) createSessionWithCredentials(credentialsData []byte, region string) (*session.Session, error) {
+// createClientWithCredentials creates the client using the credential.
+func (c *EFSAccessPointTagsController) createClientWithCredentials(credentialsData []byte, awsRegion string) (*efs.EFS, error) {
 	// Load INI file from credentialsData
 	cfg, err := ini.Load(credentialsData)
 	if err != nil {
@@ -162,29 +147,21 @@ func (c *EFSAccessPointTagsController) createSessionWithCredentials(credentialsD
 
 	section := cfg.Section("default")
 	roleARN := section.Key("role_arn").String()
-	tokenFile := section.Key("web_identity_token_file").String()
+	tokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 
 	// Validate required fields
 	if roleARN == "" || tokenFile == "" {
 		return nil, fmt.Errorf("missing required AWS credentials: role_arn or web_identity_token_file is empty")
 	}
 
-	tokenExpirationTime, err := c.awsSessionExpirationTime(tokenFile)
-	if err != nil {
-		klog.Errorf("Error getting expiration time : %v", err)
-		return nil, err
-	}
-
-	// Create base AWS session
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(region),
+		Region: aws.String(awsRegion),
 	})
 	if err != nil {
 		klog.Errorf("Error creating base AWS session: %v", err)
 		return nil, fmt.Errorf("error creating AWS session: %v", err)
 	}
 
-	// Configure WebIdentityRoleProvider
 	provider := stscreds.NewWebIdentityRoleProviderWithOptions(
 		sts.New(sess),
 		roleARN,
@@ -194,7 +171,7 @@ func (c *EFSAccessPointTagsController) createSessionWithCredentials(credentialsD
 
 	// Create new session with WebIdentity credentials
 	sess, err = session.NewSession(&aws.Config{
-		Region:      aws.String(region),
+		Region:      aws.String(awsRegion),
 		Credentials: credentials.NewCredentials(provider),
 	})
 	if err != nil {
@@ -202,41 +179,7 @@ func (c *EFSAccessPointTagsController) createSessionWithCredentials(credentialsD
 		return nil, fmt.Errorf("error creating AWS session with Web Identity: %v", err)
 	}
 
-	c.sessionExpTime = tokenExpirationTime
-	return sess, nil
-}
-
-// awsSessionExpirationTime gives the token expiry time for session.
-func (c *EFSAccessPointTagsController) awsSessionExpirationTime(tokenFile string) (int64, error) {
-	if tokenFile == "" {
-		return 0, fmt.Errorf("token file not specified")
-	}
-	data, err := os.ReadFile(tokenFile)
-	if err != nil {
-		return 0, fmt.Errorf("failed to read token file: %v", err)
-	}
-
-	parts := strings.Split(string(data), ".")
-	if len(parts) < 2 {
-		return 0, fmt.Errorf("invalid JWT token format")
-	}
-
-	// Decode the payload (second part of the JWT)
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return 0, fmt.Errorf("failed to decode token payload: %v", err)
-	}
-
-	var claims TokenClaims
-	if err = json.Unmarshal(payload, &claims); err != nil {
-		return 0, fmt.Errorf("failed to unmarshal token claims: %v", err)
-	}
-	return claims.Exp, nil
-}
-
-// isSessionExpired check if token expiry time is exceeded.
-func (c *EFSAccessPointTagsController) isSessionExpired() bool {
-	return c.sessionExpTime < time.Now().Unix()
+	return efs.New(sess), nil
 }
 
 // getInfrastructure retrieves the Infrastructure resource in OpenShift
@@ -249,6 +192,7 @@ func (c *EFSAccessPointTagsController) getInfrastructure() (*configv1.Infrastruc
 	return infra, nil
 }
 
+// getEFSCloudCredSecret returns the aws secret stored in awsEFSSecretName secret.
 func (c *EFSAccessPointTagsController) getEFSCloudCredSecret() (*v1.Secret, error) {
 	awsCreds, err := c.commonClient.KubeInformers.InformersFor(awsEFSSecretNamespace).Core().V1().Secrets().Lister().Secrets(awsEFSSecretNamespace).Get(awsEFSSecretName)
 	if err != nil {
@@ -262,7 +206,7 @@ func (c *EFSAccessPointTagsController) getEFSCloudCredSecret() (*v1.Secret, erro
 func (c *EFSAccessPointTagsController) processInfrastructure(ctx context.Context, infra *configv1.Infrastructure) error {
 	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil &&
 		infra.Status.PlatformStatus.AWS.ResourceTags != nil {
-		err := c.fetchPVsAndUpdateTags(ctx, infra)
+		err := c.fetchAndPushPvsToQueue(ctx, infra)
 		if err != nil {
 			klog.Errorf("Error processing PVs for infrastructure update: %v", err)
 			return err
@@ -271,8 +215,8 @@ func (c *EFSAccessPointTagsController) processInfrastructure(ctx context.Context
 	return nil
 }
 
-// fetchPVsAndUpdateTags retrieves all PVs and updates the AWS EFS Access Points tags in batches of 100
-func (c *EFSAccessPointTagsController) fetchPVsAndUpdateTags(ctx context.Context, infra *configv1.Infrastructure) error {
+// fetchAndPushPvsToQueue lists the PVs, filter the updatable PVs and push them to the queue to get the tags updated via worker.
+func (c *EFSAccessPointTagsController) fetchAndPushPvsToQueue(ctx context.Context, infra *configv1.Infrastructure) error {
 	pvs, err := c.listPersistentVolumes()
 	if err != nil {
 		return fmt.Errorf("error fetching PVs: %v", err)
@@ -286,51 +230,19 @@ func (c *EFSAccessPointTagsController) fetchPVsAndUpdateTags(ctx context.Context
 		klog.Infof("No volumes to update as tag hashes are unchanged")
 		return nil
 	}
-	var infraRegion = ""
-	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil {
-		infraRegion = infra.Status.PlatformStatus.AWS.Region
-	}
-	efsClient, err := c.getEFSClient(infraRegion)
-	if err != nil {
-		return err
-	}
-
+	// add the volumes to the queue for the queue worker.
 	for _, volume := range pvsToBeUpdated {
-		err = c.updateEFSAccessPointTags(ctx, volume, efsClient, infra.Status.PlatformStatus.AWS.ResourceTags)
-		if err != nil {
-			klog.Errorf("Error updating volume's AccessPoint %s tags: %v", volume.Name, err)
-			c.eventRecorder.Warning("EFSAccessPointTagsUpdateFailed", fmt.Sprintf("Failed to update tags for batch %v: %v", volume.Name, err.Error()))
-			c.addToFailedQueue(volume.Name)
-			continue
-		}
-		// Set the new tag hash annotation in the PV object
-		updatedPv := setPVTagHash(volume, newTagsHash)
-
-		// Update the PV with the new annotations
-		err = c.updateVolume(ctx, updatedPv)
-		if err != nil {
-			klog.Errorf("Error updating PV annotations for volume %s: %v", volume.Name, err)
-			c.addToFailedQueue(volume.Name)
-			continue
-		}
-		klog.Infof("Successfully updated PV annotations and access points tags for volume %s", volume.Name)
+		c.addToQueue(volume.Name)
 	}
 	return nil
 }
 
 // updateEFSAccessPointTags updates the tags of an AWS EFS Access Points
 func (c *EFSAccessPointTagsController) updateEFSAccessPointTags(ctx context.Context, pv *v1.PersistentVolume, efsClient *efs.EFS, resourceTags []configv1.AWSResourceTag) error {
-
-	err := c.rateLimiter.Wait(ctx)
-	if err != nil {
-		klog.Errorf("Error waiting for rate limiter: %v", err)
-		return err
-	}
-
 	tags := newAndUpdatedTags(resourceTags)
 
 	// Create or update the tags
-	_, err = efsClient.TagResource(&efs.TagResourceInput{
+	_, err := efsClient.TagResource(&efs.TagResourceInput{
 		ResourceId: aws.String(parseAccessPointID(pv.Spec.CSI.VolumeHandle)),
 		Tags:       tags,
 	})
@@ -341,6 +253,7 @@ func (c *EFSAccessPointTagsController) updateEFSAccessPointTags(ctx context.Cont
 	return nil
 }
 
+// updateVolume updates the volume using kube client.
 func (c *EFSAccessPointTagsController) updateVolume(ctx context.Context, pv *v1.PersistentVolume) error {
 	_, err := c.commonClient.KubeClient.CoreV1().PersistentVolumes().Update(ctx, pv, metav1.UpdateOptions{})
 	if err != nil {
@@ -350,6 +263,7 @@ func (c *EFSAccessPointTagsController) updateVolume(ctx context.Context, pv *v1.
 	return nil
 }
 
+// listPersistentVolumes lists the pvs from the cache
 func (c *EFSAccessPointTagsController) listPersistentVolumes() ([]*v1.PersistentVolume, error) {
 	pvList, err := c.commonClient.KubeInformers.InformersFor("").Core().V1().PersistentVolumes().Lister().List(labels.Everything())
 	if err != nil {
@@ -372,11 +286,12 @@ func newAndUpdatedTags(resourceTags []configv1.AWSResourceTag) []*efs.Tag {
 	return tags
 }
 
+// filterUpdatableVolumes filters the updatable volumes from all the volumes listed.
 func (c *EFSAccessPointTagsController) filterUpdatableVolumes(volumes []*v1.PersistentVolume, newTagsHash string) []*v1.PersistentVolume {
 	var pvsToBeUpdated = make([]*v1.PersistentVolume, 0)
 	for _, volume := range volumes {
 		if volume.Spec.CSI != nil && volume.Spec.CSI.Driver == efsDriverName &&
-			parseAccessPointID(volume.Spec.CSI.VolumeHandle) != "" && !c.isVolumeInFailedQueue(volume.Name) {
+			parseAccessPointID(volume.Spec.CSI.VolumeHandle) != "" && !c.isVolumeInQueue(volume.Name) {
 			existingHash := getPVTagHash(volume)
 			if existingHash == "" || existingHash != newTagsHash {
 				pvsToBeUpdated = append(pvsToBeUpdated, volume)
@@ -386,34 +301,34 @@ func (c *EFSAccessPointTagsController) filterUpdatableVolumes(volumes []*v1.Pers
 	return pvsToBeUpdated
 }
 
-// isVolumeInFailedQueue checks if a volume name is currently in the failed queue
-func (c *EFSAccessPointTagsController) isVolumeInFailedQueue(volumeName string) bool {
+// isVolumeInQueue checks if a volume name is currently in the queue
+func (c *EFSAccessPointTagsController) isVolumeInQueue(volumeName string) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	// Check if the volume name is in the set
-	_, exists := c.failedSet[volumeName]
+	_, exists := c.queueSet[volumeName]
 	return exists
 }
 
-// addToFailedQueue adds a volume name to the failed queue and tracks it in the set
-func (c *EFSAccessPointTagsController) addToFailedQueue(volumeName string) {
+// addToQueue adds a volume name to the queue and tracks it in the set
+func (c *EFSAccessPointTagsController) addToQueue(volumeName string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	// Add volume name to the queue and set
-	c.failedQueue.AddRateLimited(volumeName)
-	c.failedSet[volumeName] = struct{}{}
+	c.queue.AddRateLimited(volumeName)
+	c.queueSet[volumeName] = struct{}{}
 }
 
-// removeFromFailedQueue removes a volume name from the queue and the set
-func (c *EFSAccessPointTagsController) removeFromFailedQueue(volumeName string) {
+// removeFromQueue removes a volume name from the queue and the set
+func (c *EFSAccessPointTagsController) removeFromQueue(volumeName string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	// Remove volume name from the queue and set
-	c.failedQueue.Forget(volumeName)
-	delete(c.failedSet, volumeName)
+	c.queue.Forget(volumeName)
+	delete(c.queueSet, volumeName)
 }
 
 // setPVTagHash stores the hash in the PV annotations.
