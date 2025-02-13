@@ -4,47 +4,47 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	configv1 "github.com/openshift/api/config/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 )
 
-// startFailedQueueWorker runs a worker that processes failed volumes independently
-func (c *EFSAccessPointTagsController) startFailedQueueWorker(ctx context.Context, syncContext factory.SyncContext) error {
+// startTagsQueueWorker runs a worker that processes volumes independently
+func (c *EFSAccessPointTagsController) startTagsQueueWorker(ctx context.Context, syncContext factory.SyncContext) error {
 	for {
 		select {
 		case <-ctx.Done():
-			klog.Infof("Context canceled, stopping failed queue worker for EFS Volume Access Points Tags")
-			return errors.New("context canceled, stopping failed queue worker for EFS Volume Access Points Tags")
+			klog.Infof("Context canceled, stopping queue worker for EFS Volume Access Points Tags")
+			return errors.New("context canceled, stopping queue worker for EFS Volume Access Points Tags")
 		default:
-			item, quit := c.failedQueue.Get()
+			item, quit := c.queue.Get()
 			if quit {
-				klog.Infof("Failed queue worker is shutting down")
-				return errors.New("failed queue worker is shutting down")
+				klog.Infof("queue worker is shutting down")
+				return errors.New("queue worker is shutting down")
 			}
-			c.processFailedVolume(ctx, item)
+			c.processQueueVolume(ctx, item)
 		}
 	}
 }
 
-// processFailedVolume processes a single failed volume from the queue
-func (c *EFSAccessPointTagsController) processFailedVolume(ctx context.Context, pvName string) {
-	defer c.failedQueue.Done(pvName)
-	klog.Infof("Retrying failed volume: %v", pvName)
+// processQueueVolume processes a single volume from the queue
+func (c *EFSAccessPointTagsController) processQueueVolume(ctx context.Context, pvName string) {
+	defer c.queue.Done(pvName)
+	klog.Infof("Attempting to update tags for volume: %v", pvName)
 
 	infra, err := c.getInfrastructure()
 	if err != nil {
 		klog.Errorf("Failed to get infrastructure object: %v", err)
-		c.failedQueue.AddRateLimited(pvName)
+		c.queue.AddRateLimited(pvName)
 		return
 	}
 	if infra.Status.PlatformStatus == nil || infra.Status.PlatformStatus.AWS == nil || len(infra.Status.PlatformStatus.AWS.Region) == 0 {
 		klog.Infof("Skipping failed volume %v because no AWS region defined", pvName)
-		c.failedQueue.AddRateLimited(pvName)
+		c.queue.AddRateLimited(pvName)
 		return
 	}
 
@@ -52,11 +52,11 @@ func (c *EFSAccessPointTagsController) processFailedVolume(ctx context.Context, 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.Infof("Skipping failed volume %v because it does not exist", pvName)
-			c.removeFromFailedQueue(pvName)
+			c.removeFromQueue(pvName)
 			return
 		}
 		klog.Errorf("Failed to get persistent volume %v: %v", pvName, err)
-		c.failedQueue.AddRateLimited(pvName)
+		c.queue.AddRateLimited(pvName)
 		return
 	}
 
@@ -64,7 +64,7 @@ func (c *EFSAccessPointTagsController) processFailedVolume(ctx context.Context, 
 		c.updateTags(ctx, pv, infra.Status.PlatformStatus.AWS.Region, infra.Status.PlatformStatus.AWS.ResourceTags)
 	} else {
 		klog.Infof("No update needed for volume %s as hashes match", pvName)
-		c.removeFromFailedQueue(pvName)
+		c.removeFromQueue(pvName)
 	}
 }
 
@@ -90,7 +90,7 @@ func (c *EFSAccessPointTagsController) updateTags(ctx context.Context, pv *v1.Pe
 	efsClient, err := c.getEFSClient(region)
 	if err != nil {
 		klog.Errorf("Failed to get EFS client for retry: %v", err)
-		c.failedQueue.AddRateLimited(pv.Name)
+		c.queue.AddRateLimited(pv.Name)
 		return
 	}
 
@@ -98,7 +98,7 @@ func (c *EFSAccessPointTagsController) updateTags(ctx context.Context, pv *v1.Pe
 	if err != nil {
 		klog.Errorf("Failed to update tags for volume %s: %v", pv.Name, err)
 		c.eventRecorder.Warning("EFSAccessPointTagsUpdateFailed", fmt.Sprintf("Failed to update tags for volume %v: %v", pv.Name, err.Error()))
-		c.failedQueue.AddRateLimited(pv.Name)
+		c.queue.AddRateLimited(pv.Name)
 		return
 	}
 
@@ -108,10 +108,10 @@ func (c *EFSAccessPointTagsController) updateTags(ctx context.Context, pv *v1.Pe
 	err = c.updateVolume(ctx, updatedVolume)
 	if err != nil {
 		klog.Errorf("Error updating PV annotations for volume %s: %v", pv.Name, err)
-		c.failedQueue.AddRateLimited(pv.Name)
+		c.queue.AddRateLimited(pv.Name)
 		return
 	}
 
 	klog.Infof("Successfully updated PV annotations for volume %s", pv.Name)
-	c.removeFromFailedQueue(pv.Name)
+	c.removeFromQueue(pv.Name)
 }
