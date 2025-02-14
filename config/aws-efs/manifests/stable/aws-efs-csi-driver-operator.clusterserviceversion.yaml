@@ -352,11 +352,22 @@ spec:
                       value: quay.io/openshift/origin-kube-rbac-proxy:latest
                     - name: TOOLS_IMAGE
                       value: quay.io/openshift/origin-tools:latest
+                    - name: AWS_CONFIG_FILE
+                      value: /var/run/aws/auth/credentials
+                    - name: AWS_SDK_LOAD_CONFIG
+                      value: "1"
                   resources:
                     requests:
                       memory: 50Mi
                       cpu: 10m
                   terminationMessagePolicy: FallbackToLogsOnError
+                  volumeMounts:
+                  - mountPath: /var/run/aws/auth
+                    name: aws-credentials
+                    readOnly: true
+                  - mountPath: /var/run/secrets/openshift/serviceaccount
+                    name: bound-sa-token
+                    readOnly: true
                 priorityClassName: system-cluster-critical
                 # Strongly prefer a master node, but don't require it.
                 # We want the same Deployment to work on hypershift,
@@ -371,6 +382,20 @@ spec:
                           operator: In
                           values:
                           - ""
+                volumes:
+                - name: aws-credentials
+                  secret:
+                    items:
+                    - key: credentials
+                      path: credentials
+                    secretName: aws-efs-cloud-credentials
+                - name: bound-sa-token
+                  projected:
+                    sources:
+                    - serviceAccountToken:
+                        audience: openshift
+                        expirationSeconds: 3600
+                        path: token
                 tolerations:
                   - key: CriticalAddonsOnly
                     operator: Exists

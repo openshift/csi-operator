@@ -3,7 +3,6 @@ package aws_efs
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -150,9 +149,8 @@ func (c *EFSAccessPointTagsController) createClientWithCredentials(credentialsDa
 
 	section := cfg.Section("default")
 	roleARN := section.Key("role_arn").String()
-	tokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
+	tokenFile := section.Key("web_identity_token_file").String()
 
-	// Validate required fields
 	if roleARN == "" || tokenFile == "" {
 		return nil, fmt.Errorf("missing required AWS credentials: role_arn or web_identity_token_file is empty")
 	}
