@@ -201,6 +201,13 @@ spec:
             - watch
             - update
           - apiGroups:
+            - ''
+            resources:
+            - persistentvolumeclaims/status
+            verbs:
+            - update
+            - patch
+          - apiGroups:
             - storage.k8s.io
             resources:
             - storageclasses
@@ -291,6 +298,8 @@ spec:
                       value: quay.io/openshift/origin-csi-driver-smb:latest
                     - name: PROVISIONER_IMAGE
                       value: quay.io/openshift/origin-csi-external-provisioner:latest
+                    - name: RESIZER_IMAGE
+                      value: quay.io/openshift/origin-csi-external-resizer:latest
                     - name: NODE_DRIVER_REGISTRAR_IMAGE
                       value: quay.io/openshift/origin-csi-node-driver-registrar:latest
                     - name: LIVENESS_PROBE_IMAGE

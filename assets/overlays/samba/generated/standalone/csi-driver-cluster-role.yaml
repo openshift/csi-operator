@@ -1,0 +1,19 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/samba/base/csi-driver-cluster-role.yaml
+#
+#
+# SMB CSI inline volume needs the get/list permission for secrets
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: smb-csi-driver-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
