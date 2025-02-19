@@ -1,4 +1,4 @@
-# SMB CSI inline volume needs the get/list permission for secrets
+# SMB CSI inline volume needs the get permission for secrets
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -6,4 +6,4 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["get", "list"]
+    verbs: ["get"]
