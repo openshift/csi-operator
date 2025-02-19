@@ -6,7 +6,6 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
-	"k8s.io/utils/ptr"
 )
 
 func TestGenerateConfigMap(t *testing.T) {
@@ -14,11 +13,11 @@ func TestGenerateConfigMap(t *testing.T) {
 	format.TruncatedDiff = false
 
 	tc := []struct {
-		name     string
-		source   []byte
-		caCert   *string
-		expected string
-		errMsg   string
+		name         string
+		source       []byte
+		caCertSource caCertSource
+		expected     string
+		errMsg       string
 	}{
 		{
 			name:   "Unset config",
@@ -46,9 +45,18 @@ use-clouds  = true
 clouds-file = /etc/openstack/clouds.yaml
 cloud       = openstack`,
 		}, {
-			name:   "With CA cert",
-			source: nil,
-			caCert: ptr.To("not-so-secret CA data goes here"),
+			name:         "With CA cert",
+			source:       nil,
+			caCertSource: secretCACertSource,
+			expected: `[Global]
+use-clouds  = true
+clouds-file = /etc/openstack/clouds.yaml
+cloud       = openstack
+ca-file     = /etc/openstack/ca.crt`,
+		}, {
+			name:         "With CA cert (legacy)",
+			source:       nil,
+			caCertSource: configCACertSource,
 			expected: `[Global]
 use-clouds  = true
 clouds-file = /etc/openstack/clouds.yaml
@@ -71,7 +79,7 @@ cloud       = openstack`,
 			g := NewWithT(t)
 			actual, err := generateConfig(
 				[]byte(tc.source),
-				tc.caCert,
+				tc.caCertSource,
 			)
 			if tc.errMsg != "" {
 				g.Expect(err).Should(MatchError(tc.errMsg))
