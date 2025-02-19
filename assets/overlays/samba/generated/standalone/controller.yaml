@@ -6,6 +6,9 @@
 # provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
 # provisioner.yaml: Added arguments [--extra-create-metadata=true]
 # Applied strategic merge patch provisioner.yaml
+# resizer.yaml: Loaded from common/sidecars/resizer.yaml
+# resizer.yaml: Added arguments [--timeout=120s -handle-volume-inuse-error=false]
+# Applied strategic merge patch resizer.yaml
 # livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
 # livenessprobe.yaml: Added arguments [--probe-timeout=3s]
 # Applied strategic merge patch livenessprobe.yaml
@@ -139,6 +142,52 @@ spec:
         ports:
         - containerPort: 9222
           name: provisioner-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8223
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=${NODE_NAMESPACE}
+        - --v=${LOG_LEVEL}
+        - --timeout=120s
+        - -handle-volume-inuse-error=false
+        env: []
+        image: ${RESIZER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-resizer
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9223
+        - --upstream=http://127.0.0.1:8223/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: resizer-kube-rbac-proxy
+        ports:
+        - containerPort: 9223
+          name: resizer-m
           protocol: TCP
         resources:
           requests:

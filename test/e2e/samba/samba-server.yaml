@@ -203,6 +203,7 @@ parameters:
   csi.storage.k8s.io/node-stage-secret-namespace: samba-server
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
+allowVolumeExpansion: true
 mountOptions:
   - dir_mode=0777
   - file_mode=0777

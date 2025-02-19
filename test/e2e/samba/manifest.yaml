@@ -13,8 +13,8 @@ DriverInfo:
     block: false
     exec: true
     volumeLimits: false
-    controllerExpansion: false
-    nodeExpansion: false
+    controllerExpansion: true
+    nodeExpansion: true
     snapshotDataSource: false
     RWX: true
     pvcDataSource: true

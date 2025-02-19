@@ -7,7 +7,12 @@
 apiVersion: storage.k8s.io/v1
 kind: CSIDriver
 metadata:
+  labels:
+    security.openshift.io/csi-ephemeral-volume-profile: privileged
   name: smb.csi.k8s.io
 spec:
   attachRequired: false
   podInfoOnMount: true
+  volumeLifecycleModes:
+  - Persistent
+  - Ephemeral
