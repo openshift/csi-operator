@@ -205,6 +205,12 @@ func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, ctrl)
 	}
 
+	if flavour == generator.FlavourHyperShift {
+		volumeTagController := NewEBSVolumeTagsController(cfg.GetControllerName("EBSVolumeTagsController"), c, c.EventRecorder)
+		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, volumeTagController)
+		cfg.DeploymentInformers = append(cfg.DeploymentInformers, c.KubeInformers.InformersFor("").Core().V1().PersistentVolumes().Informer())
+		cfg.DeploymentInformers = append(cfg.DeploymentInformers, c.KubeInformers.InformersFor(awsEBSSecretNamespace).Core().V1().Secrets().Informer())
+	}
 	return cfg, nil
 }
 
