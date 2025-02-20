@@ -44,6 +44,10 @@ func GetSambaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				commongenerator.DefaultProvisioner.WithExtraArguments(
 					"--extra-create-metadata=true",
 				),
+				commongenerator.DefaultResizer.WithExtraArguments(
+					"--timeout=120s",
+					"-handle-volume-inuse-error=false",
+				),
 				commongenerator.DefaultLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
@@ -76,6 +80,8 @@ func GetSambaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/samba/base/configmap_and_secret_reader_provisioner_binding.yaml",
 				"overlays/samba/base/controller_privileged_binding.yaml",
 				"overlays/samba/base/csidriver.yaml",
+				"overlays/samba/base/csi-driver-cluster-role.yaml",
+				"overlays/samba/base/csi-driver-cluster-role-binding.yaml",
 			),
 			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
 				// Any role or cluster role bindings should not hardcode service account namespace because this operator is OLM based and can be installed into a custom namespace.
