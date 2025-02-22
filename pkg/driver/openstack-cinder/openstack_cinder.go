@@ -53,7 +53,8 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultProvisionerWithSnapshots.WithExtraArguments(
 					"--timeout=3m",
-					"--feature-gates=Topology=$(ENABLE_TOPOLOGY)",
+					"--feature-gates=Topology=true",
+					"--with-topology=$(ENABLE_TOPOLOGY)",
 					"--default-fstype=ext4",
 				).WithPatches(generator.AllFlavours,
 					"controller.yaml", "overlays/openstack-cinder/patches/provisioner_add_envvars.yaml",
