@@ -38,18 +38,13 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --v=${LOG_LEVEL}
-            - "--nodeid=$(NODE_ID)"
-            - "--endpoint=$(CSI_ENDPOINT)"
-            - "--drivername=$(DRIVER_NAME)"
-            - "--share-protocol-selector=$(MANILA_SHARE_PROTO)"
-            - "--fwdendpoint=$(FWD_CSI_ENDPOINT)"
+            - --endpoint=$(CSI_ENDPOINT)
+            - --drivername=$(DRIVER_NAME)
+            - --share-protocol-selector=$(MANILA_SHARE_PROTO)
+            - --fwdendpoint=$(FWD_CSI_ENDPOINT)
           env:
             - name: DRIVER_NAME
               value: manila.csi.openstack.org
-            - name: NODE_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
             - name: CSI_ENDPOINT
               value: unix:///var/lib/kubelet/plugins/manila.csi.openstack.org/csi.sock
             - name: FWD_CSI_ENDPOINT
