@@ -14,7 +14,7 @@ DriverInfo:
     exec: true
     volumeLimits: false
     controllerExpansion: true
-    nodeExpansion: true
+    nodeExpansion: false
     snapshotDataSource: false
     RWX: true
     pvcDataSource: true
