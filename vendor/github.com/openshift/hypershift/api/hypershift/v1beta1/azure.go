@@ -2,8 +2,6 @@ package v1beta1
 
 import (
 	"fmt"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 // AzureVMImageType is used to specify the source of the Azure VM boot image.
@@ -75,13 +73,13 @@ type AzureNodePoolPlatform struct {
 	// subnetID is immutable once set.
 	// The subnetID should be in the format `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}`.
 	// The subscriptionId in the encryptionSetID must be a valid UUID. It should be 5 groups of hyphen separated hexadecimal characters in the form 8-4-4-4-12.
-	// The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and paranthesis and must not end with a period (.) character.
+	// The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and parenthesis and must not end with a period (.) character.
 	// The vnetName should be between 2 and 64 characters, consisting only of alphanumeric characters, hyphens, underscores and periods and must not end with either a period (.) or hyphen (-) character.
 	// The subnetName should be between 1 and 80 characters, consisting only of alphanumeric characters, hyphens and underscores and must start with an alphanumeric character and must not end with a period (.) or hyphen (-) character.
 	//
 	// +kubebuilder:validation:XValidation:rule="size(self.split('/')) == 11 && self.matches('^/subscriptions/.*/resourceGroups/.*/providers/Microsoft.Network/virtualNetworks/.*/subnets/.*$')",message="encryptionSetID must be in the format `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}`"
 	// +kubeubilder:validation:XValidation:rule="self.split('/')[2].matches('^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$')",message="the subscriptionId in the encryptionSetID must be a valid UUID. It should be 5 groups of hyphen separated hexadecimal characters in the form 8-4-4-4-12"
-	// +kubebuilder:validation:XValidation:rule=`self.split('/')[4].matches('[a-zA-Z0-9-_\\(\\)\\.]{1,90}')`,message="The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and paranthesis"
+	// +kubebuilder:validation:XValidation:rule=`self.split('/')[4].matches('[a-zA-Z0-9-_\\(\\)\\.]{1,90}')`,message="The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and parenthesis"
 	// +kubebuilder:validation:XValidation:rule="!self.split('/')[4].endsWith('.')",message="the resourceGroupName in the subnetID must not end with a period (.) character"
 	// +kubebuilder:validation:XValidation:rule=`self.split('/')[8].matches('[a-zA-Z0-9-_\\.]{2,64}')`,message="The vnetName should be between 2 and 64 characters, consisting only of alphanumeric characters, hyphens, underscores and periods"
 	// +kubebuilder:validation:XValidation:rule="!self.split('/')[8].endsWith('.') && !self.split('/')[8].endsWith('-')",message="the vnetName in the subnetID must not end with either a period (.) or hyphen (-) character"
@@ -97,20 +95,6 @@ type AzureNodePoolPlatform struct {
 	// If not specified, then Boot diagnostics will be disabled.
 	// +optional
 	Diagnostics *Diagnostics `json:"diagnostics,omitempty"`
-
-	// machineIdentityID is a user-assigned identity assigned to the VMs used to authenticate with Azure services. The
-	// identify is expected to exist under the same resource group as HostedCluster.Spec.Platform.Azure.ResourceGroupName. This
-	// user assigned identity is expected to have the Contributor role assigned to it and scoped to the resource group
-	// under HostedCluster.Spec.Platform.Azure.ResourceGroupName.
-	//
-	// If this field is not supplied, the Service Principal credentials will be written to a file on the disk of each VM
-	// in order to be accessible by the cloud provider; the aforementioned credentials provided are the same ones as
-	// HostedCluster.Spec.Platform.Azure.Credentials. However, this is less secure than using a managed identity.
-	//
-	// TODO: What is the valid character set for this field? What about minimum and maximum lengths?
-	//
-	// +optional
-	MachineIdentityID string `json:"machineIdentityID,omitempty"`
 }
 
 // AzureVMImage represents the different types of boot image sources that can be provided for an Azure VM.
@@ -308,13 +292,13 @@ type AzureNodePoolOSDisk struct {
 	// listed in the Hosted Cluster, HostedCluster.Spec.Platform.Azure.Location.
 	// The encryptionSetID should be in the format `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Copmute/diskEncryptionSets/{resourceName}`.
 	// The subscriptionId in the encryptionSetID must be a valid UUID. It should be 5 groups of hyphen separated hexadecimal characters in the form 8-4-4-4-12.
-	// The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and paranthesis and must not end with a period (.) character.
+	// The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and parenthesis and must not end with a period (.) character.
 	// The resourceName should be between 1 and 80 characters, consisting only of alphanumeric characters, hyphens and underscores.
 	// TODO: Are there other encryption related options we may want to expose, should this be in a struct as well?
 	//
 	// +kubebuilder:validation:XValidation:rule="size(self.split('/')) == 9 && self.matches('^/subscriptions/.*/resourceGroups/.*/providers/Microsoft.Compute/diskEncryptionSets/.*$')",message="encryptionSetID must be in the format `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Copmute/diskEncryptionSets/{resourceName}`"
 	// +kubeubilder:validation:XValidation:rule="self.split('/')[2].matches('^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$')",message="the subscriptionId in the encryptionSetID must be a valid UUID. It should be 5 groups of hyphen separated hexadecimal characters in the form 8-4-4-4-12"
-	// +kubebuilder:validation:XValidation:rule=`self.split('/')[4].matches('[a-zA-Z0-9-_\\(\\)\\.]{1,90}')`,message="The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and paranthesis"
+	// +kubebuilder:validation:XValidation:rule=`self.split('/')[4].matches('[a-zA-Z0-9-_\\(\\)\\.]{1,90}')`,message="The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and parenthesis"
 	// +kubebuilder:validation:XValidation:rule="!self.split('/')[4].endsWith('.')",message="the resourceGroupName in the encryptionSetID must not end with a period (.) character"
 	// +kubebuilder:validation:XValidation:rule="self.split('/')[8].matches('[a-zA-Z0-9-_]{1,80}')",message="The resourceName should be between 1 and 80 characters, consisting only of alphanumeric characters, hyphens and underscores"
 	// +kubeubilder:validation:MinLength:=1
@@ -338,13 +322,6 @@ type AzureNodePoolOSDisk struct {
 // would be pre-created and then their names would be used respectively in the ResourceGroupName, SubnetName, VnetName
 // fields of the Hosted Cluster CR. An existing cloud resource is expected to exist under the same SubscriptionID.
 type AzurePlatformSpec struct {
-	// Credentials is the object containing existing Azure credentials needed for creating and managing cloud
-	// infrastructure resources.
-	//
-	// +kubebuilder:validation:Required
-	// +required
-	Credentials corev1.LocalObjectReference `json:"credentials"`
-
 	// Cloud is the cloud environment identifier, valid values could be found here: https://github.com/Azure/go-autorest/blob/4c0e21ca2bbb3251fe7853e6f9df6397f53dd419/autorest/azure/environments.go#L33
 	//
 	// +kubebuilder:validation:Enum=AzurePublicCloud;AzureUSGovernmentCloud;AzureChinaCloud;AzureGermanCloud;AzureStackCloud
@@ -400,13 +377,13 @@ type AzurePlatformSpec struct {
 	// subnetID is immutable once set.
 	// The subnetID should be in the format `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}`.
 	// The subscriptionId in the encryptionSetID must be a valid UUID. It should be 5 groups of hyphen separated hexadecimal characters in the form 8-4-4-4-12.
-	// The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and paranthesis and must not end with a period (.) character.
+	// The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and parenthesis and must not end with a period (.) character.
 	// The vnetName should be between 2 and 64 characters, consisting only of alphanumeric characters, hyphens, underscores and periods and must not end with either a period (.) or hyphen (-) character.
 	// The subnetName should be between 1 and 80 characters, consisting only of alphanumeric characters, hyphens and underscores and must start with an alphanumeric character and must not end with a period (.) or hyphen (-) character.
 	//
 	// +kubebuilder:validation:XValidation:rule="size(self.split('/')) == 11 && self.matches('^/subscriptions/.*/resourceGroups/.*/providers/Microsoft.Network/virtualNetworks/.*/subnets/.*$')",message="encryptionSetID must be in the format `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}`"
 	// +kubeubilder:validation:XValidation:rule="self.split('/')[2].matches('^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$')",message="the subscriptionId in the encryptionSetID must be a valid UUID. It should be 5 groups of hyphen separated hexadecimal characters in the form 8-4-4-4-12"
-	// +kubebuilder:validation:XValidation:rule=`self.split('/')[4].matches('[a-zA-Z0-9-_\\(\\)\\.]{1,90}')`,message="The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and paranthesis"
+	// +kubebuilder:validation:XValidation:rule=`self.split('/')[4].matches('[a-zA-Z0-9-_\\(\\)\\.]{1,90}')`,message="The resourceGroupName should be between 1 and 90 characters, consisting only of alphanumeric characters, hyphens, underscores, periods and parenthesis"
 	// +kubebuilder:validation:XValidation:rule="!self.split('/')[4].endsWith('.')",message="the resourceGroupName in the subnetID must not end with a period (.) character"
 	// +kubebuilder:validation:XValidation:rule=`self.split('/')[8].matches('[a-zA-Z0-9-_\\.]{2,64}')`,message="The vnetName should be between 2 and 64 characters, consisting only of alphanumeric characters, hyphens, underscores and periods"
 	// +kubebuilder:validation:XValidation:rule="!self.split('/')[8].endsWith('.') && !self.split('/')[8].endsWith('-')",message="the vnetName in the subnetID must not end with either a period (.) or hyphen (-) character"
@@ -440,9 +417,17 @@ type AzurePlatformSpec struct {
 	// authenticate with Azure's API.
 	//
 	// +kubebuilder:validation:Required
-	// +openshift:enable:FeatureGate=AROHCPManagedIdentities
 	ManagedIdentities AzureResourceManagedIdentities `json:"managedIdentities,omitempty"`
+
+	// tenantID is a unique identifier for the tenant where Azure resources will be created and managed in.
+	//
+	// +required
+	TenantID string `json:"tenantID"`
 }
+
+// ObjectEncodingFormat is the type of encoding for an Azure Key Vault secret
+// +kubebuilder:validation:Enum:=utf-8;hex;base64
+type ObjectEncodingFormat string
 
 // ManagedAzureKeyVault is an Azure Key Vault on the management cluster.
 type ManagedAzureKeyVault struct {
@@ -466,23 +451,57 @@ type AzureResourceManagedIdentities struct {
 	// +kubebuilder:validation:Required
 	ControlPlane ControlPlaneManagedIdentities `json:"controlPlane"`
 
-	// Future placeholder - DataPlaneMIs * DataPlaneManagedIdentities
+	// dataPlane contains the client IDs of all the managed identities on the data plane needing to authenticate with
+	// Azure's API.
+	//
+	// +kubebuilder:validation:Required
+	DataPlane DataPlaneManagedIdentities `json:"dataPlane"`
 }
 
 // ManagedIdentity contains the client ID, and its certificate name, of a managed identity. This managed identity is
 // used, by an HCP component, to authenticate with the Azure API.
 type ManagedIdentity struct {
 	// clientID is the client ID of a managed identity.
+	// Deprecated: This field was previously required as part of the MIWI phase 2 work; however, this field will be
+	// removed as part of the MIWI phase 3 work, https://issues.redhat.com/browse/OCPSTRAT-1856.
 	//
 	// +kubebuilder:validation:XValidation:rule="self.matches('^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$')",message="the client ID of a managed identity must be a valid UUID. It should be 5 groups of hyphen separated hexadecimal characters in the form 8-4-4-4-12."
-	// +kubebuilder:validation:Required
 	ClientID string `json:"clientID"`
 
 	// certificateName is the name of the certificate backing the managed identity. This certificate is expected to
 	// reside in an Azure Key Vault on the management cluster.
+	// Deprecated: This field was previously required as part of the MIWI phase 2 work; however, this field will be
+	// removed as part of the MIWI phase 3 work, https://issues.redhat.com/browse/OCPSTRAT-1856.
 	//
-	// +kubebuilder:validation:Required
 	CertificateName string `json:"certificateName"`
+
+	// objectEncoding represents the encoding for the Azure Key Vault secret containing the certificate related to
+	// CertificateName. objectEncoding needs to match the encoding format used when the certificate was stored in the
+	// Azure Key Vault. If objectEncoding doesn't match the encoding format of the certificate, the certificate will
+	// unsuccessfully be read by the Secrets CSI driver and an error will occur. This error will only be visible on the
+	// SecretProviderClass custom resource related to the managed identity.
+	//
+	// The default value is utf-8.
+	//
+	// See this for more info - https://github.com/Azure/secrets-store-csi-driver-provider-azure/blob/master/website/content/en/getting-started/usage/_index.md
+	//
+	// +kubebuilder:validation:Enum:=utf-8;hex;base64
+	// +kubebuilder:default:="utf-8"
+	ObjectEncoding ObjectEncodingFormat `json:"objectEncoding"`
+
+	// credentialsSecretName is the name of an Azure Key Vault secret. This field assumes the secret contains the JSON
+	// format of a UserAssignedIdentityCredentials struct. At a minimum, the secret needs to contain the ClientId,
+	// ClientSecret, AuthenticationEndpoint, NotBefore, and NotAfter, and TenantId.
+	//
+	// More info on this struct can be found here - https://github.com/Azure/msi-dataplane/blob/63fb37d3a1aaac130120624674df795d2e088083/pkg/dataplane/internal/generated_client.go#L156.
+	//
+	// credentialsSecretName must be between 1 and 127 characters and use only alphanumeric characters and hyphens.
+	// credentialsSecretName must also be unique within the Azure Key Vault. See more details here - https://azure.github.io/PSRule.Rules.Azure/en/rules/Azure.KeyVault.SecretName/.
+	//
+	// TODO set the validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=127
+	// TODO set validation:Pattern=`^[a-zA-Z0-9-]+$`
+	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
 }
 
 // ControlPlaneManagedIdentities contains the managed identities on the HCP control plane needing to authenticate with
@@ -541,6 +560,26 @@ type ControlPlaneManagedIdentities struct {
 	File ManagedIdentity `json:"file"`
 }
 
+// DataPlaneManagedIdentities contains the client IDs of all the managed identities on the data plane needing to
+// authenticate with Azure's API.
+type DataPlaneManagedIdentities struct {
+	// imageRegistryMSIClientID is the client ID of a pre-existing managed identity ID associated with the image
+	//registry controller.
+	//
+	// +kubebuilder:validation:Required
+	ImageRegistryMSIClientID string `json:"imageRegistryMSIClientID"`
+
+	// diskMSIClientID is the client ID of a pre-existing managed identity ID associated with the CSI Disk driver.
+	//
+	// +kubebuilder:validation:Required
+	DiskMSIClientID string `json:"diskMSIClientID"`
+
+	// fileMSIClientID is the client ID of a pre-existing managed identity ID associated with the CSI File driver.
+	//
+	// +kubebuilder:validation:Required
+	FileMSIClientID string `json:"fileMSIClientID"`
+}
+
 // AzureKMSSpec defines metadata about the configuration of the Azure KMS Secret Encryption provider using Azure key vault
 type AzureKMSSpec struct {
 	// ActiveKey defines the active key used to encrypt new secrets
@@ -555,7 +594,6 @@ type AzureKMSSpec struct {
 	// kms is a pre-existing managed identity used to authenticate with Azure KMS.
 	//
 	// +kubebuilder:validation:Required
-	// +openshift:enable:FeatureGate=AROHCPManagedIdentities
 	KMS ManagedIdentity `json:"kms"`
 }
 

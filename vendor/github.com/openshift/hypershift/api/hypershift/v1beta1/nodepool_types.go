@@ -79,7 +79,7 @@ type NodePool struct {
 
 // NodePoolSpec is the desired behavior of a NodePool.
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.arch) || has(self.arch)", message="Arch is required once set"
-// +kubebuilder:validation:XValidation:rule="self.arch != 'arm64' || has(self.platform.aws) || has(self.platform.azure)", message="Setting Arch to arm64 is only supported for AWS and Azure"
+// +kubebuilder:validation:XValidation:rule="self.arch != 'arm64' || has(self.platform.aws) || has(self.platform.azure) || has(self.platform.agent) || self.platform.type == 'None'", message="Setting Arch to arm64 is only supported for AWS, Azure, Agent and None"
 // +kubebuilder:validation:XValidation:rule="!has(self.replicas) || !has(self.autoScaling)", message="Both replicas or autoScaling should not be set"
 type NodePoolSpec struct {
 	// clusterName is the name of the HostedCluster this NodePool belongs to.
@@ -120,7 +120,7 @@ type NodePoolSpec struct {
 	Management NodePoolManagement `json:"management"`
 
 	// autoscaling specifies auto-scaling behavior for the NodePool.
-	// autoscaling is mutually exclusive with replicas. If replicas is set, this field must be ommited.
+	// autoscaling is mutually exclusive with replicas. If replicas is set, this field must be omitted.
 	//
 	// +optional
 	AutoScaling *NodePoolAutoScaling `json:"autoScaling,omitempty"`
