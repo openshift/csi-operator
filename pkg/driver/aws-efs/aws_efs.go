@@ -269,16 +269,26 @@ func withCustomTags(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Inform
 			}
 			tagPairs = append(tagPairs, fmt.Sprintf("%s:%s", userTag.Key, userTag.Value))
 		}
+		tagPairs = append(tagPairs, fmt.Sprintf("kubernetes.io/cluster/%s:owned", infra.Status.InfrastructureName))
 
 		// Join the tag pairs with a space separator
 		tags := strings.Join(tagPairs, " ")
 		tagsArgument := fmt.Sprintf("--tags=%s", tags)
 
-		for _, container := range deployment.Spec.Template.Spec.Containers {
+		for i := range deployment.Spec.Template.Spec.Containers {
+			container := &deployment.Spec.Template.Spec.Containers[i]
 			if container.Name != "csi-driver" {
 				continue
 			}
-			container.Args = append(container.Args, tagsArgument)
+
+			// Remove any existing --tags argument
+			filteredArgs := make([]string, 0, len(container.Args))
+			for _, arg := range container.Args {
+				if !strings.HasPrefix(arg, "--tags=") {
+					filteredArgs = append(filteredArgs, arg)
+				}
+			}
+			container.Args = append(filteredArgs, tagsArgument)
 		}
 		return nil
 	}
