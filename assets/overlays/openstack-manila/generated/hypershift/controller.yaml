@@ -91,7 +91,6 @@ spec:
       - args:
         - --v=${LOG_LEVEL}
         - --cluster-id=${CLUSTER_ID}
-        - --nodeid=$(NODE_ID)
         - --endpoint=$(CSI_ENDPOINT)
         - --drivername=$(DRIVER_NAME)
         - --share-protocol-selector=$(MANILA_SHARE_PROTO)
@@ -99,10 +98,6 @@ spec:
         env:
         - name: DRIVER_NAME
           value: manila.csi.openstack.org
-        - name: NODE_ID
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
         - name: CSI_ENDPOINT
           value: unix:///plugin/csi.sock
         - name: MANILA_SHARE_PROTO
