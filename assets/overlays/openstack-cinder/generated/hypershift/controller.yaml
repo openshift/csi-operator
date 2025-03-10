@@ -4,7 +4,7 @@
 # Applied strategic merge patch overlays/openstack-cinder/patches/controller_add_driver.yaml
 # Applied strategic merge patch common/sidecars/controller_driver_kube_rbac_proxy.yaml
 # provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
-# provisioner.yaml: Added arguments [--timeout=3m --feature-gates=Topology=true --default-fstype=ext4]
+# provisioner.yaml: Added arguments [--timeout=3m --default-fstype=ext4]
 # provisioner.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
 # Applied strategic merge patch provisioner.yaml
 # attacher.yaml: Loaded from common/sidecars/attacher.yaml
@@ -169,7 +169,6 @@ spec:
         - --leader-election-namespace=${NODE_NAMESPACE}
         - --v=${LOG_LEVEL}
         - --timeout=3m
-        - --feature-gates=Topology=true
         - --default-fstype=ext4
         - --kubeconfig=$(KUBECONFIG)
         env:
