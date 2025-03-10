@@ -53,7 +53,6 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultProvisionerWithSnapshots.WithExtraArguments(
 					"--timeout=3m",
-					"--feature-gates=Topology=true",
 					"--default-fstype=ext4",
 				),
 				commongenerator.DefaultAttacher.WithExtraArguments(
