@@ -1,15 +1,21 @@
 package aws_efs
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	configv1 "github.com/openshift/api/config/v1"
+	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	appsv1 "k8s.io/api/apps/v1"
 )
 
 func getTestDeployment() *appsv1.Deployment {
@@ -18,6 +24,19 @@ func getTestDeployment() *appsv1.Deployment {
 		panic(err)
 	}
 	return resourceread.ReadDeploymentV1OrDie(data)
+}
+
+func getTestInfrastructure() *configv1.Infrastructure {
+	return &configv1.Infrastructure{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Status: configv1.InfrastructureStatus{
+			PlatformStatus: &configv1.PlatformStatus{
+				AWS: &configv1.AWSPlatformStatus{},
+			},
+		},
+	}
 }
 
 func getTestDaemonSet() *appsv1.DaemonSet {
@@ -230,4 +249,123 @@ func Test_StsCredentialsRequestHook(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_WithCustomTags(t *testing.T) {
+	clusterID := "clusters-test"
+
+	infraNoTags := getTestInfrastructure()
+	infraNoTags.Status.InfrastructureName = clusterID
+
+	infraWithTags := getTestInfrastructure()
+	infraWithTags.Status.InfrastructureName = clusterID
+	infraWithTags.Status.PlatformStatus.AWS.ResourceTags = []configv1.AWSResourceTag{
+		{
+			Key:   "foo",
+			Value: "bar",
+		},
+		{
+			Key:   "baz",
+			Value: "abc",
+		},
+	}
+
+	infraWithEmptyTags := getTestInfrastructure()
+	infraWithEmptyTags.Status.InfrastructureName = clusterID
+	infraWithEmptyTags.Status.PlatformStatus.AWS.ResourceTags = []configv1.AWSResourceTag{}
+
+	infraWithPartialEmptyTags := getTestInfrastructure()
+	infraWithPartialEmptyTags.Status.InfrastructureName = clusterID
+	infraWithPartialEmptyTags.Status.PlatformStatus.AWS.ResourceTags = []configv1.AWSResourceTag{
+		{
+			Key:   "foo",
+			Value: "bar",
+		},
+		{
+			Key:   "",
+			Value: "",
+		},
+	}
+
+	tests := []struct {
+		name            string
+		infrastructure  *configv1.Infrastructure
+		expectedTagArgs string
+	}{
+		{
+			name:            "no tags",
+			infrastructure:  infraNoTags,
+			expectedTagArgs: fmt.Sprintf("--tags=kubernetes.io/cluster/${CLUSTER_ID}:owned"),
+		},
+		{
+			name:            "tags set",
+			infrastructure:  infraWithTags,
+			expectedTagArgs: fmt.Sprintf("--tags=foo:bar baz:abc kubernetes.io/cluster/%s:owned", infraWithTags.Status.InfrastructureName),
+		},
+		{
+			name:            "empty tags",
+			infrastructure:  infraWithEmptyTags,
+			expectedTagArgs: fmt.Sprintf("--tags=kubernetes.io/cluster/${CLUSTER_ID}:owned"),
+		},
+		{
+			name:            "partial empty value tags",
+			infrastructure:  infraWithPartialEmptyTags,
+			expectedTagArgs: fmt.Sprintf("--tags=foo:bar kubernetes.io/cluster/%s:owned", infraWithTags.Status.InfrastructureName),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cr := clients.GetFakeOperatorCR()
+			c := clients.NewFakeClients(clusterID, cr)
+			hook, _ := withCustomTags(c)
+			deployment := getTestDeployment()
+
+			// Arrange - inject custom infrastructure
+			c.ConfigClientSet.(*fakeconfig.Clientset).Tracker().Add(tt.infrastructure)
+			clients.SyncFakeInformers(t, c)
+
+			// Act
+			err := hook(&cr.Spec.OperatorSpec, deployment)
+			if err != nil {
+				t.Fatalf("unexpected hook error: %v", err)
+			}
+
+			// Assert
+			found := false
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				if container.Name == "csi-driver" {
+					// Collect all `--tags` arguments
+					var foundTagArgs string
+					for _, arg := range container.Args {
+						if strings.HasPrefix(arg, "--tags=") {
+							foundTagArgs = arg
+							break
+						}
+					}
+
+					// Ensure both expected `--tags` arguments exist
+					if foundTagArgs != tt.expectedTagArgs {
+						t.Errorf("expected %s --tags args, got: %s", tt.expectedTagArgs, foundTagArgs)
+					}
+
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("container csi-driver not found")
+			}
+		})
+	}
+}
+
+// contains checks if a slice contains a given string
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
