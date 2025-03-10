@@ -10,6 +10,14 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: aws-auth,aws-keys,bound-sa-token,socket-dir
         openshift.io/required-scc: restricted-v2
+      labels:
+        openshift.storage.network-policy.all-egress: allow
+        openshift.storage.network-policy.api-server: allow
+        openshift.storage.network-policy.driver-m: allow
+        openshift.storage.network-policy.provisioner-m: allow
+        openshift.storage.network-policy.attacher-m: allow
+        openshift.storage.network-policy.resizer-m: allow
+        openshift.storage.network-policy.snapshotter-m: allow
     spec:
       initContainers:
         - name: init-aws-credentials-file
