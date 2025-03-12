@@ -96,7 +96,7 @@ spec:
           name: config-cinderplugin
           readOnly: true
         - mountPath: /etc/kubernetes/secret
-          name: secret-cinderplugin
+          name: cloud-credentials
           readOnly: true
       - args:
         - --csi-address=/csi/csi.sock
@@ -191,6 +191,18 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: openstack-cinder-csi-driver-node-metrics-serving-cert
+      - name: cloud-credentials
+        secret:
+          items:
+          - key: clouds.yaml
+            path: clouds.yaml
+          secretName: openstack-cloud-credentials
+      - configMap:
+          items:
+          - key: cloud.conf
+            path: cloud.conf
+          name: cloud-conf
+        name: config-cinderplugin
       - configMap:
           items:
           - key: ca-bundle.pem
@@ -198,18 +210,6 @@ spec:
           name: cloud-conf
           optional: true
         name: cacert
-      - configMap:
-          items:
-          - key: cloud.conf
-            path: cloud.conf
-          name: cloud-conf
-        name: config-cinderplugin
-      - name: secret-cinderplugin
-        secret:
-          items:
-          - key: clouds.yaml
-            path: clouds.yaml
-          secretName: openstack-cloud-credentials
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 10%
