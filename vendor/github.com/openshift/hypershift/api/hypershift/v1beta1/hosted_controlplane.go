@@ -96,7 +96,7 @@ type HostedControlPlaneSpec struct {
 	// +optional
 	// +immutable
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ControllerAvailabilityPolicy is immutable"
-	// +kubebuilder:default:="SingleReplica"
+	// +kubebuilder:default:="HighlyAvailable"
 	ControllerAvailabilityPolicy AvailabilityPolicy `json:"controllerAvailabilityPolicy,omitempty"`
 
 	// InfrastructureAvailabilityPolicy specifies the availability policy applied
@@ -175,12 +175,16 @@ type HostedControlPlaneSpec struct {
 	// +optional
 	Autoscaling ClusterAutoscaling `json:"autoscaling,omitempty"`
 
+	// autoNode specifies the configuration for the autoNode feature.
+	// +openshift:enable:FeatureGate=AutoNodeKarpenter
+	AutoNode *AutoNode `json:"autoNode,omitempty"`
+
 	// NodeSelector when specified, must be true for the pods managed by the HostedCluster to be scheduled.
 	//
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
-	// Tolerations when specified, define what custome tolerations are added to the hcp pods.
+	// Tolerations when specified, define what custom tolerations are added to the hcp pods.
 	//
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
@@ -196,6 +200,12 @@ type HostedControlPlaneSpec struct {
 	// +kubebuilder:validation:MaxProperties=20
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+
+	// capabilities allows for disabling optional components at cluster install time.
+	// This field is optional and once set cannot be changed.
+	// +optional
+	// +openshift:enable:FeatureGate=DisableClusterCapabilities
+	Capabilities *Capabilities `json:"capabilities,omitempty"`
 }
 
 // availabilityPolicy specifies a high level availability policy for components.

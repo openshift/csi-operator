@@ -95,10 +95,11 @@ hostedclusters.hypershift.openshift.io:
   Capability: ""
   Category: ""
   FeatureGates:
-  - AROHCPManagedIdentities
+  - AutoNodeKarpenter
+  - DisableClusterCapabilities
   - DynamicResourceAllocation
   - ExternalOIDC
-  - HCPPodsLabels
+  - ImageStreamImportMode
   - NetworkDiagnosticsConfig
   - OpenStack
   FilenameOperatorName: ""
@@ -148,9 +149,11 @@ hostedcontrolplanes.hypershift.openshift.io:
   Capability: ""
   Category: cluster-api
   FeatureGates:
-  - AROHCPManagedIdentities
+  - AutoNodeKarpenter
+  - DisableClusterCapabilities
   - DynamicResourceAllocation
   - ExternalOIDC
+  - ImageStreamImportMode
   - NetworkDiagnosticsConfig
   - OpenStack
   FilenameOperatorName: ""
