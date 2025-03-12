@@ -50,12 +50,13 @@ spec:
               mountPath: /etc/selinux
             - name: sys-fs
               mountPath: /sys/fs
+            # credentials and configuration
             - name: cacert
               mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
             - name: config-cinderplugin
               mountPath: /etc/kubernetes/config
               readOnly: true
-            - name: secret-cinderplugin
+            - name: cloud-credentials
               mountPath: /etc/kubernetes/secret
               readOnly: true
           ports:
@@ -77,26 +78,22 @@ spec:
               cpu: 10m
           terminationMessagePolicy: FallbackToLogsOnError
       volumes:
-        - name: cacert
-          # Extract ca-bundle.pem to /etc/kubernetes/static-pod-resources/configmaps/cloud-config if present.
-          # Let the pod start when the ConfigMap does not exist or the certificate
-          # is not preset there. The certificate file will be created once the
-          # ConfigMap is created / the certificate is added to it.
-          configMap:
-            name: cloud-conf
+        - name: cloud-credentials
+          secret:
+            secretName: openstack-cloud-credentials
             items:
-            - key: ca-bundle.pem
-              path: ca-bundle.pem
-            optional: true
+              - key: clouds.yaml
+                path: clouds.yaml
         - name: config-cinderplugin
           configMap:
             name: cloud-conf
             items:
               - key: cloud.conf
                 path: cloud.conf
-        - name: secret-cinderplugin
-          secret:
-            secretName: openstack-cloud-credentials
+        - name: cacert
+          configMap:
+            name: cloud-conf
             items:
-              - key: clouds.yaml
-                path: clouds.yaml
+              - key: ca-bundle.pem
+                path: ca-bundle.pem
+            optional: true
