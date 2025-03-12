@@ -12,7 +12,7 @@ spec:
           args:
             - --csi-address=/csi/csi.sock
             - --kubelet-registration-path=/var/lib/kubelet/plugins/${DRIVER_NAME}/csi.sock
-            - --http-endpoint=:${NODE_DRIVER_REGISTRAR_HEALTH_PORT}
+            - --http-endpoint=127.0.0.1:${NODE_DRIVER_REGISTRAR_HEALTH_PORT}
             - --v=${LOG_LEVEL}
           # Empty env. instead of nil for json patch to append new env. vars there
           env: []
