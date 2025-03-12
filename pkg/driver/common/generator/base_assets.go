@@ -5,12 +5,13 @@ import (
 )
 
 const (
-	ProvisionerAssetName         = "common/sidecars/provisioner.yaml"
-	AttacherAssetName            = "common/sidecars/attacher.yaml"
-	SnapshotterAssetName         = "common/sidecars/snapshotter.yaml"
-	ResizerAssetName             = "common/sidecars/resizer.yaml"
-	LivenessProbeAssetName       = "common/sidecars/livenessprobe.yaml"
-	NodeDriverRegistrarAssetName = "common/sidecars/node_driver_registrar.yaml"
+	ProvisionerAssetName             = "common/sidecars/provisioner.yaml"
+	AttacherAssetName                = "common/sidecars/attacher.yaml"
+	SnapshotterAssetName             = "common/sidecars/snapshotter.yaml"
+	ResizerAssetName                 = "common/sidecars/resizer.yaml"
+	LivenessProbeDeploymentAssetName = "common/sidecars/livenessprobe_deployment.yaml"
+	LivenessProbeDaemonSetAssetName  = "common/sidecars/livenessprobe_daemonset.yaml"
+	NodeDriverRegistrarAssetName     = "common/sidecars/node_driver_registrar.yaml"
 )
 
 var (
@@ -111,9 +112,15 @@ var (
 			"sidecar.yaml", "common/hypershift/sidecar_add_kubeconfig.yaml.patch",
 		),
 	}
-	// DefaultLivenessProbe is definition of the default livenessprobe sidecar.
-	DefaultLivenessProbe = generator.SidecarConfig{
-		TemplateAssetName: LivenessProbeAssetName,
+	// DefaultLivenessProbeDeployment is definition of the default livenessprobe sidecar for Deployment.
+	DefaultLivenessProbeDeployment = generator.SidecarConfig{
+		TemplateAssetName: LivenessProbeDeploymentAssetName,
+		ExtraArguments:    nil,
+		HasMetricsPort:    false,
+	}
+	// DefaultLivenessProbeDaemonSet is definition of the default livenessprobe sidecar for DaemonSet.
+	DefaultLivenessProbeDaemonSet = generator.SidecarConfig{
+		TemplateAssetName: LivenessProbeDaemonSetAssetName,
 		ExtraArguments:    nil,
 		HasMetricsPort:    false,
 	}
