@@ -92,14 +92,14 @@ spec:
           name: etc-selinux
         - mountPath: /sys/fs
           name: sys-fs
-        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
-          name: cacert
-          readOnly: true
         - mountPath: /etc/kubernetes/config
           name: config-cinderplugin
           readOnly: true
         - mountPath: /etc/openstack
           name: cloud-credentials
+          readOnly: true
+        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+          name: legacy-cacert
           readOnly: true
       - args:
         - --csi-address=/csi/csi.sock
@@ -215,7 +215,7 @@ spec:
             path: ca-bundle.pem
           name: cloud-conf
           optional: true
-        name: cacert
+        name: legacy-cacert
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 10%
