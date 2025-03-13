@@ -146,11 +146,12 @@ spec:
         volumeMounts:
         - mountPath: /plugin
           name: socket-dir
+        - mountPath: /etc/openstack
+          name: cloud-credentials
         - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
           name: legacy-cacert
         - mountPath: /etc/openstack
           name: cloud-credentials
-          readOnly: true
       - args:
         - --nodeid=$(NODE_ID)
         - --endpoint=unix://plugin/csi-nfs.sock
