@@ -68,6 +68,8 @@ spec:
             - name: sys-fs
               mountPath: /sys/fs
             # credentials and configuration
+            - name: cloud-credentials
+              mountPath: /etc/openstack
             - name: legacy-cacert
               mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
           ports:
@@ -109,6 +111,16 @@ spec:
           hostPath:
             path: /sys/fs
             type: Directory
+        - name: cloud-credentials
+          secret:
+            secretName: manila-cloud-credentials
+            # TODO(stephenfin): We should also mount the clouds.yaml file
+            # here and start consuming that rather than converting it into
+            # the cloud.conf format
+            items:
+              - key: cacert
+                path: ca.crt
+        # TODO(stephenfin): Remove in 4.22
         - name: legacy-cacert
           configMap:
             name: cloud-provider-config
