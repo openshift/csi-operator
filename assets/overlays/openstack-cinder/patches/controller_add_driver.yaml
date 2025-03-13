@@ -81,7 +81,7 @@ spec:
               mountPath: /etc/kubernetes/config
               readOnly: true
             - name: cloud-credentials
-              mountPath: /etc/kubernetes/secret
+              mountPath: /etc/openstack
               readOnly: true
           resources:
             requests:
