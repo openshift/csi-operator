@@ -295,7 +295,7 @@ func generateConfig(
 	}
 	for _, o := range []struct{ k, v string }{
 		{"use-clouds", "true"},
-		{"clouds-file", "/etc/kubernetes/secret/clouds.yaml"},
+		{"clouds-file", "/etc/openstack/clouds.yaml"},
 		{"cloud", "openstack"},
 	} {
 		_, err = global.NewKey(o.k, o.v)

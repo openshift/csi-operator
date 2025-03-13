@@ -112,7 +112,7 @@ spec:
         - mountPath: /etc/kubernetes/config
           name: config-cinderplugin
           readOnly: true
-        - mountPath: /etc/kubernetes/secret
+        - mountPath: /etc/openstack
           name: cloud-credentials
           readOnly: true
       - args:

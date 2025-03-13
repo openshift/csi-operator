@@ -25,14 +25,14 @@ func TestGenerateConfigMap(t *testing.T) {
 			source: nil,
 			expected: `[Global]
 use-clouds  = true
-clouds-file = /etc/kubernetes/secret/clouds.yaml
+clouds-file = /etc/openstack/clouds.yaml
 cloud       = openstack`,
 		}, {
 			name:   "Empty config",
 			source: []byte(""),
 			expected: `[Global]
 use-clouds  = true
-clouds-file = /etc/kubernetes/secret/clouds.yaml
+clouds-file = /etc/openstack/clouds.yaml
 cloud       = openstack`,
 		}, {
 			name: "Minimal config",
@@ -43,7 +43,7 @@ ignore-volume-az = True
 
 [Global]
 use-clouds  = true
-clouds-file = /etc/kubernetes/secret/clouds.yaml
+clouds-file = /etc/openstack/clouds.yaml
 cloud       = openstack`,
 		}, {
 			name:   "With CA cert",
@@ -51,7 +51,7 @@ cloud       = openstack`,
 			caCert: ptr.To("not-so-secret CA data goes here"),
 			expected: `[Global]
 use-clouds  = true
-clouds-file = /etc/kubernetes/secret/clouds.yaml
+clouds-file = /etc/openstack/clouds.yaml
 cloud       = openstack
 ca-file     = /etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bundle.pem`,
 		}, {
@@ -61,7 +61,7 @@ ca-file     = /etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bu
 trust-device-path = /dev/sdb1`),
 			expected: `[Global]
 use-clouds  = true
-clouds-file = /etc/kubernetes/secret/clouds.yaml
+clouds-file = /etc/openstack/clouds.yaml
 cloud       = openstack`,
 		},
 	}
