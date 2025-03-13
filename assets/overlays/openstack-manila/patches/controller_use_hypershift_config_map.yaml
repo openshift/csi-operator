@@ -8,4 +8,4 @@ spec:
                 path: ca-bundle.pem
             name: openstack-cloud-config
             optional: true
-          name: cacert
+          name: legacy-cacert
