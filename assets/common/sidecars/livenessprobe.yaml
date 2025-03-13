@@ -9,7 +9,7 @@ spec:
           terminationMessagePolicy: FallbackToLogsOnError
           args:
             - --csi-address=/csi/csi.sock
-            - --health-port=${LIVENESS_PROBE_PORT}
+            - --http-endpoint=127.0.0.1:${LIVENESS_PROBE_PORT}
             - --v=${LOG_LEVEL}
           # Empty env. instead of nil for json patch to append new env. vars there
           env: []
