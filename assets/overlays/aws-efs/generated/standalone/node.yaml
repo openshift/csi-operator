@@ -80,7 +80,7 @@ spec:
       - args:
         - --csi-address=/csi/csi.sock
         - --kubelet-registration-path=/var/lib/kubelet/plugins/efs.csi.aws.com/csi.sock
-        - --http-endpoint=:10305
+        - --http-endpoint=127.0.0.1:10305
         - --v=${LOG_LEVEL}
         env: []
         image: ${NODE_DRIVER_REGISTRAR_IMAGE}
