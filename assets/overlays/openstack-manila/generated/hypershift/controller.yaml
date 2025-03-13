@@ -145,7 +145,7 @@ spec:
         - mountPath: /plugin
           name: socket-dir
         - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
-          name: cacert
+          name: legacy-cacert
       - args:
         - --nodeid=$(NODE_ID)
         - --endpoint=unix://plugin/csi-nfs.sock
@@ -370,7 +370,7 @@ spec:
             path: ca-bundle.pem
           name: openstack-cloud-config
           optional: true
-        name: cacert
+        name: legacy-cacert
       - name: hosted-kubeconfig
         secret:
           defaultMode: 420

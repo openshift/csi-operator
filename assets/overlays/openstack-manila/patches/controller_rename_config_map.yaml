@@ -2,10 +2,10 @@ spec:
   template:
     spec:
       volumes:
-      - configMap:
-          items:
-          - key: ca-bundle.pem
-            path: ca-bundle.pem
-          name: openstack-cloud-config
-          optional: true
-        name: cacert
+        - name: legacy-cacert
+          configMap:
+            items:
+            - key: ca-bundle.pem
+              path: ca-bundle.pem
+            name: openstack-cloud-config
+            optional: true
