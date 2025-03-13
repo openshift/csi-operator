@@ -89,7 +89,13 @@ spec:
             - configmaps
             - secrets
             verbs:
-            - '*'
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - apps
             resources:
@@ -97,13 +103,23 @@ spec:
             - daemonsets
             - replicasets
             verbs:
-            - '*'
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - monitoring.coreos.com
             resources:
             - servicemonitors
             verbs:
-            - '*'
+            - get
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - policy
             resources:
@@ -156,7 +172,13 @@ spec:
             resources:
             - configmaps
             verbs:
-            - '*'
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - rbac.authorization.k8s.io
             resources:
@@ -189,7 +211,13 @@ spec:
             resources:
             - leases
             verbs:
-            - '*'
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - ''
             resources:
@@ -277,7 +305,13 @@ spec:
             resources:
             - credentialsrequests
             verbs:
-            - '*'
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - operator.openshift.io
             resources:

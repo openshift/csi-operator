@@ -83,7 +83,13 @@ spec:
             - secrets
             - serviceaccounts
             verbs:
-            - '*'
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - apps
             resources:
@@ -91,13 +97,23 @@ spec:
             - daemonsets
             - replicasets
             verbs:
-            - '*'
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - monitoring.coreos.com
             resources:
             - servicemonitors
             verbs:
-            - '*'
+            - get
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - policy
             resources:
@@ -115,7 +131,13 @@ spec:
             resources:
             - leases
             verbs:
-            - '*'
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           serviceAccountName: smb-csi-driver-operator
       clusterPermissions:
         - rules:
@@ -155,7 +177,13 @@ spec:
             resources:
             - configmaps
             verbs:
-            - '*'
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
+            - delete
           - apiGroups:
             - rbac.authorization.k8s.io
             resources:
