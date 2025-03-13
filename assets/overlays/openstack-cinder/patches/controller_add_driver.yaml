@@ -80,6 +80,7 @@ spec:
             - name: cloud-credentials
               mountPath: /etc/openstack
               readOnly: true
+            # TODO(stephenfin): Remove in 4.22
             - name: legacy-cacert
               mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
               readOnly: true
@@ -90,17 +91,26 @@ spec:
           terminationMessagePolicy: FallbackToLogsOnError
       volumes:
         - name: cloud-credentials
-          secret:
-            secretName: openstack-cloud-credentials
-            items:
-              - key: clouds.yaml
-                path: clouds.yaml
+          projected:
+            sources:
+              - secret:
+                  name: openstack-cloud-credentials
+                  items:
+                    - key: cacert
+                      path: ca.crt
+                  optional: true
+              - secret:
+                  name: openstack-cloud-credentials
+                  items:
+                    - key: clouds.yaml
+                      path: clouds.yaml
         - name: config-cinderplugin
           configMap:
             name: cloud-conf
             items:
               - key: cloud.conf
                 path: cloud.conf
+        # TODO(stephenfin): Remove in 4.22
         - name: legacy-cacert
           configMap:
             name: cloud-conf
