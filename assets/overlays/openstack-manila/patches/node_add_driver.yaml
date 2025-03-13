@@ -136,11 +136,19 @@ spec:
             type: Directory
         # credentials and configuration
         - name: cloud-credentials
-          secret:
-            secretName: manila-cloud-credentials
-            items:
-              - key: clouds.yaml
-                path: clouds.yaml
+          projected:
+            sources:
+              - secret:
+                  items:
+                    - key: clouds.yaml
+                      path: clouds.yaml
+                  name: manila-cloud-credentials
+              - secret:
+                  items:
+                    - key: cacert
+                      path: ca.crt
+                  name: manila-cloud-credentials
+                  optional: true
         - name: legacy-cacert
           configMap:
             name: cloud-provider-config

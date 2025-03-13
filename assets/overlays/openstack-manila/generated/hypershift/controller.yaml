@@ -378,11 +378,19 @@ spec:
         secret:
           secretName: manila-csi-driver-controller-metrics-serving-cert
       - name: cloud-credentials
-        secret:
-          items:
-          - key: clouds.yaml
-            path: clouds.yaml
-          secretName: manila-cloud-credentials
+        projected:
+          sources:
+          - secret:
+              items:
+              - key: clouds.yaml
+                path: clouds.yaml
+              name: manila-cloud-credentials
+          - secret:
+              items:
+              - key: cacert
+                path: ca.crt
+              name: manila-cloud-credentials
+              optional: true
       - configMap:
           items:
           - key: ca-bundle.pem
