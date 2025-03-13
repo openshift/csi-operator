@@ -113,7 +113,7 @@ spec:
           name: registration-dir
       - args:
         - --csi-address=/csi/csi.sock
-        - --health-port=10306
+        - --http-endpoint=127.0.0.1:10306
         - --v=${LOG_LEVEL}
         - --probe-timeout=3s
         env: []

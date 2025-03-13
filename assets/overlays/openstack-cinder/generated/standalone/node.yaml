@@ -93,7 +93,7 @@ spec:
           readOnly: true
       - args:
         - --csi-address=/csi/csi.sock
-        - --health-port=10300
+        - --http-endpoint=127.0.0.1:10300
         - --v=${LOG_LEVEL}
         - --probe-timeout=10s
         env: []
