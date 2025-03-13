@@ -51,14 +51,14 @@ spec:
             - name: sys-fs
               mountPath: /sys/fs
             # credentials and configuration
-            - name: cacert
-              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
-              readOnly: true
             - name: config-cinderplugin
               mountPath: /etc/kubernetes/config
               readOnly: true
             - name: cloud-credentials
               mountPath: /etc/openstack
+              readOnly: true
+            - name: legacy-cacert
+              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
               readOnly: true
           ports:
             - name: healthz
@@ -91,7 +91,7 @@ spec:
             items:
               - key: cloud.conf
                 path: cloud.conf
-        - name: cacert
+        - name: legacy-cacert
           configMap:
             name: cloud-conf
             items:

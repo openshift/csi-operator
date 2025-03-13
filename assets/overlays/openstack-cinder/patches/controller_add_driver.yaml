@@ -8,7 +8,7 @@ spec:
   template:
     metadata:
       annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: "cacert,config-cinderplugin,cloud-credentials,socket-dir"
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: "config-cinderplugin,cloud-credentials,legacy-cacert,socket-dir"
         openshift.io/required-scc: restricted-v2
       labels:
         openshift.storage.network-policy.all-egress: allow
@@ -74,14 +74,14 @@ spec:
             - name: socket-dir
               mountPath: /csi
             # credentials and configuration
-            - name: cacert
-              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
-              readOnly: true
             - name: config-cinderplugin
               mountPath: /etc/kubernetes/config
               readOnly: true
             - name: cloud-credentials
               mountPath: /etc/openstack
+              readOnly: true
+            - name: legacy-cacert
+              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
               readOnly: true
           resources:
             requests:
@@ -101,7 +101,7 @@ spec:
             items:
               - key: cloud.conf
                 path: cloud.conf
-        - name: cacert
+        - name: legacy-cacert
           configMap:
             name: cloud-conf
             items:
