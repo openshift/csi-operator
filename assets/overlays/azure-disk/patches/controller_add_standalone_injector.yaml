@@ -19,30 +19,7 @@ spec:
             # Force disable node's managed identity, azure-disk-credentials Secret should be used.
             - --disable-identity-extension-auth
             - --enable-azure-workload-identity=${ENABLE_AZURE_WORKLOAD_IDENTITY}
-          env:
-            - name: AZURE_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: azure-disk-credentials
-                  key: azure_client_id
-            - name: AZURE_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: azure-disk-credentials
-                  key: azure_client_secret
-                  optional: true
-            - name: AZURE_TENANT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: azure-disk-credentials
-                  key: azure_tenant_id
-                  optional: true
-            - name: AZURE_FEDERATED_TOKEN_FILE
-              valueFrom:
-                secretKeyRef:
-                  name: azure-disk-credentials
-                  key: azure_federated_token_file
-                  optional: true
+            - --creds-path=/etc/azure/credentials
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - name: src-cloud-config
@@ -50,12 +27,18 @@ spec:
               readOnly: true
             - name: cloud-config
               mountPath: /etc/kubernetes
+            - name: cloud-sa-volume
+              readOnly: true
+              mountPath: /etc/azure/credentials
       volumes:
         - name: src-cloud-config
           configMap:
             name: azure-cloud-config
         - emptyDir: {}
           name: cloud-config
+        - name: cloud-sa-volume
+          secret:
+            secretName: azure-disk-credentials
         - name: bound-sa-token
           projected:
             sources:

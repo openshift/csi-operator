@@ -179,32 +179,9 @@ spec:
         - --output-file-path=/etc/merged-cloud-config/cloud.conf
         - --disable-identity-extension-auth
         - --enable-azure-workload-identity=${ENABLE_AZURE_WORKLOAD_IDENTITY}
+        - --creds-path=/etc/azure/credentials
         command:
         - /azure-config-credentials-injector
-        env:
-        - name: AZURE_CLIENT_ID
-          valueFrom:
-            secretKeyRef:
-              key: azure_client_id
-              name: azure-disk-credentials
-        - name: AZURE_CLIENT_SECRET
-          valueFrom:
-            secretKeyRef:
-              key: azure_client_secret
-              name: azure-disk-credentials
-              optional: true
-        - name: AZURE_TENANT_ID
-          valueFrom:
-            secretKeyRef:
-              key: azure_tenant_id
-              name: azure-disk-credentials
-              optional: true
-        - name: AZURE_FEDERATED_TOKEN_FILE
-          valueFrom:
-            secretKeyRef:
-              key: azure_federated_token_file
-              name: azure-disk-credentials
-              optional: true
         image: ${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}
         name: azure-inject-credentials
         terminationMessagePolicy: FallbackToLogsOnError
@@ -214,6 +191,9 @@ spec:
           readOnly: true
         - mountPath: /etc/merged-cloud-config
           name: cloud-config
+        - mountPath: /etc/azure/credentials
+          name: cloud-sa-volume
+          readOnly: true
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
@@ -251,6 +231,9 @@ spec:
       - configMap:
           name: azure-cloud-config
         name: src-cloud-config
+      - name: cloud-sa-volume
+        secret:
+          secretName: azure-disk-credentials
       - hostPath:
           path: /sys/bus/scsi/devices
           type: Directory
