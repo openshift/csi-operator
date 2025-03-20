@@ -99,7 +99,7 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--kube-api-burst=100",
 					"--worker-threads=100",
 				),
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultLivenessProbeDeployment.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
@@ -116,7 +116,7 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			NodeRegistrarHealthCheckPort: 10309,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultNodeDriverRegistrar,
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultLivenessProbeDaemonSet.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},

@@ -9,9 +9,9 @@
 # resizer.yaml: Loaded from common/sidecars/resizer.yaml
 # resizer.yaml: Added arguments [--timeout=120s -handle-volume-inuse-error=false]
 # Applied strategic merge patch resizer.yaml
-# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
-# livenessprobe.yaml: Added arguments [--probe-timeout=3s]
-# Applied strategic merge patch livenessprobe.yaml
+# livenessprobe_deployment.yaml: Loaded from common/sidecars/livenessprobe_deployment.yaml
+# livenessprobe_deployment.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch livenessprobe_deployment.yaml
 # Applied strategic merge patch common/standalone/controller_add_affinity.yaml
 #
 #
