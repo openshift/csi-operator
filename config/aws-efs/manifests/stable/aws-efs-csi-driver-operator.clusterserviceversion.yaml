@@ -391,7 +391,16 @@ spec:
                       memory: 50Mi
                       cpu: 10m
                   terminationMessagePolicy: FallbackToLogsOnError
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                      drop:
+                      - ALL
                 priorityClassName: system-cluster-critical
+                securityContext:
+                  runAsNonRoot: true
+                  seccompProfile:
+                    type: RuntimeDefault
                 # Strongly prefer a master node, but don't require it.
                 # We want the same Deployment to work on hypershift,
                 # without any master nodes.
