@@ -86,6 +86,8 @@ spec:
           image: ${NFS_DRIVER_IMAGE}
           imagePullPolicy: IfNotPresent
           args:
+            - "--provide-controller-service=true"
+            - "--provide-node-service=false"
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=unix://plugin/csi-nfs.sock"
             - "--mount-permissions=0777"
