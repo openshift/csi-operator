@@ -342,15 +342,23 @@ spec:
                       cpu: 10m
                   terminationMessagePolicy: FallbackToLogsOnError
                   securityContext:
+                    readOnlyRootFilesystem: true
                     allowPrivilegeEscalation: false
                     capabilities:
                       drop:
                       - ALL
+                  volumeMounts:
+                  - mountPath: /tmp
+                    name: tmp
                 priorityClassName: system-cluster-critical
                 securityContext:
                   runAsNonRoot: true
                   seccompProfile:
                     type: RuntimeDefault
+                volumes:
+                - name: tmp
+                  emptyDir:
+                    medium: Memory
                 # Strongly prefer a master node, but don't require it.
                 # We want the same Deployment to work on hypershift,
                 # without any master nodes.
