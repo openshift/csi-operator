@@ -23,6 +23,9 @@ spec:
             # Use credentials provided by the azure-inject-credentials container
             - --cloud-config-secret-name=""
             - --cloud-config-secret-namespace=""
+            # Disable the remove-not-ready-taint, as it is not implemented in ocp
+            # https://github.com/kubernetes-sigs/azuredisk-csi-driver/pull/2309
+            - --remove-not-ready-taint=false
           env:
             - name: AZURE_CREDENTIAL_FILE
               value: "/etc/kubernetes/cloud.conf"
