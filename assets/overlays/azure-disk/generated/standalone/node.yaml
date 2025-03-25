@@ -41,6 +41,7 @@ spec:
         - --metrics-address=localhost:8206
         - --cloud-config-secret-name=""
         - --cloud-config-secret-namespace=""
+        - --remove-not-ready-taint=false
         env:
         - name: AZURE_CREDENTIAL_FILE
           value: /etc/kubernetes/cloud.conf
