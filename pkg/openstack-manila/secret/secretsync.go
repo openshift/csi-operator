@@ -137,55 +137,9 @@ func (c *SecretSyncController) translateSecret(cloudSecret *v1.Secret) (*v1.Secr
 func cloudToConf(cloud clientconfig.Cloud) map[string][]byte {
 	data := make(map[string][]byte)
 
-	if cloud.AuthInfo.AuthURL != "" {
-		data["os-authURL"] = []byte(cloud.AuthInfo.AuthURL)
-	}
-	if cloud.RegionName != "" {
-		data["os-region"] = []byte(cloud.RegionName)
-	}
-	if cloud.AuthInfo.UserID != "" {
-		data["os-userID"] = []byte(cloud.AuthInfo.UserID)
-	} else if cloud.AuthInfo.Username != "" {
-		data["os-userName"] = []byte(cloud.AuthInfo.Username)
-	}
-	if cloud.AuthInfo.Password != "" {
-		data["os-password"] = []byte(cloud.AuthInfo.Password)
-	}
-	if cloud.AuthInfo.ApplicationCredentialID != "" {
-		data["os-applicationCredentialID"] = []byte(cloud.AuthInfo.ApplicationCredentialID)
-	}
-	if cloud.AuthInfo.ApplicationCredentialName != "" {
-		data["os-applicationCredentialName"] = []byte(cloud.AuthInfo.ApplicationCredentialName)
-	}
-	if cloud.AuthInfo.ApplicationCredentialSecret != "" {
-		data["os-applicationCredentialSecret"] = []byte(cloud.AuthInfo.ApplicationCredentialSecret)
-	}
-	if cloud.AuthInfo.ProjectID != "" {
-		data["os-projectID"] = []byte(cloud.AuthInfo.ProjectID)
-	} else if cloud.AuthInfo.ProjectName != "" {
-		data["os-projectName"] = []byte(cloud.AuthInfo.ProjectName)
-	}
-	if cloud.AuthInfo.DomainID != "" {
-		data["os-domainID"] = []byte(cloud.AuthInfo.DomainID)
-	} else if cloud.AuthInfo.DomainName != "" {
-		data["os-domainName"] = []byte(cloud.AuthInfo.DomainName)
-	}
-	if cloud.AuthInfo.ProjectDomainID != "" {
-		data["os-projectDomainID"] = []byte(cloud.AuthInfo.ProjectDomainID)
-	} else if cloud.AuthInfo.ProjectDomainName != "" {
-		data["os-projectDomainName"] = []byte(cloud.AuthInfo.ProjectDomainName)
-	}
-	if cloud.AuthInfo.UserDomainID != "" {
-		data["os-userDomainID"] = []byte(cloud.AuthInfo.UserDomainID)
-		data["os-domainID"] = []byte(cloud.AuthInfo.UserDomainID)
-	} else if cloud.AuthInfo.UserDomainName != "" {
-		data["os-userDomainName"] = []byte(cloud.AuthInfo.UserDomainName)
-		data["os-domainName"] = []byte(cloud.AuthInfo.UserDomainName)
-	}
-	if cloud.CACertFile != "" {
-		// Replace the original cert authority path from clouds.yaml with the canonical one
-		data["os-certAuthorityPath"] = []byte(cacertPath)
-	}
+	data["os-cloud"] = []byte(util.CloudName)
+	data["os-use-clouds"] = []byte("true")
+	data["os-clouds-file"] = []byte("/etc/openstack/clouds.yaml") //path to mounted secret
 
 	return data
 }
