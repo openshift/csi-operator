@@ -37,6 +37,8 @@ spec:
           image: ${DRIVER_IMAGE}
           imagePullPolicy: IfNotPresent
           args:
+            - "--provide-controller-service=false"
+            - "--provide-node-service=true"
             - --v=${LOG_LEVEL}
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
