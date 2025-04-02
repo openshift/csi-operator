@@ -1,0 +1,22 @@
+# This sidecar is injected to DaemonSet
+spec:
+  template:
+    spec:
+      containers:
+        - name: csi-liveness-probe
+          image: ${LIVENESS_PROBE_IMAGE}
+          imagePullPolicy: IfNotPresent
+          terminationMessagePolicy: FallbackToLogsOnError
+          args:
+            - --csi-address=/csi/csi.sock
+            - --http-endpoint=127.0.0.1:${LIVENESS_PROBE_PORT}
+            - --v=${LOG_LEVEL}
+          # Empty env. instead of nil for json patch to append new env. vars there
+          env: []
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
