@@ -18,6 +18,8 @@ type Clouds struct {
 
 // Cloud represents an entry in a clouds.yaml/public-clouds.yaml/secure.yaml file.
 type Cloud struct {
+	UseClouds  bool      `yaml:"use_clouds,omitempty" json:"use_clouds,omitempty"`
+	CloudsFile string    `yaml:"clouds_file,omitempty" json:"clouds_file,omitempty"`
 	Cloud      string    `yaml:"cloud,omitempty" json:"cloud,omitempty"`
 	Profile    string    `yaml:"profile,omitempty" json:"profile,omitempty"`
 	AuthInfo   *AuthInfo `yaml:"auth,omitempty" json:"auth,omitempty"`
