@@ -55,9 +55,9 @@ type ControlPlaneConfig struct {
 	// The Deployment will be available as "controller.yaml" in the generated assets and can be patched
 	// by
 	DeploymentTemplateAssetName string
-	// List of metric ports exposed by the driver itself and any containers defined in DeploymentTemplateAssetName.
+	// Metric port exposed by the driver itself.
 	// Sidecar metrics ports are not included here, they will be added dynamically from sidecar config below.
-	MetricsPorts []MetricsPort
+	MetricsPort *MetricsPort
 	// Liveness probe TCP port number exposed by the driver itself, i.e. by DeploymentTemplateAssetName.
 	// It will be injected to liveness probe sidecar automatically.
 	LivenessProbePort uint16
@@ -114,8 +114,8 @@ type SidecarConfig struct {
 type GuestConfig struct {
 	// Name of the template asset that contains DaemonSet of the guest components.
 	DaemonSetTemplateAssetName string
-	// List of metric ports exposed by the driver itself and any containers defined in DeploymentTemplateAssetName.
-	MetricsPorts []MetricsPort
+	// Metric ports exposed by the driver itself.
+	MetricsPort *MetricsPort
 	// Liveness probe TCP port number exposed by the driver itself, i.e. by DaemonSetTemplateAssetName.
 	LivenessProbePort uint16
 	// port where node-registrar will expose health check endpoint
