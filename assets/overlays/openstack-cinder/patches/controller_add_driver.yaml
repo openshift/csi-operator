@@ -38,6 +38,9 @@ spec:
             - "--provide-controller-service=true"
             - "--provide-node-service=false"
             - "--endpoint=$(CSI_ENDPOINT)"
+            # this is the generated value of the LOCAL_METRICS_PORT variable
+            # we hardcode it because we don't currently support substitution
+            - "--http-endpoint=localhost:8202"
             - "--cloud-config=$(CLOUD_CONFIG)"
             - "--cluster=${CLUSTER_ID}"
             - "--with-topology=$(ENABLE_TOPOLOGY)"
