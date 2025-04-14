@@ -40,13 +40,11 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		ControllerConfig: &generator.ControlPlaneConfig{
 			DeploymentTemplateAssetName: "overlays/openstack-cinder/patches/controller_add_driver.yaml",
 			LivenessProbePort:           10301,
-			MetricsPorts: []generator.MetricsPort{
-				{
-					LocalPort:           commongenerator.OpenStackCinderLoopbackMetricsPortStart,
-					InjectKubeRBACProxy: true,
-					ExposedPort:         commongenerator.OpenStackCinderExposedMetricsPortStart,
-					Name:                "driver-m",
-				},
+			MetricsPort: &generator.MetricsPort{
+				LocalPort:           commongenerator.OpenStackCinderLoopbackMetricsPortStart,
+				InjectKubeRBACProxy: true,
+				ExposedPort:         commongenerator.OpenStackCinderExposedMetricsPortStart,
+				Name:                "driver-m",
 			},
 			SidecarLocalMetricsPortStart:   commongenerator.OpenStackCinderLoopbackMetricsPortStart + 1,
 			SidecarExposedMetricsPortStart: commongenerator.OpenStackCinderExposedMetricsPortStart + 1,

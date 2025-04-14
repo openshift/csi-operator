@@ -58,13 +58,11 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		ControllerConfig: &generator.ControlPlaneConfig{
 			DeploymentTemplateAssetName: "overlays/azure-file/patches/controller_add_driver.yaml",
 			LivenessProbePort:           10303,
-			MetricsPorts: []generator.MetricsPort{
-				{
-					LocalPort:           commongenerator.AzureFileLoopbackMetricsPortStart,
-					InjectKubeRBACProxy: true,
-					ExposedPort:         commongenerator.AzureFileExposedMetricsPortStart,
-					Name:                "driver-m",
-				},
+			MetricsPort: &generator.MetricsPort{
+				LocalPort:           commongenerator.AzureFileLoopbackMetricsPortStart,
+				InjectKubeRBACProxy: true,
+				ExposedPort:         commongenerator.AzureFileExposedMetricsPortStart,
+				Name:                "driver-m",
 			},
 			SidecarLocalMetricsPortStart:   commongenerator.AzureFileLoopbackMetricsPortStart + 1,
 			SidecarExposedMetricsPortStart: commongenerator.AzureFileExposedMetricsPortStart + 1,

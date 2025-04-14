@@ -57,13 +57,11 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		ControllerConfig: &generator.ControlPlaneConfig{
 			DeploymentTemplateAssetName: "overlays/aws-ebs/patches/controller_add_driver.yaml",
 			LivenessProbePort:           10301,
-			MetricsPorts: []generator.MetricsPort{
-				{
-					LocalPort:           commongenerator.AWSEBSLoopbackMetricsPortStart,
-					InjectKubeRBACProxy: true,
-					ExposedPort:         commongenerator.AWSEBSExposedMetricsPortStart,
-					Name:                "driver-m",
-				},
+			MetricsPort: &generator.MetricsPort{
+				LocalPort:           commongenerator.AWSEBSLoopbackMetricsPortStart,
+				InjectKubeRBACProxy: true,
+				ExposedPort:         commongenerator.AWSEBSExposedMetricsPortStart,
+				Name:                "driver-m",
 			},
 			SidecarLocalMetricsPortStart:   commongenerator.AWSEBSLoopbackMetricsPortStart + 1,
 			SidecarExposedMetricsPortStart: commongenerator.AWSEBSExposedMetricsPortStart + 1,
