@@ -55,14 +55,15 @@ type ControlPlaneConfig struct {
 	// The Deployment will be available as "controller.yaml" in the generated assets and can be patched
 	// by
 	DeploymentTemplateAssetName string
-	// Metric port exposed by the driver itself.
-	// Sidecar metrics ports are not included here, they will be added dynamically from sidecar config below.
-	MetricsPort *MetricsPort
+	// Metrics TCP port exposed by the driver itself on loopback interface.
+	LocalMetricsPort uint16
+	// Metrics TCP port number that should be exposed by kube-rbac-proxy on the container interface.
+	ExposedMetricsPort uint16
 	// Liveness probe TCP port number exposed by the driver itself, i.e. by DeploymentTemplateAssetName.
 	// It will be injected to liveness probe sidecar automatically.
 	LivenessProbePort uint16
 
-	// Start of TCP port number range to be used by sidecar to expose metrics on loopback interface.
+	// Start of TCP port number range to be used by sidecars to expose metrics on loopback interface.
 	// The generator will allocate a port for each sidecar and add kube-rbac-proxy in front of it.
 	SidecarLocalMetricsPortStart uint16
 	// Start of TCP port number range to be used by sidecar to expose metrics via kube-rbac-proxy on the container
@@ -77,18 +78,6 @@ type ControlPlaneConfig struct {
 	// Patches to apply to any assets in the control plane namespace, not necessarily to the ones defined in
 	// Assets. The controller Deployment can be patched too.
 	AssetPatches AssetPatches
-}
-
-// Configuration of metric ports exposed by the CSI driver itself.
-type MetricsPort struct {
-	// TCP port number exposed by the driver itself on loopback interface.
-	LocalPort uint16
-	// TCP port number that should be exposed by kube-rbac-proxy on the container interface.
-	ExposedPort uint16
-	// Name of the port. It is used in metrics Service and ServiceMonitor.
-	Name string
-	// If true, kube-rbac-proxy will be injected in front of the LocalPort by the generator, exposing ExposedPort.
-	InjectKubeRBACProxy bool
 }
 
 // Configuration of a single CSI sidecar. It usually contains also kube-rbac-proxy sidecar.
@@ -114,8 +103,10 @@ type SidecarConfig struct {
 type GuestConfig struct {
 	// Name of the template asset that contains DaemonSet of the guest components.
 	DaemonSetTemplateAssetName string
-	// Metric ports exposed by the driver itself.
-	MetricsPort *MetricsPort
+	// Metrics TCP port exposed by the driver itself on loopback interface.
+	LocalMetricsPort uint16
+	// Metrics TCP port number that should be exposed by kube-rbac-proxy on the container interface.
+	ExposedMetricsPort uint16
 	// Liveness probe TCP port number exposed by the driver itself, i.e. by DaemonSetTemplateAssetName.
 	LivenessProbePort uint16
 	// port where node-registrar will expose health check endpoint
