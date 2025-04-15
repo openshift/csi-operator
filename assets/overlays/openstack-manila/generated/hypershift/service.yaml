@@ -4,7 +4,6 @@
 # Applied strategic merge patch common/metrics/service_add_port.yaml
 # Applied strategic merge patch common/metrics/service_add_port.yaml
 # Applied strategic merge patch common/metrics/service_add_port.yaml
-# Applied strategic merge patch common/metrics/service_add_port.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/modify_service_selector.yaml
 #
 #
@@ -32,10 +31,6 @@ spec:
     port: 9205
     protocol: TCP
     targetPort: snapshotter-m
-  - name: driver-m
-    port: 9202
-    protocol: TCP
-    targetPort: driver-m
   selector:
     app: openstack-manila-csi
     component: controllerplugin
