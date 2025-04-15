@@ -273,7 +273,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --metrics-address=localhost:8206
+        - --metrics-address=localhost:${DRIVER_METRICS_PORT}
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
