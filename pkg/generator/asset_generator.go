@@ -126,7 +126,12 @@ func (gen *AssetGenerator) generateDeployment() error {
 	deploymentYAML := gen.mustReadBaseAsset("base/controller.yaml", nil)
 	var err error
 
-	err = gen.applyAssetPatch(deploymentYAML, ctrlCfg.DeploymentTemplateAssetName, nil)
+	extraReplacements := []string{}
+	if ctrlCfg.LocalMetricsPort != 0 {
+		extraReplacements = append(extraReplacements, "${DRIVER_METRICS_PORT}", strconv.Itoa(int(ctrlCfg.LocalMetricsPort)))
+	}
+
+	err = gen.applyAssetPatch(deploymentYAML, ctrlCfg.DeploymentTemplateAssetName, extraReplacements)
 	if err != nil {
 		return err
 	}
@@ -165,7 +170,7 @@ func (gen *AssetGenerator) generateDeployment() error {
 	return nil
 }
 
-// Add driver's MetricsPort to the metrics Service and ServiceMonitor.
+// Add driver's metrics port to the metrics Service and ServiceMonitor.
 func (gen *AssetGenerator) generateDriverMetricsService(serviceYAML, serviceMonitorYAML *YAMLWithHistory, localMetricsPort, exposedMetricsPort uint16, servicePrefix string) error {
 	if localMetricsPort == 0 {
 		return nil
@@ -281,6 +286,10 @@ func (gen *AssetGenerator) generateDaemonSet() error {
 
 	if cfg.NodeRegistrarHealthCheckPort > 0 {
 		extraReplacements = append(extraReplacements, "${NODE_DRIVER_REGISTRAR_HEALTH_PORT}", strconv.Itoa(int(cfg.NodeRegistrarHealthCheckPort)))
+	}
+
+	if cfg.LocalMetricsPort != 0 {
+		extraReplacements = append(extraReplacements, "${DRIVER_METRICS_PORT}", strconv.Itoa(int(cfg.LocalMetricsPort)))
 	}
 
 	err = gen.applyAssetPatch(dsYAML, cfg.DaemonSetTemplateAssetName, extraReplacements)
