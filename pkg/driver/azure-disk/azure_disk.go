@@ -72,14 +72,10 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		OutputDir:        generatedAssetBase,
 
 		ControllerConfig: &generator.ControlPlaneConfig{
-			DeploymentTemplateAssetName: "overlays/azure-disk/patches/controller_add_driver.yaml",
-			LivenessProbePort:           10301,
-			MetricsPort: &generator.MetricsPort{
-				LocalPort:           commongenerator.AzureDiskControllerLoopbackMetricsPortStart,
-				InjectKubeRBACProxy: true,
-				ExposedPort:         commongenerator.AzureDiskControllerExposedMetricsPortStart,
-				Name:                "driver-m",
-			},
+			DeploymentTemplateAssetName:    "overlays/azure-disk/patches/controller_add_driver.yaml",
+			LivenessProbePort:              10301,
+			LocalMetricsPort:               commongenerator.AzureDiskControllerLoopbackMetricsPortStart,
+			ExposedMetricsPort:             commongenerator.AzureDiskControllerExposedMetricsPortStart,
 			SidecarLocalMetricsPortStart:   commongenerator.AzureDiskControllerLoopbackMetricsPortStart + 1,
 			SidecarExposedMetricsPortStart: commongenerator.AzureDiskControllerExposedMetricsPortStart + 1,
 			Sidecars: []generator.SidecarConfig{
@@ -120,13 +116,9 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 
 		GuestConfig: &generator.GuestConfig{
 			DaemonSetTemplateAssetName: "overlays/azure-disk/patches/node_add_driver.yaml",
-			MetricsPort: &generator.MetricsPort{
-				LocalPort:           commongenerator.AzureDiskNodeLoopbackMetricsPortStart,
-				InjectKubeRBACProxy: true,
-				ExposedPort:         commongenerator.AzureDiskNodeExposedMetricsPortStart,
-				Name:                "driver-m",
-			},
-			LivenessProbePort: 10300,
+			LocalMetricsPort:           commongenerator.AzureDiskNodeLoopbackMetricsPortStart,
+			ExposedMetricsPort:         commongenerator.AzureDiskNodeExposedMetricsPortStart,
+			LivenessProbePort:          10300,
 			// 10303 port is taken by azurefile stuff and hence we must use 10304 here
 			NodeRegistrarHealthCheckPort: 10304,
 			Sidecars: []generator.SidecarConfig{

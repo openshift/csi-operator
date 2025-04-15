@@ -104,19 +104,15 @@ func (gen *AssetGenerator) patchController() error {
 
 // Inject kube-rbac-proxy container for the metrics port into yamlFile. The yamlFile can be a Deployment or a
 // DaemonSet. proxyPatchFile is the path to Deployment / DaemonSet patch file that adds the proxy container.
-func (gen *AssetGenerator) addDriverRBACProxyContainers(yamlFile *YAMLWithHistory, proxyPatchFile string, metricsPort *MetricsPort, baseExtraReplacements []string) error {
-	if metricsPort == nil {
+func (gen *AssetGenerator) addDriverRBACProxyContainers(yamlFile *YAMLWithHistory, proxyPatchFile string, localMetricsPort, exposedMetricsPort uint16, baseExtraReplacements []string) error {
+	if localMetricsPort == 0 {
 		return nil
 	}
 
-	if !metricsPort.InjectKubeRBACProxy {
-		return nil
-	}
 	extraReplacements := append([]string{}, baseExtraReplacements...) // Poor man's copy of the array.
 	extraReplacements = append(extraReplacements,
-		"${LOCAL_METRICS_PORT}", strconv.Itoa(int(metricsPort.LocalPort)),
-		"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(metricsPort.ExposedPort)),
-		"${PORT_NAME}", metricsPort.Name,
+		"${LOCAL_METRICS_PORT}", strconv.Itoa(int(localMetricsPort)),
+		"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(exposedMetricsPort)),
 	)
 	err := gen.applyAssetPatch(yamlFile, proxyPatchFile, extraReplacements)
 	if err != nil {
@@ -142,7 +138,7 @@ func (gen *AssetGenerator) generateDeployment() error {
 		baseExtraReplacements = append(baseExtraReplacements, "${LIVENESS_PROBE_PORT}", strconv.Itoa(int(ctrlCfg.LivenessProbePort)))
 	}
 
-	err = gen.addDriverRBACProxyContainers(deploymentYAML, "common/sidecars/controller_driver_kube_rbac_proxy.yaml", ctrlCfg.MetricsPort, baseExtraReplacements)
+	err = gen.addDriverRBACProxyContainers(deploymentYAML, "common/sidecars/controller_driver_kube_rbac_proxy.yaml", ctrlCfg.LocalMetricsPort, ctrlCfg.ExposedMetricsPort, baseExtraReplacements)
 	if err != nil {
 		return err
 	}
@@ -170,15 +166,15 @@ func (gen *AssetGenerator) generateDeployment() error {
 }
 
 // Add driver's MetricsPort to the metrics Service and ServiceMonitor.
-func (gen *AssetGenerator) generateDriverMetricsService(serviceYAML, serviceMonitorYAML *YAMLWithHistory, metricsPort *MetricsPort, servicePrefix string) error {
-	if metricsPort == nil {
+func (gen *AssetGenerator) generateDriverMetricsService(serviceYAML, serviceMonitorYAML *YAMLWithHistory, localMetricsPort, exposedMetricsPort uint16, servicePrefix string) error {
+	if localMetricsPort == 0 {
 		return nil
 	}
 
 	extraReplacements := []string{
-		"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(metricsPort.ExposedPort)),
-		"${LOCAL_METRICS_PORT}", strconv.Itoa(int(metricsPort.LocalPort)),
-		"${PORT_NAME}", metricsPort.Name,
+		"${LOCAL_METRICS_PORT}", strconv.Itoa(int(localMetricsPort)),
+		"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(exposedMetricsPort)),
+		"${PORT_NAME}", "driver-m",
 		"${SERVICE_PREFIX}", servicePrefix,
 	}
 	var err error
@@ -232,7 +228,7 @@ func (gen *AssetGenerator) generateControllerMonitoringService() error {
 	if err := gen.generateSidecarMetricsServices(serviceYAML, serviceMonitorYAML, int(ctrlCfg.SidecarLocalMetricsPortStart), int(ctrlCfg.SidecarExposedMetricsPortStart), ctrlCfg.Sidecars, "controller"); err != nil {
 		return err
 	}
-	if err := gen.generateDriverMetricsService(serviceYAML, serviceMonitorYAML, ctrlCfg.MetricsPort, "controller"); err != nil {
+	if err := gen.generateDriverMetricsService(serviceYAML, serviceMonitorYAML, ctrlCfg.LocalMetricsPort, ctrlCfg.ExposedMetricsPort, "controller"); err != nil {
 		return err
 	}
 
@@ -292,7 +288,7 @@ func (gen *AssetGenerator) generateDaemonSet() error {
 		return err
 	}
 
-	err = gen.addDriverRBACProxyContainers(dsYAML, "common/sidecars/node_driver_kube_rbac_proxy.yaml", cfg.MetricsPort, extraReplacements)
+	err = gen.addDriverRBACProxyContainers(dsYAML, "common/sidecars/node_driver_kube_rbac_proxy.yaml", cfg.LocalMetricsPort, cfg.ExposedMetricsPort, extraReplacements)
 	if err != nil {
 		return err
 	}
@@ -311,7 +307,7 @@ func (gen *AssetGenerator) generateDaemonSet() error {
 func (gen *AssetGenerator) generateGuestMonitoringService() error {
 	cfg := gen.operatorConfig.GuestConfig
 
-	if cfg.MetricsPort == nil {
+	if cfg.LocalMetricsPort == 0 {
 		// Do not add metrics service if driver does not expose any metrics.
 		// There is no node-level sidecar that would export one.
 		return nil
@@ -319,7 +315,7 @@ func (gen *AssetGenerator) generateGuestMonitoringService() error {
 	serviceYAML := gen.mustReadBaseAsset("base/node_metrics_service.yaml", nil)
 	serviceMonitorYAML := gen.mustReadBaseAsset("base/node_metrics_servicemonitor.yaml", nil)
 
-	err := gen.generateDriverMetricsService(serviceYAML, serviceMonitorYAML, cfg.MetricsPort, "node")
+	err := gen.generateDriverMetricsService(serviceYAML, serviceMonitorYAML, cfg.LocalMetricsPort, cfg.ExposedMetricsPort, "node")
 	if err != nil {
 		return err
 	}
