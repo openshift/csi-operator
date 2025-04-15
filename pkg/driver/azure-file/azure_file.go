@@ -85,7 +85,7 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				commongenerator.DefaultSnapshotter.WithExtraArguments(
 					"--timeout=600s",
 				),
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultPodNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
@@ -105,7 +105,7 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			NodeRegistrarHealthCheckPort: 10305,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultNodeDriverRegistrar,
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultHostNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},

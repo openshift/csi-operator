@@ -108,7 +108,7 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				commongenerator.DefaultSnapshotter.WithExtraArguments(
 					"--timeout=600s",
 				),
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultPodNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
@@ -135,7 +135,7 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			NodeRegistrarHealthCheckPort: 10304,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultNodeDriverRegistrar,
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultHostNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
