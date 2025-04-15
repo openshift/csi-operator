@@ -19,7 +19,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: ${EXPOSED_METRICS_PORT}
-            name: ${PORT_NAME}
+            name: driver-m
             protocol: TCP
           resources:
             requests:

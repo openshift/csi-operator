@@ -28,14 +28,10 @@ func GetSambaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		OutputDir:        generatedAssetBase,
 
 		ControllerConfig: &generator.ControlPlaneConfig{
-			DeploymentTemplateAssetName: "overlays/samba/patches/controller_add_driver.yaml",
-			LivenessProbePort:           10307,
-			MetricsPort: &generator.MetricsPort{
-				LocalPort:           commongenerator.SambaLoopbackMetricsPortStart,
-				InjectKubeRBACProxy: true,
-				ExposedPort:         commongenerator.SambaExposedMetricsPortStart,
-				Name:                "driver-m",
-			},
+			DeploymentTemplateAssetName:    "overlays/samba/patches/controller_add_driver.yaml",
+			LivenessProbePort:              10307,
+			LocalMetricsPort:               commongenerator.SambaLoopbackMetricsPortStart,
+			ExposedMetricsPort:             commongenerator.SambaExposedMetricsPortStart,
 			SidecarLocalMetricsPortStart:   commongenerator.SambaLoopbackMetricsPortStart + 1,
 			SidecarExposedMetricsPortStart: commongenerator.SambaExposedMetricsPortStart + 1,
 			Sidecars: []generator.SidecarConfig{
