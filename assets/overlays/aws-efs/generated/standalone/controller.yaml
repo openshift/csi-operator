@@ -5,9 +5,9 @@
 # provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
 # provisioner.yaml: Added arguments [--feature-gates=Topology=true --extra-create-metadata=true --timeout=5m --worker-threads=1]
 # Applied strategic merge patch provisioner.yaml
-# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
-# livenessprobe.yaml: Added arguments [--probe-timeout=3s]
-# Applied strategic merge patch livenessprobe.yaml
+# pod_network_livenessprobe.yaml: Loaded from common/sidecars/pod_network_livenessprobe.yaml
+# pod_network_livenessprobe.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch pod_network_livenessprobe.yaml
 #
 #
 

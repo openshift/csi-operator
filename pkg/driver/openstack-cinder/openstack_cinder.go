@@ -62,7 +62,7 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				commongenerator.DefaultResizer.WithExtraArguments(),
 				// FIXME(stephenfin): Unlike other sidecars, this one doesn't (and didn't) set a timeout. Should it?
 				commongenerator.DefaultSnapshotter.WithExtraArguments(),
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultPodNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=10s",
 				),
 			},
@@ -77,7 +77,7 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			LivenessProbePort:            10300,
 			NodeRegistrarHealthCheckPort: 10304,
 			Sidecars: []generator.SidecarConfig{
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultHostNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=10s",
 				),
 				commongenerator.DefaultNodeDriverRegistrar,

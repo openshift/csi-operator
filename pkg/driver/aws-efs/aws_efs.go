@@ -54,7 +54,7 @@ func GetAWSEFSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--timeout=5m",
 					"--worker-threads=1",
 				),
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultPodNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
@@ -71,7 +71,7 @@ func GetAWSEFSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			NodeRegistrarHealthCheckPort: 10305,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultNodeDriverRegistrar,
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultHostNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
