@@ -5,6 +5,7 @@ controllerStaticAssetNames:
 - controller_sa.yaml
 - service.yaml
 guestStaticAssetNames:
+- config_secret.yaml
 - csidriver.yaml
 - lease_leader_election_binding.yaml
 - lease_leader_election_role.yaml
