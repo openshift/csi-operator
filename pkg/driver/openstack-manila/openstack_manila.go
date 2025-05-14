@@ -56,14 +56,7 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		ControllerConfig: &generator.ControlPlaneConfig{
 			DeploymentTemplateAssetName: "overlays/openstack-manila/patches/controller_add_driver.yaml",
 			LivenessProbePort:           10306,
-			MetricsPorts: []generator.MetricsPort{
-				{
-					LocalPort:           commongenerator.OpenStackManilaLoopbackMetricsPortStart,
-					InjectKubeRBACProxy: true,
-					ExposedPort:         commongenerator.OpenStackManilaExposedMetricsPortStart,
-					Name:                "driver-m",
-				},
-			},
+			// TODO(stephenfin): Expose metrics port once the driver supports it
 			SidecarLocalMetricsPortStart:   commongenerator.OpenStackManilaLoopbackMetricsPortStart + 1,
 			SidecarExposedMetricsPortStart: commongenerator.OpenStackManilaExposedMetricsPortStart + 1,
 			Sidecars: []generator.SidecarConfig{
