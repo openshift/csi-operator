@@ -38,12 +38,18 @@ spec:
         - --provide-node-service=true
         - --endpoint=$(CSI_ENDPOINT)
         - --cloud-config=$(CLOUD_CONFIG)
+        - --with-topology=$(ENABLE_TOPOLOGY)
         - --v=${LOG_LEVEL}
         env:
         - name: CSI_ENDPOINT
           value: unix://csi/csi.sock
         - name: CLOUD_CONFIG
           value: /etc/kubernetes/config/cloud.conf
+        - name: ENABLE_TOPOLOGY
+          valueFrom:
+            configMapKeyRef:
+              key: enable_topology
+              name: cloud-conf
         image: ${DRIVER_IMAGE}
         imagePullPolicy: IfNotPresent
         livenessProbe:
