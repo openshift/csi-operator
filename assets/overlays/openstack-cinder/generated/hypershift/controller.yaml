@@ -91,6 +91,7 @@ spec:
         - --provide-controller-service=true
         - --provide-node-service=false
         - --endpoint=$(CSI_ENDPOINT)
+        - --http-endpoint=localhost:8202
         - --cloud-config=$(CLOUD_CONFIG)
         - --cluster=${CLUSTER_ID}
         - --with-topology=$(ENABLE_TOPOLOGY)
