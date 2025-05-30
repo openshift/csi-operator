@@ -59,6 +59,8 @@ spec:
             weight: 100
       containers:
       - args:
+        - --provide-controller-service=true
+        - --provide-node-service=false
         - --v=${LOG_LEVEL}
         - --cluster-id=${CLUSTER_ID}
         - --nodeid=$(NODE_ID)
