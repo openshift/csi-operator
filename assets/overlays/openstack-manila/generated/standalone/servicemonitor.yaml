@@ -4,7 +4,6 @@
 # Applied JSON patch common/metrics/service_monitor_add_port.yaml.patch
 # Applied JSON patch common/metrics/service_monitor_add_port.yaml.patch
 # Applied JSON patch common/metrics/service_monitor_add_port.yaml.patch
-# Applied JSON patch common/metrics/service_monitor_add_port.yaml.patch
 #
 #
 
@@ -35,14 +34,6 @@ spec:
     interval: 30s
     path: /metrics
     port: snapshotter-m
-    scheme: https
-    tlsConfig:
-      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
-      serverName: manila-csi-driver-controller-metrics.${NAMESPACE}.svc
-  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-    interval: 30s
-    path: /metrics
-    port: driver-m
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
