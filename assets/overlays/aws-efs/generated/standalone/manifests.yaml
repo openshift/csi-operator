@@ -13,6 +13,7 @@ controllerStaticAssetNames:
 - service.yaml
 - servicemonitor.yaml
 guestStaticAssetNames:
+- credentials-node.yaml
 - csidriver.yaml
 - lease_leader_election_binding.yaml
 - lease_leader_election_role.yaml
