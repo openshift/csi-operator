@@ -77,6 +77,7 @@ func GetAWSEFSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			},
 			Assets: commongenerator.DefaultNodeAssets.WithAssets(generator.StandaloneOnly,
 				"overlays/aws-efs/base/csidriver.yaml",
+				"overlays/aws-efs/base/credentials-node.yaml",
 			),
 			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
 				// Any role or cluster role bindings should not hardcode service account namespace because this operator is OLM based and can be installed into a custom namespace.
