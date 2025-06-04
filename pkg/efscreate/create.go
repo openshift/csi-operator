@@ -3,7 +3,6 @@ package efscreate
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -146,11 +145,6 @@ func getNodes(ctx context.Context, client *kubeclient.Clientset) (*corev1.NodeLi
 }
 
 func writeStorageClassFile(fsID string) error {
-	fileName := os.Getenv(STORAGECLASS_LOCATION)
-	if len(fileName) == 0 {
-		return fmt.Errorf("no storageclass location specified")
-	}
-
 	scContentBytes, err := assets.ReadFile("overlays/aws-efs/testing/sc.yaml")
 	if err != nil {
 		return err
@@ -162,23 +156,33 @@ func writeStorageClassFile(fsID string) error {
 	}
 	replacer := strings.NewReplacer(replaceStrings...)
 	finalSCContent := replacer.Replace(scContent)
-	err = ioutil.WriteFile(fileName, []byte(finalSCContent), fileMode)
-	return err
+
+	fileName := os.Getenv(STORAGECLASS_LOCATION)
+	if len(fileName) == 0 {
+		klog.V(4).Infof("No %s specified, printing to log:\n%s\n", STORAGECLASS_LOCATION, finalSCContent)
+		return nil
+	}
+	return os.WriteFile(fileName, []byte(finalSCContent), fileMode)
 }
 
 func writeCSIManifest(scName string) error {
-	manifestLocation := os.Getenv(MANIFEST_LOCATION)
-	if len(manifestLocation) == 0 {
-		return fmt.Errorf("no manifest location specified")
-	}
 	manifestContentBytes, err := assets.ReadFile("overlays/aws-efs/testing/manifest.yaml")
+	if err != nil {
+		return err
+	}
 	manifestContent := string(manifestContentBytes)
 	replaceStrings := []string{
 		"${storageclassname}", scName,
 	}
 	replacer := strings.NewReplacer(replaceStrings...)
 	finalManifestContent := replacer.Replace(manifestContent)
-	err = ioutil.WriteFile(manifestLocation, []byte(finalManifestContent), fileMode)
+
+	manifestLocation := os.Getenv(MANIFEST_LOCATION)
+	if len(manifestLocation) == 0 {
+		klog.V(2).Infof("No %s specified, printing to log:\n%s\n", MANIFEST_LOCATION, finalManifestContent)
+		return nil
+	}
+	err = os.WriteFile(manifestLocation, []byte(finalManifestContent), fileMode)
 	return err
 }
 
