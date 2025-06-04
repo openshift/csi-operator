@@ -33,7 +33,7 @@ const (
 	fileMode              = 0640
 )
 
-func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext, useLocalAWSCredentials bool) error {
+func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext, useLocalAWSCredentials bool, singleZone string) error {
 	// Create core clientset for core and infra objects
 	kubeClient := kubeclient.NewForConfigOrDie(rest.AddUserAgent(controllerConfig.KubeConfig, operatorName))
 	nodes, err := getNodes(ctx, kubeClient)
@@ -59,13 +59,13 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	efs := NewEFSSession(infra, ec2Session)
 
-	fsID, err := efs.CreateEFSVolume(nodes)
+	fsID, err := efs.CreateEFSVolume(nodes, singleZone)
 	if err != nil {
 		klog.Errorf("error creating efs volume: %v", err)
 		return err
 	}
 	klog.Infof("created fsID: %s", fsID)
-	err = writeStorageClassFile(fsID)
+	err = writeStorageClassFile(fsID, singleZone)
 	if err != nil {
 		klog.Errorf("error writing storageclass to location %s: %v", os.Getenv(STORAGECLASS_LOCATION), err)
 		return err
@@ -144,8 +144,12 @@ func getNodes(ctx context.Context, client *kubeclient.Clientset) (*corev1.NodeLi
 	return nodes, err
 }
 
-func writeStorageClassFile(fsID string) error {
-	scContentBytes, err := assets.ReadFile("overlays/aws-efs/testing/sc.yaml")
+func writeStorageClassFile(fsID string, singleZone string) error {
+	scAssetName := "overlays/aws-efs/testing/sc.yaml"
+	if singleZone != "" {
+		scAssetName = "overlays/aws-efs/testing/sc-single-zone.yaml"
+	}
+	scContentBytes, err := assets.ReadFile(scAssetName)
 	if err != nil {
 		return err
 	}
@@ -153,6 +157,7 @@ func writeStorageClassFile(fsID string) error {
 	replaceStrings := []string{
 		"${storageclassname}", storageClassName,
 		"${filesystemid}", fsID,
+		"${zone}", singleZone,
 	}
 	replacer := strings.NewReplacer(replaceStrings...)
 	finalSCContent := replacer.Replace(scContent)
