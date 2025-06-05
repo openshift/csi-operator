@@ -23,7 +23,6 @@ const (
 	ControllerMetricServiceMonitorAssetName = "servicemonitor.yaml"
 	NodeMetricServiceAssetName              = "node_service.yaml"
 	NodeMetricServiceMonitorAssetName       = "node_servicemonitor.yaml"
-	CredentialRequestControllerAssetName    = "credentials.yaml"
 )
 
 const (
@@ -155,9 +154,9 @@ func (a *CSIDriverAssets) GetVolumeSnapshotClassAssetNames() []string {
 }
 
 // GetCredentialsRequestAssetNames returns the names of all generated CredentialRequest assets.
-func (a *CSIDriverAssets) GetCredentialsRequestAssetNames() []string {
+func (a *CSIDriverAssets) GetCredentialsRequestAssetNames(assets map[string][]byte) []string {
 	var names []string
-	for name, yaml := range a.ControllerAssets {
+	for name, yaml := range assets {
 		kind, err := getYAMLKind(yaml)
 		if err != nil {
 			panic(err)
