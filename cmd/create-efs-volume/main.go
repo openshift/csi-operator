@@ -16,6 +16,7 @@ import (
 
 var (
 	useLocalAWSCredentials bool
+	singleZone             string
 )
 
 func main() {
@@ -49,11 +50,12 @@ func NewOperatorCommand() *cobra.Command {
 	ctrlCmd.Short = "Create EFS volume"
 	flags := ctrlCmd.Flags()
 	flags.BoolVar(&useLocalAWSCredentials, "local-aws-creds", false, "Use local AWS credentials instead of credentials loaded from the OCP cluster.")
+	flags.StringVar(&singleZone, "single-zone", "", "Create a single-zone volume in given zone.")
 	cmd.AddCommand(ctrlCmd)
 
 	return cmd
 }
 
 func runOperatorWithCredentialsConfig(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
-	return efscreate.RunOperator(ctx, controllerConfig, useLocalAWSCredentials)
+	return efscreate.RunOperator(ctx, controllerConfig, useLocalAWSCredentials, singleZone)
 }
