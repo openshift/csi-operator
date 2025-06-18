@@ -60,11 +60,11 @@ func NewEFSSession(infra *v1.Infrastructure, sess *session.Session) *EFS {
 	}
 }
 
-func (efs *EFS) CreateEFSVolume(nodes *corev1.NodeList) (string, error) {
+func (efs *EFS) CreateEFSVolume(nodes *corev1.NodeList, singleZone string) (string, error) {
 	instances := efs.getInstanceIDs(nodes)
 
 	klog.V(4).Info("Loading AWS VPC")
-	err := efs.getSecurityInfo(instances)
+	err := efs.getSecurityInfo(instances, singleZone)
 	if err != nil {
 		return "", err
 	}
@@ -83,7 +83,7 @@ func (efs *EFS) CreateEFSVolume(nodes *corev1.NodeList) (string, error) {
 	}
 
 	klog.V(4).Info("Creating EFS volume")
-	fileSystemID, err := efs.createEFSFileSystem()
+	fileSystemID, err := efs.createEFSFileSystem(singleZone)
 	if err != nil {
 		return "", err
 	}
@@ -176,7 +176,7 @@ func log(msg string, args ...interface{}) {
 	klog.Infof(msg, args...)
 }
 
-func (efs *EFS) createEFSFileSystem() (string, error) {
+func (efs *EFS) createEFSFileSystem(singleZone string) (string, error) {
 	volumeName := fmt.Sprintf(efsVolumeNameFormat, efs.infra.Status.InfrastructureName)
 	input := &awsefs.CreateFileSystemInput{
 		Encrypted:       aws.Bool(true),
@@ -191,6 +191,10 @@ func (efs *EFS) createEFSFileSystem() (string, error) {
 				Value: aws.String("owned"),
 			},
 		},
+	}
+	if singleZone != "" {
+		klog.V(4).Infof("Creating EFS in single zone: %s", singleZone)
+		input.AvailabilityZoneName = aws.String(singleZone)
 	}
 	response, err := efs.efsClient.CreateFileSystem(input)
 	if err != nil {
@@ -279,7 +283,7 @@ func (efs *EFS) waitForEFSToBeAvailable(efsID string) error {
 	return err
 }
 
-func (efs *EFS) getSecurityInfo(instances []string) error {
+func (efs *EFS) getSecurityInfo(instances []string, singleZone string) error {
 	var instancePointers []*string
 	for i := range instances {
 		instancePointers = append(instancePointers, &instances[i])
@@ -326,8 +330,26 @@ func (efs *EFS) getSecurityInfo(instances []string) error {
 
 	subNetSet := sets.NewString()
 	for i := range results {
+		if singleZone != "" {
+			instanceZone := efs.getInstanceAvailabilityZone(results[i])
+			if instanceZone != singleZone {
+				klog.V(4).Infof("Skipping instance %s in zone %s, as it does not match the single zone %s", *results[i].InstanceId, instanceZone, singleZone)
+				continue
+			}
+		}
 		subNetSet.Insert(*results[i].SubnetId)
 	}
 	efs.subnetIDs = subNetSet.List()
 	return nil
+}
+
+func (efs *EFS) getInstanceAvailabilityZone(instance *ec2.Instance) string {
+	if instance == nil {
+		return ""
+	}
+	if instance.Placement == nil || instance.Placement.AvailabilityZone == nil {
+		return ""
+	}
+
+	return *instance.Placement.AvailabilityZone
 }
