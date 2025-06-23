@@ -5,6 +5,11 @@ spec:
     metadata:
       annotations:
         openshift.io/required-scc: privileged
+      labels:
+        openshift.storage.network-policy.dns: allow
+        openshift.storage.network-policy.api-server: allow
+        openshift.storage.network-policy.metrics-range: allow
+        openshift.storage.network-policy.all-egress: allow
     spec:
       containers:
         - name: csi-driver
