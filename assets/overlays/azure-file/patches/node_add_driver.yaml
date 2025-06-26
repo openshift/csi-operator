@@ -120,4 +120,3 @@ spec:
               - serviceAccountToken:
                   path: token
                   audience: openshift
-
