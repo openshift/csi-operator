@@ -156,8 +156,8 @@ github.com/onsi/ginkgo/v2 v2.22.2 h1:/3X8Panh8/WwhU/3Ssa6rCKqPLuAkVY2I0RoyDLySlU
 github.com/onsi/ginkgo/v2 v2.22.2/go.mod h1:oeMosUL+8LtarXBHu/c0bx2D/K9zyQ6uX3cTyztHwsk=
 github.com/onsi/gomega v1.36.2 h1:koNYke6TVk6ZmnyHrCXba/T/MoLBXFjeC1PtvYgw0A8=
 github.com/onsi/gomega v1.36.2/go.mod h1:DdwyADRjrc825LhMEkD76cHR5+pUnjhUN8GlHlRPHzY=
-github.com/openshift/api v0.0.0-20250305122440-3e04d3af8c3e h1:bEcCutNr5RLU/DudWNs/nlOLBqMxrfsHtVuMttkxvWE=
-github.com/openshift/api v0.0.0-20250305122440-3e04d3af8c3e/go.mod h1:yk60tHAmHhtVpJQo3TwVYq2zpuP70iJIFDCmeKMIzPw=
+github.com/openshift/api v0.0.0-20250320170726-75d64d71980b h1:GGuFSHESP0BSOu70AqV4u9IVrjYdaeu4Id+HXRIOvkw=
+github.com/openshift/api v0.0.0-20250320170726-75d64d71980b/go.mod h1:yk60tHAmHhtVpJQo3TwVYq2zpuP70iJIFDCmeKMIzPw=
 github.com/openshift/build-machinery-go v0.0.0-20250102153059-e85a1a7ecb5c h1:6XcszPFZpan4qll5XbdLll7n1So3IsPn28aw2j1obMo=
 github.com/openshift/build-machinery-go v0.0.0-20250102153059-e85a1a7ecb5c/go.mod h1:8jcm8UPtg2mCAsxfqKil1xrmRMI3a+XU2TZ9fF8A7TE=
 github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a h1:duO3JMrUOqVx50QhzxvDeOYIwTNOB8/EEuRLPyvAMBg=
@@ -166,8 +166,8 @@ github.com/openshift/hypershift v0.1.55 h1:iPCdLV8IjiqpMwkSwYzO3RJv3tVZG1QhBl+Eg
 github.com/openshift/hypershift v0.1.55/go.mod h1:4DO5J/hTzE1zeiMZIpZ85FXZnSY7n+k948JwlWqW4YM=
 github.com/openshift/hypershift/api v0.0.0-20250305100139-35db77a764e6 h1:jkIUFNkrloR4sAizqHmEbgzGtFoSSUt6OQ9f8o6UTts=
 github.com/openshift/hypershift/api v0.0.0-20250305100139-35db77a764e6/go.mod h1:nbCarajS98NWluGO5cEhbfUiZX15HbMZTsmrjVahxFk=
-github.com/openshift/library-go v0.0.0-20250325143551-78a24021cf40 h1:he++2Lr5qeZqgczkEMmOXYpLlO30SXfnqXrDKpxfik8=
-github.com/openshift/library-go v0.0.0-20250325143551-78a24021cf40/go.mod h1:GHwvopE5KXXCz4ULHp871sTPLLW+FB+hu/RIzlNwxx8=
+github.com/openshift/library-go v0.0.0-20250623173617-60108c9616bf h1:/96nQHlZGvjd/cBj+8OrMThgDin3SP9sVxUxe95cXkE=
+github.com/openshift/library-go v0.0.0-20250623173617-60108c9616bf/go.mod h1:DAa3BGl0CFtkfJn/g5rU8kDDTErfMVA/QlFm4cvU+MI=
 github.com/orisano/pixelmatch v0.0.0-20220722002657-fb0b55479cde/go.mod h1:nZgzbfBr3hhjoZnS66nKrHmduYNpc34ny7RK4z5/HM0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
