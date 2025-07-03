@@ -24,11 +24,13 @@ import (
 )
 
 const (
-	cloudCredSecretName   = "aws-efs-cloud-credentials"
-	metricsCertSecretName = "aws-efs-csi-driver-controller-metrics-serving-cert"
-	trustedCAConfigMap    = "aws-efs-csi-driver-trusted-ca-bundle"
-	stsIAMRoleARNEnvVar   = "ROLEARN"
-	cloudTokenPath        = "/var/run/secrets/openshift/serviceaccount/token"
+	cloudCredSecretName           = "aws-efs-cloud-credentials"
+	nodeCloudCredSecretName       = "node-aws-efs-cloud-credentials"
+	metricsCertSecretName         = "aws-efs-csi-driver-controller-metrics-serving-cert"
+	trustedCAConfigMap            = "aws-efs-csi-driver-trusted-ca-bundle"
+	stsControllerIAMRoleARNEnvVar = "ROLEARN"
+	stsNodeIAMRoleARNEnvVar       = "NODE_ROLEARN"
+	cloudTokenPath                = "/var/run/secrets/openshift/serviceaccount/token"
 
 	generatedAssetBase = "overlays/aws-efs/generated"
 )
@@ -106,6 +108,7 @@ func GetAWSEFSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEFS")
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withFIPSDeploymentHook, withCustomTags)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
+	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, nodeCloudCredSecretName)
 	cfg.AddDaemonSetHookBuilders(c, withFIPSDaemonSetHook, withVolumeMetricsDaemonSetHook)
 	cfg.AddCredentialsRequestHook(stsCredentialsRequestHook)
 
@@ -182,7 +185,7 @@ func withFIPSDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.D
 }
 
 func stsCredentialsRequestHook(spec *opv1.OperatorSpec, cr *unstructured.Unstructured) error {
-	stsRoleARN := os.Getenv(stsIAMRoleARNEnvVar)
+	stsRoleARN := os.Getenv(stsControllerIAMRoleARNEnvVar)
 	if stsRoleARN == "" {
 		// Not in STS mode
 		return nil
