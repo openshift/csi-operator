@@ -168,8 +168,8 @@ spec:
 
           # Otherwise, make sure the access keys are mounted in the pod...
           if [ ! -e "$AWS_ACCESS_KEY_ID_FILE" ] || [ ! -e "$AWS_SECRET_ACCESS_KEY_FILE" ]; then
-              echo "AWS keys not found"
-              exit 1
+              echo "Node AWS keys not found, zonal volumes will not work"
+              exit 0
           fi
 
           # And create an auth file based on those keys
@@ -236,6 +236,7 @@ spec:
         name: efs-utils-config-legacy
       - name: aws-keys
         secret:
+          optional: true
           secretName: node-aws-efs-cloud-credentials
       - emptyDir: {}
         name: aws-auth
