@@ -10,7 +10,7 @@ require (
 	github.com/gophercloud/utils/v2 v2.0.0-20250212084022-725b94822eeb
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
 	github.com/onsi/gomega v1.36.2
-	github.com/openshift/api v0.0.0-20250305122440-3e04d3af8c3e
+	github.com/openshift/api v0.0.0-20250320170726-75d64d71980b
 	github.com/openshift/build-machinery-go v0.0.0-20250102153059-e85a1a7ecb5c
 	github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a
 	github.com/openshift/hypershift v0.1.55
@@ -130,3 +130,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
+
+replace github.com/openshift/library-go => ../library-go/
