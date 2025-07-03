@@ -52,8 +52,8 @@ spec:
 
             # Otherwise, make sure the access keys are mounted in the pod...
             if [ ! -e "$AWS_ACCESS_KEY_ID_FILE" ] || [ ! -e "$AWS_SECRET_ACCESS_KEY_FILE" ]; then
-                echo "AWS keys not found"
-                exit 1
+                echo "Node AWS keys not found, zonal volumes will not work"
+                exit 0
             fi
 
             # And create an auth file based on those keys
@@ -212,6 +212,7 @@ spec:
         - name: aws-keys
           secret:
             secretName: node-aws-efs-cloud-credentials
+            optional: true # NODE_ARN is optional, work without it
         - name: aws-auth
           emptyDir: {}
         # This service account token can be used to provide identity outside the cluster.

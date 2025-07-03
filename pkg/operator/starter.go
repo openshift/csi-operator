@@ -196,7 +196,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			panic(fmt.Sprintf("CredentialsRequestController can handle only one CredentialsRequests, found %+v", credentialsRequestAssetNames))
 		}
 		guestCSIControllerSet.WithCredentialsRequestController(
-			csiOperatorControllerConfig.GetControllerName("CredentialsRequestController"),
+			csiOperatorControllerConfig.GetControllerName("NodeCredentialsRequestController"),
 			c.GuestNamespace,
 			a.GetAsset,
 			credentialsRequestAssetNames[0],
