@@ -28,6 +28,7 @@ export AWS_ACCOUNT_B_VPC_CIDR="<VPC_B_CIDR>" #CIDR range of VPC in Account B
 export AWS_ACCOUNT_A_VPC_ID="<VPC_A_ID>" #VPC ID in Account A (cluster)
 export AWS_ACCOUNT_B_VPC_ID="<VPC_B_ID>" #VPC ID in Account B (EFS cross account)
 export SCRATCH_DIR="<WORKING_DIRECTORY>" #Any writeable directory of choice, used to store temporary files
+export CSI_DRIVER_NAMESPACE="openshift-cluster-csi-drivers" #Change this if your driver is installed in non-default namespace
 export AWS_PAGER="" #Make AWS CLI output everything directly to stdout
 ```
 
@@ -229,7 +230,7 @@ aws iam put-user-policy \
 1. Identify the IAM Role name currently utilized by the EFS CSI Driver Operator:
 
 ```bash
-EFS_CSI_DRIVER_OPERATOR_ROLE=$(oc -n openshift-cluster-csi-drivers get secret/aws-efs-cloud-credentials -o jsonpath='{.data.credentials}' | base64 -d | grep role_arn | cut -d'/' -f2) && echo ${EFS_CSI_DRIVER_OPERATOR_ROLE}
+EFS_CSI_DRIVER_OPERATOR_ROLE=$(oc -n ${CSI_DRIVER_NAMESPACE} get secret/aws-efs-cloud-credentials -o jsonpath='{.data.credentials}' | base64 -d | grep role_arn | cut -d'/' -f2) && echo ${EFS_CSI_DRIVER_OPERATOR_ROLE}
 ```
 
 2. Attach the Policy to the IAM Role used by the EFS CSI Driver Operator:
@@ -343,13 +344,13 @@ export STORAGE_CLASS_NAME=efs-sc-cross
 
 2. Create a secret that references the role ARN in Account B:
 ```bash
-oc create secret generic ${SECRET_NAME} -n openshift-cluster-csi-drivers --from-literal=awsRoleArn="${ACCOUNT_B_ROLE_ARN}"
+oc create secret generic ${SECRET_NAME} -n ${CSI_DRIVER_NAMESPACE} --from-literal=awsRoleArn="${ACCOUNT_B_ROLE_ARN}"
 ```
 
 3. Grant the CSI driver controller access to the newly created secret:
 ```bash
-oc -n openshift-cluster-csi-drivers create role access-secrets --verb=get,list,watch --resource=secrets
-oc -n openshift-cluster-csi-drivers create rolebinding --role=access-secrets default-to-secrets --serviceaccount=openshift-cluster-csi-drivers:aws-efs-csi-driver-controller-sa
+oc -n ${CSI_DRIVER_NAMESPACE} create role access-secrets --verb=get,list,watch --resource=secrets
+oc -n ${CSI_DRIVER_NAMESPACE} create rolebinding --role=access-secrets default-to-secrets --serviceaccount=${CSI_DRIVER_NAMESPACE}:aws-efs-csi-driver-controller-sa
 ```
 
 4. Create a new storage class that references the EFS ID from Account B and the secret created in the previous step:
@@ -368,6 +369,6 @@ parameters:
   gidRangeEnd: "2000"
   basePath: "/dynamic_provisioning"
   csi.storage.k8s.io/provisioner-secret-name: ${SECRET_NAME}
-  csi.storage.k8s.io/provisioner-secret-namespace: openshift-cluster-csi-drivers
+  csi.storage.k8s.io/provisioner-secret-namespace: ${CSI_DRIVER_NAMESPACE}
 EOF
 ```
