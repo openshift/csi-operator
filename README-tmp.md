@@ -322,9 +322,9 @@ CROSS_ACCOUNT_FS_ID=$(aws efs create-file-system --creation-token efs-token-1 \
 
 ```bash
 for SUBNET in $(aws ec2 describe-subnets \
-  --query 'Subnets[*].{SubnetId:SubnetId}' \
+  --filters "Name=vpc-id,Values=${AWS_ACCOUNT_B_VPC_ID}" \
   --region ${AWS_REGION} \
-  | jq -r '.[].SubnetId'); do \
+  | jq -r '.Subnets.[].SubnetId'); do \
     MOUNT_TARGET=$(aws efs create-mount-target --file-system-id ${CROSS_ACCOUNT_FS_ID} \
     --subnet-id ${SUBNET} \
     --region ${AWS_REGION} \
