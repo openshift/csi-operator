@@ -282,12 +282,6 @@ do
 done
 ```
 
-5. Enable DNS resolution for Account A to access Account B's VPC:
-
-```bash
-aws ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${PEER_REQUEST_ID} --accepter-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
-```
-
 ##  5.9.5.7 Configure security groups in Account B to allow NFS traffic from Account A to EFS
 
 1. Switch to your Account B profile:
