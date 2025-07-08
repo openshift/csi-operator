@@ -3,7 +3,7 @@
 ## 5.9.5.1 Requirements
 
 - The EFS CSI Operator must be installed prior to beginning this procedure. Follow the _Installing the AWS EFS CSI Driver Operator_ procedure.
-- Both the Red Hat OpenShift Service on AWS cluster and EFS file system must be located in the same AWS region.
+- Both the OpenShift cluster and EFS file system must be located in the same AWS region.
 - Ensure that the two VPCs referenced in this guide utilize different network CIDR ranges.
 
 ## 5.9.5.2 Prerequisites
