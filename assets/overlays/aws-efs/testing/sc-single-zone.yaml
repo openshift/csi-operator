@@ -15,3 +15,4 @@ allowedTopologies:
   - key: topology.kubernetes.io/zone
     values:
     - ${zone}
+volumeBindingMode: WaitForFirstConsumer
