@@ -21,7 +21,7 @@
 ```bash
 export CLUSTER_NAME="<CLUSTER_NAME>" #Cluster name of choice
 export AWS_REGION="<AWS_REGION>" #AWS Region of choice
-export AWS_ACCOUNT_A_ID="<ACCOUNT_A_ID>" #AWS Account B ID
+export AWS_ACCOUNT_A_ID="<ACCOUNT_A_ID>" #AWS Account A ID
 export AWS_ACCOUNT_B_ID="<ACCOUNT_B_ID>" #AWS Account B ID 
 export AWS_ACCOUNT_A_VPC_CIDR="<VPC_A_CIDR>" #CIDR range of VPC in Account A
 export AWS_ACCOUNT_B_VPC_CIDR="<VPC_B_CIDR>" #CIDR range of VPC in Account B
