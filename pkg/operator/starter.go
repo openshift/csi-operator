@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -213,6 +214,16 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			csiOperatorControllerConfig.VolumeSnapshotClassHooks...,
 		)
 		csiOperatorControllerConfig.ExtraControlPlaneControllers = append(csiOperatorControllerConfig.ExtraControlPlaneControllers, snapshotClassController)
+	}
+
+	if len(csiOperatorControllerConfig.StaleConditionsName) > 0 {
+		staleConditionsController := staleconditions.NewRemoveStaleConditionsController(
+			"StaleConditionRemovalController",
+			csiOperatorControllerConfig.StaleConditionsName,
+			c.OperatorClient,
+			c.EventRecorder,
+		)
+		csiOperatorControllerConfig.ExtraControlPlaneControllers = append(csiOperatorControllerConfig.ExtraControlPlaneControllers, staleConditionsController)
 	}
 
 	// Start all informers
