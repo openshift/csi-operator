@@ -153,6 +153,9 @@ func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 		cfg.AddDeploymentHookBuilders(c, getCustomAWSCABundleBuilder("user-ca-bundle"))
 	}
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
+	cfg.StaleConditionsName = []string{
+		"AWSEBSDriverConditionalStaticResourcesControllerDegraded",
+	}
 
 	// extra controllers
 	if flavour == generator.FlavourStandalone {
