@@ -117,6 +117,9 @@ func GetOpenStackCinderOperatorControllerConfig(ctx context.Context, flavour gen
 
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withClusterWideProxyDaemonSetHook, withConfigDaemonSetHook)
 	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, cloudCredSecretName)
+	cfg.StaleConditionsName = []string{
+		"OpenStackCinderDriverConditionalStaticResourcesController",
+	}
 
 	configMapSyncer, err := createConfigMapSyncer(c, flavour)
 	if err != nil {
