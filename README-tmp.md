@@ -43,14 +43,29 @@ mkdir -p $SCRATCH_DIR
 oc whoami
 ```
 
-4. Configure AWS CLI profiles as environment variables for account switching:
+4. Determine OpenShift cluster flavor and set node selector
+
+EFS Cross Account feature requires assigning AWS IAM policies to nodes running EFS CSI controller pods, however this is
+not consistent for every OpenShift flavor.
+
+If your cluster is deployed as Hosted Control Plane (HyperShift), set NODE_SELECTOR environment variable to hold worker node label:
+```bash
+export NODE_SELECTOR=node-role.kubernetes.io/worker
+```
+
+For all other OpenShift flavors set NODE_SELECTOR environment variable to hold master node label:
+```bash
+export NODE_SELECTOR=node-role.kubernetes.io/master
+```
+
+5. Configure AWS CLI profiles as environment variables for account switching:
 
 ```bash
 export AWS_ACCOUNT_A="<ACCOUNT_A_NAME>"
 export AWS_ACCOUNT_B="<ACCOUNT_B_NAME>"
 ```
 
-5. Ensure that your AWS CLI is configured with JSON output format as the default for both accounts:
+6. Ensure that your AWS CLI is configured with JSON output format as the default for both accounts:
 
 ```bash
 export AWS_DEFAULT_PROFILE=${AWS_ACCOUNT_A}
@@ -61,7 +76,7 @@ aws configure get output
 
 If the AWS CLI commands above return no value, the default output format is already set to JSON and no changes are required. If any other value is returned, reconfigure your AWS CLI to use JSON format. For detailed instructions on changing output formats, refer to: https://docs.aws.amazon.com/cli/latest/userguide/cli-usage-output-format.html
 
-6. Unset `AWS_PROFILE` in your shell to prevent conflicts with `AWS_DEFAULT_PROFILE`:
+7. Unset `AWS_PROFILE` in your shell to prevent conflicts with `AWS_DEFAULT_PROFILE`:
 
 ```bash
 unset AWS_PROFILE
@@ -193,7 +208,7 @@ EOF
 
 ```bash
 EFS_POLICY_ARN=arn:aws:iam::aws:policy/AmazonElasticFileSystemClientFullAccess
-for NODE in $(oc get nodes --selector=node-role.kubernetes.io/master | tail -n +2 | awk '{print $1}')
+for NODE in $(oc get nodes --selector=${NODE_SELECTOR} | tail -n +2 | awk '{print $1}')
 do
    INSTANCE_PROFILE=$(aws ec2 describe-instances --filters "Name=private-dns-name,Values=${NODE}" --query 'Reservations[].Instances[].IamInstanceProfile.Arn' --output text | awk -F'/' '{print $NF}')
    MASTER_ROLE_ARN=$(aws iam get-instance-profile --instance-profile-name ${INSTANCE_PROFILE}  --query 'InstanceProfile.Roles[0].Arn' --output text)
