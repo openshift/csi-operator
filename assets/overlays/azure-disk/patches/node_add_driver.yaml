@@ -19,7 +19,7 @@ spec:
             - --logtostderr
             - --v=${LOG_LEVEL}
             - --nodeid=$(KUBE_NODE_NAME)
-            - --metrics-address=localhost:8206
+            - --metrics-address=localhost:${DRIVER_METRICS_PORT}
             # Use credentials provided by the azure-inject-credentials container
             - --cloud-config-secret-name=""
             - --cloud-config-secret-namespace=""
