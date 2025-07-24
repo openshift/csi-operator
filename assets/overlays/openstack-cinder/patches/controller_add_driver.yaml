@@ -10,6 +10,11 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: "cacert,config-cinderplugin,secret-cinderplugin,socket-dir"
         openshift.io/required-scc: restricted-v2
+      labels:
+        openshift.storage.network-policy.all-egress: allow
+        openshift.storage.network-policy.api-server: allow
+        openshift.storage.network-policy.dns: allow
+        openshift.storage.network-policy.metrics-range: allow
     spec:
       priorityClassName: system-cluster-critical
       nodeSelector:
