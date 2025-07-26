@@ -17,6 +17,8 @@ import (
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 )
 
+// DUMMY CHANGE
+
 const (
 	cinderConfigName      = "cloud-conf"
 	cloudCredSecretName   = "openstack-cloud-credentials"
