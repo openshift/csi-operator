@@ -45,6 +45,10 @@ spec:
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
       labels:
         app: openstack-cinder-csi-driver-controller
+        openshift.storage.network-policy.all-egress: allow
+        openshift.storage.network-policy.api-server: allow
+        openshift.storage.network-policy.dns: allow
+        openshift.storage.network-policy.metrics-range: allow
     spec:
       affinity:
         podAntiAffinity:

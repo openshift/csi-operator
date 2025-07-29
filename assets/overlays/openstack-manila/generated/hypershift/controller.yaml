@@ -51,6 +51,10 @@ spec:
         app: openstack-manila-csi
         component: controllerplugin
         hypershift.openshift.io/hosted-control-plane: ${NAMESPACE}
+        openshift.storage.network-policy.all-egress: allow
+        openshift.storage.network-policy.api-server: allow
+        openshift.storage.network-policy.dns: allow
+        openshift.storage.network-policy.metrics-range: allow
     spec:
       affinity:
         nodeAffinity:
