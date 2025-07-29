@@ -140,6 +140,9 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withClusterWideProxyDaemonSetHook)
 
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, metricsCertSecretName)
+	cfg.StaleConditionsName = []string{
+		"ManilaDriverConditionalStaticResourcesController",
+	}
 
 	// Generate NFS driver asset with image and namespace populated
 	dsBytes, err := assetWithNFSDriver("overlays/openstack-manila/generated/standalone/node_nfs.yaml", c)
