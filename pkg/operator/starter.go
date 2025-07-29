@@ -2,6 +2,7 @@ package operator
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -151,13 +152,16 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		}
 	}
 
-	// Prepare credentials request controller when needed
-	if credentialsRequestAssetNames := a.GetCredentialsRequestAssetNames(); len(credentialsRequestAssetNames) > 0 {
+	// Prepare control plane credentials request controller when needed
+	if credentialsRequestAssetNames := a.GetCredentialsRequestAssetNames(a.ControllerAssets); len(credentialsRequestAssetNames) > 0 {
+		if len(credentialsRequestAssetNames) > 1 {
+			panic(fmt.Sprintf("CredentialsRequestController can handle only one CredentialsRequests, found %+v", credentialsRequestAssetNames))
+		}
 		controlPlaneCSIControllerSet.WithCredentialsRequestController(
 			csiOperatorControllerConfig.GetControllerName("CredentialsRequestController"),
 			c.GuestNamespace,
 			a.GetAsset,
-			generated_assets.CredentialRequestControllerAssetName,
+			credentialsRequestAssetNames[0],
 			c.ControlPlaneDynamicClient,
 			c.OperatorInformers,
 			credentialsRequestHooks...,
@@ -186,6 +190,22 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		guestDaemonInformers,
 		guestDaemonSetHooks...,
 	)
+
+	// Prepare guest credentials request controller when needed
+	if credentialsRequestAssetNames := a.GetCredentialsRequestAssetNames(a.GuestAssets); len(credentialsRequestAssetNames) > 0 {
+		if len(credentialsRequestAssetNames) > 1 {
+			panic(fmt.Sprintf("CredentialsRequestController can handle only one CredentialsRequests, found %+v", credentialsRequestAssetNames))
+		}
+		guestCSIControllerSet.WithCredentialsRequestController(
+			csiOperatorControllerConfig.GetControllerName("NodeCredentialsRequestController"),
+			c.GuestNamespace,
+			a.GetAsset,
+			credentialsRequestAssetNames[0],
+			c.DynamicClient,
+			c.OperatorInformers,
+			credentialsRequestHooks...,
+		)
+	}
 
 	// Prepare StorageClassController when needed
 	if scNames := a.GetStorageClassAssetNames(); len(scNames) > 0 {
