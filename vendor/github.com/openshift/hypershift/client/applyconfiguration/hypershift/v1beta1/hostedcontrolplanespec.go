@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// HostedControlPlaneSpecApplyConfiguration represents an declarative configuration of the HostedControlPlaneSpec type for use
+// HostedControlPlaneSpecApplyConfiguration represents a declarative configuration of the HostedControlPlaneSpec type for use
 // with apply.
 type HostedControlPlaneSpecApplyConfiguration struct {
 	ReleaseImage                     *string                                              `json:"releaseImage,omitempty"`
@@ -43,10 +43,12 @@ type HostedControlPlaneSpecApplyConfiguration struct {
 	InfrastructureAvailabilityPolicy *hypershiftv1beta1.AvailabilityPolicy                `json:"infrastructureAvailabilityPolicy,omitempty"`
 	FIPS                             *bool                                                `json:"fips,omitempty"`
 	KubeConfig                       *KubeconfigSecretRefApplyConfiguration               `json:"kubeconfig,omitempty"`
+	KubeAPIServerDNSName             *string                                              `json:"kubeAPIServerDNSName,omitempty"`
 	Services                         []ServicePublishingStrategyMappingApplyConfiguration `json:"services,omitempty"`
 	AuditWebhook                     *corev1.LocalObjectReference                         `json:"auditWebhook,omitempty"`
 	Etcd                             *EtcdSpecApplyConfiguration                          `json:"etcd,omitempty"`
 	Configuration                    *ClusterConfigurationApplyConfiguration              `json:"configuration,omitempty"`
+	OperatorConfiguration            *OperatorConfigurationApplyConfiguration             `json:"operatorConfiguration,omitempty"`
 	ImageContentSources              []ImageContentSourceApplyConfiguration               `json:"imageContentSources,omitempty"`
 	AdditionalTrustBundle            *corev1.LocalObjectReference                         `json:"additionalTrustBundle,omitempty"`
 	SecretEncryption                 *SecretEncryptionSpecApplyConfiguration              `json:"secretEncryption,omitempty"`
@@ -60,7 +62,7 @@ type HostedControlPlaneSpecApplyConfiguration struct {
 	Capabilities                     *CapabilitiesApplyConfiguration                      `json:"capabilities,omitempty"`
 }
 
-// HostedControlPlaneSpecApplyConfiguration constructs an declarative configuration of the HostedControlPlaneSpec type for use with
+// HostedControlPlaneSpecApplyConfiguration constructs a declarative configuration of the HostedControlPlaneSpec type for use with
 // apply.
 func HostedControlPlaneSpec() *HostedControlPlaneSpecApplyConfiguration {
 	return &HostedControlPlaneSpecApplyConfiguration{}
@@ -202,6 +204,14 @@ func (b *HostedControlPlaneSpecApplyConfiguration) WithKubeConfig(value *Kubecon
 	return b
 }
 
+// WithKubeAPIServerDNSName sets the KubeAPIServerDNSName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the KubeAPIServerDNSName field is set to the value of the last call.
+func (b *HostedControlPlaneSpecApplyConfiguration) WithKubeAPIServerDNSName(value string) *HostedControlPlaneSpecApplyConfiguration {
+	b.KubeAPIServerDNSName = &value
+	return b
+}
+
 // WithServices adds the given value to the Services field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Services field.
@@ -236,6 +246,14 @@ func (b *HostedControlPlaneSpecApplyConfiguration) WithEtcd(value *EtcdSpecApply
 // If called multiple times, the Configuration field is set to the value of the last call.
 func (b *HostedControlPlaneSpecApplyConfiguration) WithConfiguration(value *ClusterConfigurationApplyConfiguration) *HostedControlPlaneSpecApplyConfiguration {
 	b.Configuration = value
+	return b
+}
+
+// WithOperatorConfiguration sets the OperatorConfiguration field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the OperatorConfiguration field is set to the value of the last call.
+func (b *HostedControlPlaneSpecApplyConfiguration) WithOperatorConfiguration(value *OperatorConfigurationApplyConfiguration) *HostedControlPlaneSpecApplyConfiguration {
+	b.OperatorConfiguration = value
 	return b
 }
 
