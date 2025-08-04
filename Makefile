@@ -10,7 +10,10 @@ include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	targets/openshift/images.mk \
 )
 
-verify: verify-generated-assets
+sleep:
+	sleep 3600
+
+verify: sleep verify-generated-assets
 
 verify-generated-assets: update-generated-assets
 	git diff --exit-code
