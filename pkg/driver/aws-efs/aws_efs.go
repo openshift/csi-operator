@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/csi/credentialsrequestcontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
@@ -24,11 +25,12 @@ import (
 )
 
 const (
-	cloudCredSecretName   = "aws-efs-cloud-credentials"
-	metricsCertSecretName = "aws-efs-csi-driver-controller-metrics-serving-cert"
-	trustedCAConfigMap    = "aws-efs-csi-driver-trusted-ca-bundle"
-	stsIAMRoleARNEnvVar   = "ROLEARN"
-	cloudTokenPath        = "/var/run/secrets/openshift/serviceaccount/token"
+	cloudCredSecretName           = "aws-efs-cloud-credentials"
+	nodeCloudCredSecretName       = "node-aws-efs-cloud-credentials"
+	metricsCertSecretName         = "aws-efs-csi-driver-controller-metrics-serving-cert"
+	trustedCAConfigMap            = "aws-efs-csi-driver-trusted-ca-bundle"
+	stsControllerIAMRoleARNEnvVar = "ROLEARN"
+	cloudTokenPath                = "/var/run/secrets/openshift/serviceaccount/token"
 
 	generatedAssetBase = "overlays/aws-efs/generated"
 )
@@ -77,6 +79,7 @@ func GetAWSEFSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			},
 			Assets: commongenerator.DefaultNodeAssets.WithAssets(generator.StandaloneOnly,
 				"overlays/aws-efs/base/csidriver.yaml",
+				"overlays/aws-efs/base/credentials-node.yaml",
 			),
 			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
 				// Any role or cluster role bindings should not hardcode service account namespace because this operator is OLM based and can be installed into a custom namespace.
@@ -105,6 +108,7 @@ func GetAWSEFSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEFS")
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withFIPSDeploymentHook, withCustomTags)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
+	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, nodeCloudCredSecretName)
 	cfg.AddDaemonSetHookBuilders(c, withFIPSDaemonSetHook, withVolumeMetricsDaemonSetHook)
 	cfg.AddCredentialsRequestHook(stsCredentialsRequestHook)
 
@@ -181,7 +185,19 @@ func withFIPSDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.D
 }
 
 func stsCredentialsRequestHook(spec *opv1.OperatorSpec, cr *unstructured.Unstructured) error {
-	stsRoleARN := os.Getenv(stsIAMRoleARNEnvVar)
+	// This hook is used both for the controller and the node CredentialsRequest.
+	// Figure which one it is by checking the CR annotation and check the corresponding env. var.
+	annotations := cr.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	arnEnvVar := annotations[credentialsrequestcontroller.EnvVarsAnnotationKey]
+	if arnEnvVar == "" {
+		// There is no annotation, assume it's the controller.
+		arnEnvVar = stsControllerIAMRoleARNEnvVar
+	}
+
+	stsRoleARN := os.Getenv(arnEnvVar)
 	if stsRoleARN == "" {
 		// Not in STS mode
 		return nil

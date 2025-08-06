@@ -186,7 +186,7 @@ func Test_StsCredentialsRequestHook(t *testing.T) {
 	}{
 		{
 			name:              "STS is enabled",
-			envVariables:      map[string]string{stsIAMRoleARNEnvVar: testARN},
+			envVariables:      map[string]string{stsControllerIAMRoleARNEnvVar: testARN},
 			expectedARN:       testARN,
 			expectedTokenPath: cloudTokenPath,
 		},
@@ -198,7 +198,7 @@ func Test_StsCredentialsRequestHook(t *testing.T) {
 		},
 		{
 			name:              "STS is disabled - ARN is empty",
-			envVariables:      map[string]string{stsIAMRoleARNEnvVar: ""},
+			envVariables:      map[string]string{stsControllerIAMRoleARNEnvVar: ""},
 			expectedARN:       "",
 			expectedTokenPath: "",
 		},
