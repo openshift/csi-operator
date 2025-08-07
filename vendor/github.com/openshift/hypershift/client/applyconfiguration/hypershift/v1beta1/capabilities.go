@@ -18,27 +18,38 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hypershiftv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 )
 
-// CapabilitiesApplyConfiguration represents an declarative configuration of the Capabilities type for use
+// CapabilitiesApplyConfiguration represents a declarative configuration of the Capabilities type for use
 // with apply.
 type CapabilitiesApplyConfiguration struct {
-	DisabledCapabilities []v1beta1.OptionalCapability `json:"disabledCapabilities,omitempty"`
+	Enabled  []hypershiftv1beta1.OptionalCapability `json:"enabled,omitempty"`
+	Disabled []hypershiftv1beta1.OptionalCapability `json:"disabled,omitempty"`
 }
 
-// CapabilitiesApplyConfiguration constructs an declarative configuration of the Capabilities type for use with
+// CapabilitiesApplyConfiguration constructs a declarative configuration of the Capabilities type for use with
 // apply.
 func Capabilities() *CapabilitiesApplyConfiguration {
 	return &CapabilitiesApplyConfiguration{}
 }
 
-// WithDisabledCapabilities adds the given value to the DisabledCapabilities field in the declarative configuration
+// WithEnabled adds the given value to the Enabled field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the DisabledCapabilities field.
-func (b *CapabilitiesApplyConfiguration) WithDisabledCapabilities(values ...v1beta1.OptionalCapability) *CapabilitiesApplyConfiguration {
+// If called multiple times, values provided by each call will be appended to the Enabled field.
+func (b *CapabilitiesApplyConfiguration) WithEnabled(values ...hypershiftv1beta1.OptionalCapability) *CapabilitiesApplyConfiguration {
 	for i := range values {
-		b.DisabledCapabilities = append(b.DisabledCapabilities, values[i])
+		b.Enabled = append(b.Enabled, values[i])
+	}
+	return b
+}
+
+// WithDisabled adds the given value to the Disabled field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Disabled field.
+func (b *CapabilitiesApplyConfiguration) WithDisabled(values ...hypershiftv1beta1.OptionalCapability) *CapabilitiesApplyConfiguration {
+	for i := range values {
+		b.Disabled = append(b.Disabled, values[i])
 	}
 	return b
 }
