@@ -80,6 +80,9 @@ type OperatorControllerConfig struct {
 
 	// List of informers that should be added to the precondition controller
 	PreconditionInformers []factory.Informer
+
+	// StaleConditionsName stores list of stale conditions that should be removed
+	StaleConditionsName []string
 }
 
 func (o *OperatorControllerConfig) AddCredentialsRequestHook(hook credentialsrequestcontroller.CredentialsRequestHook) {
