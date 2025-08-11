@@ -16,7 +16,9 @@ mountOptions:
 - nosharesock
 - actimeo=30
 parameters:
+  matchTags: "true"
   skuName: Standard_LRS
+  tags: storageClassName=azurefile-csi
 provisioner: file.csi.azure.com
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
