@@ -18,8 +18,8 @@ func init() {
 const (
 	// ControlPlaneComponentAvailable indicates whether the ControlPlaneComponent is available.
 	ControlPlaneComponentAvailable ConditionType = "Available"
-	// ControlPlaneComponentProgressing indicates whether the ControlPlaneComponent is progressing.
-	ControlPlaneComponentProgressing ConditionType = "Progressing"
+	// ControlPlaneComponentRolloutComplete indicates whether the ControlPlaneComponent has completed its rollout.
+	ControlPlaneComponentRolloutComplete ConditionType = "RolloutComplete"
 
 	// WaitingForDependenciesReason indicates that there are unavailable dependencies blocking the ControlPlaneComponent reconciliation.
 	WaitingForDependenciesReason string = "WaitingForDependencies"
@@ -35,28 +35,23 @@ type ControlPlaneComponentSpec struct {
 type ComponentResource struct {
 	// kind is the name of the resource schema.
 	// +required
+	// +kubebuilder:validation:MaxLength=255
 	Kind string `json:"kind"`
 
 	// group is the API group for this resource type.
 	// +required
+	// +kubebuilder:validation:MaxLength=255
 	Group string `json:"group"`
 
 	// name is the name of this resource.
 	// +required
+	// +kubebuilder:validation:MaxLength=255
 	Name string `json:"name"`
 }
 
 // ControlPlaneComponentStatus defines the observed state of ControlPlaneComponent
 type ControlPlaneComponentStatus struct {
-	// version reports the current version of this component.
-	// +optional
-	Version string `json:"version,omitempty"`
-
-	// resources is a list of the resources reconciled by this component.
-	// +optional
-	Resources []ComponentResource `json:"resources,omitempty"`
-
-	// Conditions contains details for the current state of the ControlPlane Component.
+	// conditions contains details for the current state of the ControlPlane Component.
 	// If there is an error, then the Available condition will be false.
 	//
 	// Current condition types are: "Available"
@@ -65,7 +60,18 @@ type ControlPlaneComponentStatus struct {
 	// +listMapKey=type
 	// +patchMergeKey=type
 	// +patchStrategy=merge
+	// +kubebuilder:validation:MaxItems=10
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// version reports the current version of this component.
+	// +optional
+	// +kubebuilder:validation:MaxLength=255
+	Version string `json:"version,omitempty"`
+
+	// resources is a list of the resources reconciled by this component.
+	// +optional
+	// +kubebuilder:validation:MaxItems=100
+	Resources []ComponentResource `json:"resources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -78,12 +84,16 @@ type ControlPlaneComponentStatus struct {
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].message",description="Message"
 // +kubebuilder:printcolumn:name="ProgressingMessage",type="string",priority=1,JSONPath=".status.conditions[?(@.type==\"Progressing\")].message",description="ProgressingMessage"
 // ControlPlaneComponent specifies the state of a ControlPlane Component
-// +openshift:enable:FeatureGate=ControlPlaneV2
 type ControlPlaneComponent struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the metadata for the ControlPlaneComponent.
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   ControlPlaneComponentSpec   `json:"spec,omitempty"`
+	// spec is the specification for the ControlPlaneComponent.
+	// +optional
+	Spec ControlPlaneComponentSpec `json:"spec,omitempty"`
+	// status is the status of the ControlPlaneComponent.
+	// +optional
 	Status ControlPlaneComponentStatus `json:"status,omitempty"`
 }
 
@@ -91,6 +101,11 @@ type ControlPlaneComponent struct {
 // ControlPlaneComponentList contains a list of ControlPlaneComponent
 type ControlPlaneComponentList struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the metadata for the ControlPlaneComponentList.
+	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ControlPlaneComponent `json:"items"`
+	// items is a list of ControlPlaneComponent.
+	// +required
+	// +kubebuilder:validation:MaxItems=1000
+	Items []ControlPlaneComponent `json:"items"`
 }
