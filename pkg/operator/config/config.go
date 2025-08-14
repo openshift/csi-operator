@@ -68,6 +68,9 @@ type OperatorControllerConfig struct {
 
 	// ExtraReplacements defines additional replacements that should be made to assets
 	ExtraReplacementsFunc func() []string
+
+	// StaleConditionsName stores list of stale conditions that should be removed
+	StaleConditionsName []string
 }
 
 func (o *OperatorControllerConfig) AddCredentialsRequestHook(hook credentialsrequestcontroller.CredentialsRequestHook) {
