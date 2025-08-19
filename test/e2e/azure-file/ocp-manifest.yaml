@@ -1,4 +1,4 @@
 Driver: file.csi.azure.com
 LUNStressTest:
-  PodsTotal: 260
+  PodsTotal: 10 # See OCPBUGS-60655, Azure throttles provisioning requests
   Timeout: "30m" # The test needs ~5 min in ideal conditions.
