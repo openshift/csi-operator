@@ -15,6 +15,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: log-dir,socket-dir
     config.openshift.io/inject-proxy: csi-driver
     config.openshift.io/inject-proxy-cabundle: csi-driver
   name: aws-efs-csi-driver-controller
@@ -93,6 +94,8 @@ spec:
           readOnly: true
         - mountPath: /var/lib/csi/sockets/pluginproxy/
           name: socket-dir
+        - mountPath: /var/log/amazon/efs
+          name: log-dir
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
         - --http-endpoint=localhost:8212
@@ -118,6 +121,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /var/lib/csi/sockets/pluginproxy/
@@ -160,6 +164,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
@@ -232,3 +237,5 @@ spec:
           - serviceAccountToken:
               audience: openshift
               path: token
+      - emptyDir: {}
+        name: log-dir

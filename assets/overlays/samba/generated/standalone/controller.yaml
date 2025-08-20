@@ -33,7 +33,7 @@ spec:
   template:
     metadata:
       annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: socket-dir
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: tmp-dir,socket-dir
         openshift.io/required-scc: privileged
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
       labels:
@@ -83,10 +83,39 @@ spec:
             memory: 20Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
+        - mountPath: /tmp
+          name: tmp-dir
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8222
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=${NODE_NAMESPACE}
+        - --v=${LOG_LEVEL}
+        - --extra-create-metadata=true
+        env: []
+        image: ${PROVISIONER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-provisioner
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+        - mountPath: /tmp
+          name: tmp-dir
       - args:
         - --secure-listen-address=0.0.0.0:9221
         - --upstream=http://127.0.0.1:8221/
@@ -106,32 +135,12 @@ spec:
           requests:
             cpu: 10m
             memory: 20Mi
+        securityContext:
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /etc/tls/private
           name: metrics-serving-cert
-      - args:
-        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --http-endpoint=localhost:8222
-        - --leader-election
-        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
-        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
-        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
-        - --leader-election-namespace=${NODE_NAMESPACE}
-        - --v=${LOG_LEVEL}
-        - --extra-create-metadata=true
-        env: []
-        image: ${PROVISIONER_IMAGE}
-        imagePullPolicy: IfNotPresent
-        name: csi-provisioner
-        resources:
-          requests:
-            cpu: 10m
-            memory: 50Mi
-        terminationMessagePolicy: FallbackToLogsOnError
-        volumeMounts:
-        - mountPath: /var/lib/csi/sockets/pluginproxy/
-          name: socket-dir
       - args:
         - --secure-listen-address=0.0.0.0:9222
         - --upstream=http://127.0.0.1:8222/
@@ -174,6 +183,8 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /var/lib/csi/sockets/pluginproxy/
@@ -214,6 +225,8 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
@@ -234,3 +247,5 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: smb-csi-driver-controller-metrics-serving-cert
+      - emptyDir: {}
+        name: tmp-dir

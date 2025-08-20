@@ -98,6 +98,8 @@ spec:
               mountPath: /var/amazon/efs
             - name: efs-utils-config-legacy
               mountPath: /etc/amazon/efs-legacy
+            - name: etc-amazon
+              mountPath: /etc/amazon
             - name: etc-selinux
               mountPath: /etc/selinux
             - name: sys-fs
@@ -108,6 +110,8 @@ spec:
             - name: bound-sa-token
               mountPath: /var/run/secrets/openshift/serviceaccount
               readOnly: true
+            - name: log-dir
+              mountPath: /var/log/amazon/efs
           ports:
             - name: healthz
               # Due to hostNetwork, this port is open on all nodes!
@@ -214,6 +218,10 @@ spec:
             secretName: node-aws-efs-cloud-credentials
             optional: true # NODE_ARN is optional, work without it
         - name: aws-auth
+          emptyDir: {}
+        - name: log-dir
+          emptyDir: {}
+        - name: etc-amazon
           emptyDir: {}
         # This service account token can be used to provide identity outside the cluster.
         # For example, this token can be used with AssumeRoleWithWebIdentity to authenticate with AWS using IAM OIDC provider and STS.
