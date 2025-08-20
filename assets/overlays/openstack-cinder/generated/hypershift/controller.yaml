@@ -21,6 +21,7 @@
 # pod_network_livenessprobe.yaml: Added arguments [--probe-timeout=10s]
 # Applied strategic merge patch pod_network_livenessprobe.yaml
 # Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
+# Applied strategic merge patch common/readOnlyRootFilesystem.yaml
 # Applied strategic merge patch overlays/openstack-cinder/patches/controller_add_hypershift_volumes.yaml
 #
 #
@@ -129,6 +130,8 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
@@ -380,6 +383,8 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
