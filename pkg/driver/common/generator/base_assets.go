@@ -44,6 +44,12 @@ var (
 	).WithPatches(generator.HyperShiftOnly,
 		"controller_sa.yaml", "common/hypershift/controller_sa_pull_secret.yaml",
 		"controller.yaml", "common/hypershift/controller_add_affinity_tolerations.yaml",
+	).WithPatches(generator.AllFlavours,
+		"controller.yaml", "common/readOnlyRootFilesystem.yaml",
+	)
+
+	DefaultGuestAssetPatches = generator.NewAssetPatches(generator.AllFlavours,
+		"node.yaml", "common/readOnlyRootFilesystem.yaml",
 	)
 )
 

@@ -87,6 +87,7 @@ func GetOpenStackCinderGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/openstack-cinder/base/storageclass.yaml",
 				"overlays/openstack-cinder/base/volumesnapshotclass.yaml",
 			),
+			AssetPatches: commongenerator.DefaultGuestAssetPatches,
 		},
 	}
 }
