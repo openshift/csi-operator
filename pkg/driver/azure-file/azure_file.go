@@ -112,6 +112,7 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/azure-file/base/csi-driver-cluster-role-binding.yaml",
 				"overlays/azure-file/base/volumesnapshotclass.yaml",
 			),
+			AssetPatches: commongenerator.DefaultGuestAssetPatches,
 		},
 	}
 }

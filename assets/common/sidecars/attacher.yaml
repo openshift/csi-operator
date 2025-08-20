@@ -5,6 +5,8 @@ spec:
     spec:
       containers:
         - name: csi-attacher
+          securityContext:
+            readOnlyRootFilesystem: true
           image: ${ATTACHER_IMAGE}
           imagePullPolicy: IfNotPresent
           args:

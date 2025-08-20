@@ -1,0 +1,7 @@
+spec:
+  template:
+    spec:
+      containers:
+      - name: csi-driver
+        securityContext:
+          readOnlyRootFilesystem: true

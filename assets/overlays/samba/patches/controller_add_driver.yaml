@@ -35,6 +35,7 @@ spec:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
           securityContext:
+            readOnlyRootFilesystem: true
             privileged: true
           volumeMounts:
             - mountPath: /csi

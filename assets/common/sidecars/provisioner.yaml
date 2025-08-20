@@ -5,6 +5,8 @@ spec:
     spec:
       containers:
         - name: csi-provisioner
+          securityContext:
+            readOnlyRootFilesystem: true
           image: ${PROVISIONER_IMAGE}
           imagePullPolicy: IfNotPresent
           args:
