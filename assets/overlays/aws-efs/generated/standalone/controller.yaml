@@ -118,6 +118,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /var/lib/csi/sockets/pluginproxy/
@@ -160,6 +161,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
