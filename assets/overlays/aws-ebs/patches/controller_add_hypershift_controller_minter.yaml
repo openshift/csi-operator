@@ -33,7 +33,3 @@ spec:
         emptyDir:
           medium: Memory
         projected: null # Explicity overwrite existing projected: with null in strategic merge patch
-      - name: hosted-kubeconfig
-        secret:
-          defaultMode: 420
-          secretName: service-network-admin-kubeconfig
