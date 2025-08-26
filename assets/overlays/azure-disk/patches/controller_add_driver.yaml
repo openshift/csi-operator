@@ -22,7 +22,7 @@ spec:
           args:
             - --endpoint=$(CSI_ENDPOINT)
             - --logtostderr
-            - --metrics-address=localhost:8201
+            - --metrics-address=localhost:${DRIVER_METRICS_PORT}
             - --v=${LOG_LEVEL}
             # Use credentials provided by the azure-inject-credentials container
             - --cloud-config-secret-name=""
