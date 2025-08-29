@@ -144,6 +144,7 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/azure-disk/base/storageclass.yaml",
 				"overlays/azure-disk/base/volumesnapshotclass.yaml",
 			),
+			AssetPatches: commongenerator.DefaultGuestAssetPatches,
 		},
 	}
 }
