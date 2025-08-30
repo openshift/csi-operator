@@ -155,8 +155,8 @@ github.com/openshift/hypershift v0.1.39 h1:0LEH7srbBFh/0N+mNvdDhiGQAsbtHt647bj4X
 github.com/openshift/hypershift v0.1.39/go.mod h1:q/TuRvv0WqAjpvCUX7jFRGtXP0aZn4x1Bg0ikiFx2Ds=
 github.com/openshift/hypershift/api v0.0.0-20240725153211-8b880bdd20d1 h1:jOikb/zB0IT79YTeepbJQ3VRcUF/fVIhfcWNTKxnyBQ=
 github.com/openshift/hypershift/api v0.0.0-20240725153211-8b880bdd20d1/go.mod h1:IDXXroBJeH+nIHkA17S3Yq2QDQg02tMnCWOXoyZVOLY=
-github.com/openshift/library-go v0.0.0-20240731134552-8211143dfde7 h1:FluOIEKNSUEc48dLJEWDin8vDHQ5JmnXycl6wx3M3io=
-github.com/openshift/library-go v0.0.0-20240731134552-8211143dfde7/go.mod h1:PdASVamWinll2BPxiUpXajTwZxV8A1pQbWEsCN1od7I=
+github.com/openshift/library-go v0.0.0-20250826155954-a62511a37d56 h1:V274xMz08gw33g9Nv+ZrWF1cZlc+o1l+aw1H8ljMrm0=
+github.com/openshift/library-go v0.0.0-20250826155954-a62511a37d56/go.mod h1:PdASVamWinll2BPxiUpXajTwZxV8A1pQbWEsCN1od7I=
 github.com/orisano/pixelmatch v0.0.0-20220722002657-fb0b55479cde/go.mod h1:nZgzbfBr3hhjoZnS66nKrHmduYNpc34ny7RK4z5/HM0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
