@@ -54,7 +54,7 @@ const (
 	configEnvName         = "AZURE_ENVIRONMENT_FILEPATH"
 	azureStackCloudConfig = "/etc/azure/azurestackcloud.json"
 	// name of volume that contains cloud-config in actual deployment or daemonset
-	podAzureCfgVolumeName = "cloud-config"
+	podAzureCfgVolumeName = "src-cloud-config"
 
 	diskEncryptionSetID = "diskEncryptionSetID"
 
