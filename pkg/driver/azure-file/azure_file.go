@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/api/features"
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
@@ -18,7 +19,6 @@ import (
 
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 
-	opCfgV1 "github.com/openshift/api/config/v1"
 	opv1 "github.com/openshift/api/operator/v1"
 	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
@@ -186,7 +186,7 @@ func GetAzureFileOperatorControllerConfig(ctx context.Context, flavour generator
 			return []string{}
 		}
 
-		if featureGates.Enabled(opCfgV1.FeatureGateAzureWorkloadIdentity) {
+		if featureGates.Enabled(features.FeatureGateAzureWorkloadIdentity) {
 			workloadIdentity = "true"
 		}
 

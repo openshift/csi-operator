@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/csi-operator/pkg/operator/config"
 	"github.com/openshift/csi-operator/pkg/operator/volume_snapshot_class"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
@@ -22,9 +23,9 @@ import (
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 
 	opCfgV1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	opv1 "github.com/openshift/api/operator/v1"
 	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -226,7 +227,7 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 			return []string{}
 		}
 
-		if featureGates.Enabled(opCfgV1.FeatureGateAzureWorkloadIdentity) {
+		if featureGates.Enabled(features.FeatureGateAzureWorkloadIdentity) {
 			workloadIdentity = "true"
 		}
 
