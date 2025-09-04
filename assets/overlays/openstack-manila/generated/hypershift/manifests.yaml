@@ -3,6 +3,10 @@ controllerStaticAssetNames:
 - controller.yaml
 - controller_pdb.yaml
 - controller_sa.yaml
+- network-policy-allow-all-egress.yaml
+- network-policy-allow-egress-to-api-server.yaml
+- network-policy-allow-ingress-to-metrics.yaml
+- network-policy-allow-to-dns.yaml
 - service.yaml
 guestStaticAssetNames:
 - csidriver.yaml

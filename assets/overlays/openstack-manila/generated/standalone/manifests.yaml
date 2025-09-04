@@ -5,6 +5,10 @@ controllerStaticAssetNames:
 - controller_sa.yaml
 - kube_rbac_proxy_binding.yaml
 - kube_rbac_proxy_role.yaml
+- network-policy-allow-all-egress.yaml
+- network-policy-allow-egress-to-api-server.yaml
+- network-policy-allow-ingress-to-metrics.yaml
+- network-policy-allow-to-dns.yaml
 - prometheus_binding.yaml
 - prometheus_role.yaml
 - service.yaml
