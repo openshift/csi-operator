@@ -3,6 +3,7 @@ package operator
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/pkg/clients"
@@ -133,6 +134,7 @@ func withHyperShiftControlPlaneImages(c *clients.Clients) (dc.DeploymentHookFunc
 	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
 		driverControlPlaneImage := os.Getenv("DRIVER_CONTROL_PLANE_IMAGE")
 		livenessProbeControlPlaneImage := os.Getenv("LIVENESS_PROBE_CONTROL_PLANE_IMAGE")
+		kubeRBACProxyControlPlaneImage := os.Getenv("KUBE_RBAC_PROXY_CONTROL_PLANE_IMAGE")
 		for i := range deployment.Spec.Template.Spec.Containers {
 			container := &deployment.Spec.Template.Spec.Containers[i]
 			if container.Name == "csi-driver" && driverControlPlaneImage != "" {
@@ -140,6 +142,9 @@ func withHyperShiftControlPlaneImages(c *clients.Clients) (dc.DeploymentHookFunc
 			}
 			if container.Name == "csi-liveness-probe" && livenessProbeControlPlaneImage != "" {
 				container.Image = livenessProbeControlPlaneImage
+			}
+			if strings.Contains(container.Name, "kube-rbac-proxy") && kubeRBACProxyControlPlaneImage != "" {
+				container.Image = kubeRBACProxyControlPlaneImage
 			}
 		}
 		return nil
