@@ -77,7 +77,7 @@ func (b *Builder) WithHyperShiftGuest(kubeConfigFile string, cloudConfigNamespac
 func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 	controlPlaneRestConfig := rest.AddUserAgent(b.controllerConfig.KubeConfig, b.userAgent)
 	controlPlaneKubeClient := kubeclient.NewForConfigOrDie(controlPlaneRestConfig)
-	controlPlaneKubeInformers := v1helpers.NewKubeInformersForNamespaces(controlPlaneKubeClient, b.controlPlaneNamespaces...)
+	controlPlaneKubeInformers := v1helpers.NewKubeInformersForNamespacesWithResyncPeriod(controlPlaneKubeClient, time.Duration(0), b.controlPlaneNamespaces...)
 
 	controlPlaneDynamicClient := dynamic.NewForConfigOrDie(controlPlaneRestConfig)
 	controlPlaneDynamicInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(controlPlaneDynamicClient, b.resync, b.controllerConfig.OperatorNamespace, nil)
@@ -121,7 +121,7 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 	// store guestKubeConfig in case we need it later for running
 	b.guestKubeConfig = guestKubeConfig
 	b.client.KubeClient = guestKubeClient
-	b.client.KubeInformers = v1helpers.NewKubeInformersForNamespaces(guestKubeClient, b.guestNamespaces...)
+	b.client.KubeInformers = v1helpers.NewKubeInformersForNamespacesWithResyncPeriod(guestKubeClient, time.Duration(0), b.guestNamespaces...)
 
 	gvk := opv1.SchemeGroupVersion.WithKind("ClusterCSIDriver")
 	gvr := opv1.SchemeGroupVersion.WithResource("clustercsidrivers")
