@@ -112,7 +112,7 @@ spec:
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
         imagePullPolicy: IfNotPresent
-        name: kube-rbac-proxy-8201
+        name: driver-kube-rbac-proxy
         ports:
         - containerPort: 9201
           name: driver-m
@@ -273,7 +273,7 @@ spec:
           name: metrics-serving-cert
       - args:
         - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
-        - --metrics-address=localhost:8206
+        - --metrics-address=localhost:${DRIVER_METRICS_PORT}
         - --leader-election
         - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
         - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}

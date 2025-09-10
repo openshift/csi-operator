@@ -40,16 +40,14 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - /bin/cinder-csi-plugin
-            - "--provide-controller-service=true"
-            - "--provide-node-service=false"
-            - "--endpoint=$(CSI_ENDPOINT)"
-            # this is the generated value of the LOCAL_METRICS_PORT variable
-            # we hardcode it because we don't currently support substitution
-            - "--http-endpoint=localhost:8202"
-            - "--cloud-config=$(CLOUD_CONFIG)"
-            - "--cluster=${CLUSTER_ID}"
-            - "--with-topology=$(ENABLE_TOPOLOGY)"
-            - "--v=${LOG_LEVEL}"
+            - --provide-controller-service=true
+            - --provide-node-service=false
+            - --endpoint=$(CSI_ENDPOINT)
+            - --http-endpoint=localhost:${DRIVER_METRICS_PORT}
+            - --cloud-config=$(CLOUD_CONFIG)
+            - --cluster=${CLUSTER_ID}
+            - --with-topology=$(ENABLE_TOPOLOGY)
+            - --v=${LOG_LEVEL}
           env:
             - name: CSI_ENDPOINT
               value: unix://csi/csi.sock
