@@ -27,6 +27,7 @@ metadata:
     operator-metering: "true"
     "operatorframework.io/arch.amd64": supported
     "operatorframework.io/arch.arm64": supported
+    "operatorframework.io/arch.ppc64le": supported
 spec:
   displayName: CIFS/SMB CSI Driver Operator
   description: |
