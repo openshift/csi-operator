@@ -109,7 +109,7 @@ func GetAWSEFSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withFIPSDeploymentHook, withCustomTags)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
 	cfg.DaemonSetWatchedSecretNames = append(cfg.DaemonSetWatchedSecretNames, nodeCloudCredSecretName)
-	cfg.AddDaemonSetHookBuilders(c, withFIPSDaemonSetHook, withVolumeMetricsDaemonSetHook)
+	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withFIPSDaemonSetHook, withVolumeMetricsDaemonSetHook)
 	cfg.AddCredentialsRequestHook(stsCredentialsRequestHook)
 
 	accessPointsTagController := NewEFSAccessPointTagsController(cfg.GetControllerName("EFSAccessPointTagsController"), c, c.EventRecorder)
@@ -118,6 +118,19 @@ func GetAWSEFSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 	cfg.DeploymentInformers = append(cfg.DeploymentInformers, c.KubeInformers.InformersFor(awsEFSSecretNamespace).Core().V1().Secrets().Informer())
 
 	return cfg, nil
+}
+
+// withCABundleDaemonSetHook projects custom CA bundle ConfigMap into the CSI driver container
+func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
+	hook := csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
+		c.GuestNamespace,
+		trustedCAConfigMap,
+		c.GetConfigMapInformer(c.GuestNamespace),
+	)
+	informers := []factory.Informer{
+		c.GetConfigMapInformer(c.GuestNamespace).Informer(),
+	}
+	return hook, informers
 }
 
 // withCABundleDeploymentHook projects custom CA bundle ConfigMap into the CSI driver container
