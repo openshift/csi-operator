@@ -62,4 +62,3 @@ spec:
         - name: metrics-serving-cert
           secret:
             secretName: azure-disk-csi-driver-controller-metrics-serving-cert
-
