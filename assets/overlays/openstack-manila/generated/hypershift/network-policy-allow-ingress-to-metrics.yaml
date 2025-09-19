@@ -1,0 +1,28 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/openstack-manila/base/network-policy-allow-ingress-to-metrics.yaml
+#
+#
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    capability.openshift.io/name: Storage
+    include.release.openshift.io/hypershift: "true"
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  name: allow-ingress-to-metrics-range
+  namespace: ${NAMESPACE}
+spec:
+  ingress:
+  - ports:
+    - endPort: 9223
+      port: 9201
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      openshift.storage.network-policy.metrics-range: allow
+  policyTypes:
+  - Ingress
