@@ -20,10 +20,10 @@ include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 # Bump OCP version in CSV and OLM metadata
 #
 # Example:
-#   make metadata VERSION=4.20.0
+#   make metadata OCP_VERSION=4.20.0
 metadata: ensure-yq
-ifdef VERSION
-	./hack/update-metadata.sh $(VERSION)
+ifdef OCP_VERSION
+	./hack/update-metadata.sh $(OCP_VERSION)
 else
 	./hack/update-metadata.sh
 endif
