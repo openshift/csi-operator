@@ -177,6 +177,9 @@ func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 	if featureGates.Enabled(configv1.FeatureGateName("VolumeAttributesClass")) {
 		cfg.AddDeploymentHookBuilders(c, withVolumeAttributesClassHook)
 	}
+	if featureGates.Enabled(configv1.FeatureGateName("MutableCSINodeAllocatableCount")) {
+		cfg.AddDeploymentHookBuilders(c, withMutableCSINodeAllocatableCount)
+	}
 
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook)
 	cfg.AddStorageClassHookBuilders(c, withKMSKeyHook)
@@ -200,6 +203,15 @@ func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 			panic(err)
 		}
 		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, ctrl)
+	}
+
+	cfg.ExtraReplacementsFunc = func() []string {
+		value := ""
+		if featureGates.Enabled(configv1.FeatureGateName("MutableCSINodeAllocatableCount")) {
+			value = "600"
+		}
+		klog.V(4).Infof("Using NODE_ALLOCATABLE_UPDATE_PERIOD_SECONDS: %q", value)
+		return []string{"${NODE_ALLOCATABLE_UPDATE_PERIOD_SECONDS}", value}
 	}
 
 	if flavour == generator.FlavourHyperShift {
@@ -490,6 +502,23 @@ func withVolumeAttributesClassHook(c *clients.Clients) (dc.DeploymentHookFunc, [
 			}
 		}
 
+		return nil
+	}
+	return hook, nil
+}
+
+// withMutableCSINodeAllocatableCount enables the MutableCSINodeAllocatableCount feature gate in the external attacher
+// TODO: remove when MutableCSINodeAllocatableCount is GA
+func withMutableCSINodeAllocatableCount(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(spec *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		fgArgument := "--feature-gates=MutableCSINodeAllocatableCount=true"
+		for i := range deployment.Spec.Template.Spec.Containers {
+			container := &deployment.Spec.Template.Spec.Containers[i]
+			if container.Name != "csi-attacher" {
+				continue
+			}
+			container.Args = append(container.Args, fgArgument)
+		}
 		return nil
 	}
 	return hook, nil
