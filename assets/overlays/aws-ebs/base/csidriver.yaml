@@ -14,3 +14,9 @@ spec:
   seLinuxMount: true
   volumeLifecycleModes:
     - Persistent
+  # We set the field even though the field is not available by default.
+  # The API server will clear the field if the field is not enabled.
+  # It would be complicated to add the field conditionally in the operator
+  # by our usual ${xxx} replacement, because yaml fields cannot start with '$'.
+  # And StaticResourceController does not allow any programmatic hooks.
+  nodeAllocatableUpdatePeriodSeconds: 600
