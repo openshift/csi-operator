@@ -3,6 +3,7 @@ package operator
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	opv1 "github.com/openshift/api/operator/v1"
@@ -39,7 +40,7 @@ func NewDefaultOperatorControllerConfig(flavour generator.ClusterFlavour, c *cli
 		cfg.AddDeploymentHookBuilders(c, withClusterWideProxy, withStandaloneReplicas)
 	} else {
 		// HyperShift
-		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftLabels, withHyperShiftControlPlaneImages, withHyperShiftCustomTolerations)
+		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftLabels, withHyperShiftControlPlaneImages, withHyperShiftCustomTolerations, withHyperShiftRunAsUser)
 	}
 
 	return cfg
@@ -219,6 +220,34 @@ func withHyperShiftControlPlaneImages(c *clients.Clients) (dc.DeploymentHookFunc
 				container.Image = kubeRBACProxyControlPlaneImage
 			}
 		}
+		return nil
+	}
+	return hook, nil
+}
+
+// withHyperShiftRunAsUser handles the RUN_AS_USER environment variable for HyperShift deployments.
+// This is required for deploying control planes on clusters that do not have Security Context Constraints (SCCs), for example AKS.
+// If RUN_AS_USER is set, this hook adds runAsUser to security context of CSI driver controller pod.
+func withHyperShiftRunAsUser(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		uid := os.Getenv("RUN_AS_USER")
+		if uid == "" {
+			return nil
+		}
+
+		runAsUserValue, err := strconv.ParseInt(uid, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid RUN_AS_USER value %q: must be a valid integer: %w", uid, err)
+		}
+		if runAsUserValue < 0 {
+			return fmt.Errorf("invalid RUN_AS_USER value %q: must be non-negative", uid)
+		}
+
+		if deployment.Spec.Template.Spec.SecurityContext == nil {
+			deployment.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{}
+		}
+		deployment.Spec.Template.Spec.SecurityContext.RunAsUser = &runAsUserValue
+
 		return nil
 	}
 	return hook, nil
