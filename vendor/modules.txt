@@ -59,6 +59,7 @@ github.com/aws/aws-sdk-go/service/sts/stsiface
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/defaults
 github.com/aws/aws-sdk-go-v2/aws/middleware
+github.com/aws/aws-sdk-go-v2/aws/protocol/ec2query
 github.com/aws/aws-sdk-go-v2/aws/protocol/query
 github.com/aws/aws-sdk-go-v2/aws/protocol/restjson
 github.com/aws/aws-sdk-go-v2/aws/protocol/xml
@@ -105,9 +106,16 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/internal/ini
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.241.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.254.1
 ## explicit; go 1.22
+github.com/aws/aws-sdk-go-v2/service/ec2
+github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ec2/types
+# github.com/aws/aws-sdk-go-v2/service/efs v1.40.8
+## explicit; go 1.22
+github.com/aws/aws-sdk-go-v2/service/efs
+github.com/aws/aws-sdk-go-v2/service/efs/internal/endpoints
+github.com/aws/aws-sdk-go-v2/service/efs/types
 # github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.1
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
@@ -157,6 +165,7 @@ github.com/aws/smithy-go/time
 github.com/aws/smithy-go/tracing
 github.com/aws/smithy-go/transport/http
 github.com/aws/smithy-go/transport/http/internal/io
+github.com/aws/smithy-go/waiter
 # github.com/awslabs/operatorpkg v0.0.0-20250804204931-57066b748e19
 ## explicit; go 1.24.0
 github.com/awslabs/operatorpkg/metrics
