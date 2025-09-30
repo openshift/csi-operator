@@ -51,13 +51,13 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	region := infra.Status.PlatformStatus.AWS.Region
 	klog.V(2).Infof("Detected AWS region from the OCP cluster: %s", region)
 
-	ec2Session, err := getEC2Client(ctx, useLocalAWSCredentials, kubeClient, region)
+	ec2Config, err := getEC2Client(ctx, useLocalAWSCredentials, kubeClient, region)
 	if err != nil {
 		klog.Errorf("error getting aws client: %v", err)
 		return fmt.Errorf("error getting aws client: %v", err)
 	}
 
-	efs := NewEFSSession(infra, ec2Session)
+	efs := NewEFSSession(infra, ec2Config)
 
 	fsID, err := efs.CreateEFSVolume(nodes, singleZone)
 	if err != nil {
