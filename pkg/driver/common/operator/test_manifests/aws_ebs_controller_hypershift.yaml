@@ -300,6 +300,7 @@ spec:
           name: hosted-kubeconfig
           readOnly: true
       - args:
+        - --timeout=60s
         - --secure-listen-address=0.0.0.0:9206
         - --upstream=http://127.0.0.1:8206/
         - --tls-cert-file=/etc/tls/private/tls.crt

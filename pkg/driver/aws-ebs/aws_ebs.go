@@ -94,6 +94,7 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"base/rbac/volumeattributesclass_reader_resizer_binding.yaml",
 				),
 				commongenerator.DefaultSnapshotter.WithExtraArguments(
+					"--timeout=60s",
 					"--extra-create-metadata",
 					"--kube-api-qps=20",
 					"--kube-api-burst=100",
