@@ -1,6 +1,7 @@
 package efscreate
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -10,10 +11,11 @@ import (
 	v1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	awsefs "github.com/aws/aws-sdk-go/service/efs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	awsefs "github.com/aws/aws-sdk-go-v2/service/efs"
+	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -33,8 +35,8 @@ const (
 
 type EFS struct {
 	infra     *v1.Infrastructure
-	client    *ec2.EC2
-	efsClient *awsefs.EFS
+	client    *ec2.Client
+	efsClient *awsefs.Client
 	vpcID     string
 	cidrBlock string
 	subnetIDs []string
@@ -48,9 +50,9 @@ type ResourceInfo struct {
 	mountTargets    []string
 }
 
-func NewEFSSession(infra *v1.Infrastructure, sess *session.Session) *EFS {
-	service := ec2.New(sess)
-	efsClient := awsefs.New(sess)
+func NewEFSSession(infra *v1.Infrastructure, config *aws.Config) *EFS {
+	service := ec2.NewFromConfig(*config)
+	efsClient := awsefs.NewFromConfig(*config)
 	return &EFS{
 		client:    service,
 		efsClient: efsClient,
@@ -125,30 +127,30 @@ func (efs *EFS) createSecurityGroup() (string, error) {
 		Description:       aws.String("for testing efs driver"),
 		GroupName:         aws.String(groupName),
 		VpcId:             &efs.vpcID,
-		TagSpecifications: efs.getTags(ec2.ResourceTypeSecurityGroup, groupName),
+		TagSpecifications: efs.getTags(ec2types.ResourceTypeSecurityGroup, groupName),
 	}
-	response, err := efs.client.CreateSecurityGroup(&securityGroupInput)
+	response, err := efs.client.CreateSecurityGroup(context.TODO(), &securityGroupInput)
 	if err != nil {
 		return "", fmt.Errorf("error creating security group: %v", err)
 	}
 	return *response.GroupId, nil
 }
 
-func (efs *EFS) getTags(resourceType string, resourceName string) []*ec2.TagSpecification {
-	var tagList []*ec2.Tag
+func (efs *EFS) getTags(resourceType ec2types.ResourceType, resourceName string) []ec2types.TagSpecification {
+	var tagList []ec2types.Tag
 	tags := map[string]string{
 		"Name":                 resourceName,
 		efs.getClusterTagKey(): "owned",
 	}
 	for k, v := range tags {
-		tagList = append(tagList, &ec2.Tag{
+		tagList = append(tagList, ec2types.Tag{
 			Key: aws.String(k), Value: aws.String(v),
 		})
 	}
-	return []*ec2.TagSpecification{
+	return []ec2types.TagSpecification{
 		{
 			Tags:         tagList,
-			ResourceType: aws.String(resourceType),
+			ResourceType: resourceType,
 		},
 	}
 }
@@ -162,10 +164,10 @@ func (efs *EFS) addFireWallRule() (bool, error) {
 		CidrIp:     aws.String(efs.cidrBlock),
 		GroupId:    aws.String(efs.resources.securityGroupID),
 		IpProtocol: aws.String("tcp"),
-		ToPort:     aws.Int64(2049),
-		FromPort:   aws.Int64(2049),
+		ToPort:     aws.Int32(2049),
+		FromPort:   aws.Int32(2049),
 	}
-	response, err := efs.client.AuthorizeSecurityGroupIngress(&ruleInput)
+	response, err := efs.client.AuthorizeSecurityGroupIngress(context.TODO(), &ruleInput)
 	if err != nil {
 		return false, fmt.Errorf("error creating firewall rule: %v", err)
 	}
@@ -180,8 +182,8 @@ func (efs *EFS) createEFSFileSystem(singleZone string) (string, error) {
 	volumeName := fmt.Sprintf(efsVolumeNameFormat, efs.infra.Status.InfrastructureName)
 	input := &awsefs.CreateFileSystemInput{
 		Encrypted:       aws.Bool(true),
-		PerformanceMode: aws.String(awsefs.PerformanceModeGeneralPurpose),
-		Tags: []*awsefs.Tag{
+		PerformanceMode: efstypes.PerformanceModeGeneralPurpose,
+		Tags: []efstypes.Tag{
 			{
 				Key:   aws.String("Name"),
 				Value: aws.String(volumeName),
@@ -196,7 +198,7 @@ func (efs *EFS) createEFSFileSystem(singleZone string) (string, error) {
 		klog.V(4).Infof("Creating EFS in single zone: %s", singleZone)
 		input.AvailabilityZoneName = aws.String(singleZone)
 	}
-	response, err := efs.efsClient.CreateFileSystem(input)
+	response, err := efs.efsClient.CreateFileSystem(context.TODO(), input)
 	if err != nil {
 		log("error creating filesystem: %v", err)
 		return "", fmt.Errorf("error creating filesystem: %v", err)
@@ -215,10 +217,10 @@ func (efs *EFS) createMountTargets() ([]string, error) {
 		subnet := efs.subnetIDs[i]
 		mountTargetInput := &awsefs.CreateMountTargetInput{
 			FileSystemId:   aws.String(efs.resources.efsID),
-			SecurityGroups: []*string{aws.String(efs.resources.securityGroupID)},
+			SecurityGroups: []string{efs.resources.securityGroupID},
 			SubnetId:       aws.String(subnet),
 		}
-		mt, err := efs.efsClient.CreateMountTarget(mountTargetInput)
+		mt, err := efs.efsClient.CreateMountTarget(context.TODO(), mountTargetInput)
 		if err != nil {
 			return mountTargets, fmt.Errorf("error creating mount target: %v", err)
 		}
@@ -236,7 +238,7 @@ func (efs *EFS) waitForAvailableMountTarget() error {
 		Steps:    volumeCreateBackoffSteps,
 	}
 	err := wait.ExponentialBackoff(backoff, func() (bool, error) {
-		response, describeErr := efs.efsClient.DescribeMountTargets(describeInput)
+		response, describeErr := efs.efsClient.DescribeMountTargets(context.TODO(), describeInput)
 		if describeErr != nil {
 			return false, describeErr
 		}
@@ -246,7 +248,7 @@ func (efs *EFS) waitForAvailableMountTarget() error {
 		}
 		allReady := true
 		for _, mt := range mountTargets {
-			if *mt.LifeCycleState != awsefs.LifeCycleStateAvailable {
+			if mt.LifeCycleState != efstypes.LifeCycleStateAvailable {
 				allReady = false
 			}
 		}
@@ -266,7 +268,7 @@ func (efs *EFS) waitForEFSToBeAvailable(efsID string) error {
 		Steps:    volumeCreateBackoffSteps,
 	}
 	err := wait.ExponentialBackoff(backoff, func() (done bool, err error) {
-		response, err := efs.efsClient.DescribeFileSystems(describeInput)
+		response, err := efs.efsClient.DescribeFileSystems(context.TODO(), describeInput)
 		if err != nil {
 			return false, err
 		}
@@ -275,7 +277,7 @@ func (efs *EFS) waitForEFSToBeAvailable(efsID string) error {
 			return false, nil
 		}
 		fs := filesystems[0]
-		if *fs.LifeCycleState != awsefs.LifeCycleStateAvailable {
+		if fs.LifeCycleState != efstypes.LifeCycleStateAvailable {
 			return false, nil
 		}
 		return true, nil
@@ -284,18 +286,18 @@ func (efs *EFS) waitForEFSToBeAvailable(efsID string) error {
 }
 
 func (efs *EFS) getSecurityInfo(instances []string, singleZone string) error {
-	var instancePointers []*string
+	var instancePointers []string
 	for i := range instances {
-		instancePointers = append(instancePointers, &instances[i])
+		instancePointers = append(instancePointers, instances[i])
 	}
 	request := &ec2.DescribeInstancesInput{
 		InstanceIds: instancePointers,
 	}
-	var results []*ec2.Instance
+	var results []ec2types.Instance
 	var nextToken *string
 
 	for {
-		response, err := efs.client.DescribeInstances(request)
+		response, err := efs.client.DescribeInstances(context.TODO(), request)
 		if err != nil {
 			return fmt.Errorf("error listing AWS instances: %v", err)
 		}
@@ -316,8 +318,8 @@ func (efs *EFS) getSecurityInfo(instances []string, singleZone string) error {
 	instance := results[0]
 	efs.vpcID = *instance.VpcId
 
-	vpcRequest := &ec2.DescribeVpcsInput{VpcIds: []*string{instance.VpcId}}
-	response, err := efs.client.DescribeVpcs(vpcRequest)
+	vpcRequest := &ec2.DescribeVpcsInput{VpcIds: []string{*instance.VpcId}}
+	response, err := efs.client.DescribeVpcs(context.TODO(), vpcRequest)
 	if err != nil {
 		return fmt.Errorf("error listing vpc: %v", err)
 	}
@@ -331,7 +333,7 @@ func (efs *EFS) getSecurityInfo(instances []string, singleZone string) error {
 	subNetSet := sets.NewString()
 	for i := range results {
 		if singleZone != "" {
-			instanceZone := efs.getInstanceAvailabilityZone(results[i])
+			instanceZone := efs.getInstanceAvailabilityZone(&results[i])
 			if instanceZone != singleZone {
 				klog.V(4).Infof("Skipping instance %s in zone %s, as it does not match the single zone %s", *results[i].InstanceId, instanceZone, singleZone)
 				continue
@@ -343,7 +345,7 @@ func (efs *EFS) getSecurityInfo(instances []string, singleZone string) error {
 	return nil
 }
 
-func (efs *EFS) getInstanceAvailabilityZone(instance *ec2.Instance) string {
+func (efs *EFS) getInstanceAvailabilityZone(instance *ec2types.Instance) string {
 	if instance == nil {
 		return ""
 	}
