@@ -11,6 +11,7 @@ import (
 
 	"crypto/sha256"
 	"encoding/hex"
+
 	"gopkg.in/ini.v1"
 
 	v1 "k8s.io/api/core/v1"
@@ -19,12 +20,19 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/efs"
-	"github.com/aws/aws-sdk-go/service/sts"
+	// "github.com/aws/aws-sdk-go/aws"
+	// "github.com/aws/aws-sdk-go/aws/credentials"
+	// "github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+
+	// "github.com/aws/aws-sdk-go/service/efs"
+	// "github.com/aws/aws-sdk-go/service/sts"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
+	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorapi "github.com/openshift/api/operator/v1"
@@ -117,7 +125,7 @@ func isHypershiftCluster(infra *configv1.Infrastructure) bool {
 }
 
 // getEFSClient retrieves AWS credentials from the secret and creates an AWS EFS client.
-func (c *EFSAccessPointTagsController) getEFSClient(awsRegion string) (*efs.EFS, error) {
+func (c *EFSAccessPointTagsController) getEFSClient(awsRegion string) (*efs.Client, error) {
 	secret, err := c.getEFSCloudCredSecret()
 	if err != nil {
 		klog.Errorf("error getting secret: %v", err)
@@ -137,7 +145,7 @@ func (c *EFSAccessPointTagsController) getEFSClient(awsRegion string) (*efs.EFS,
 }
 
 // createClientWithCredentials creates the client using the credential.
-func (c *EFSAccessPointTagsController) createClientWithCredentials(credentialsData []byte, awsRegion string) (*efs.EFS, error) {
+func (c *EFSAccessPointTagsController) createClientWithCredentials(credentialsData []byte, awsRegion string) (*efs.Client, error) {
 	// Load INI file from credentialsData
 	cfg, err := ini.Load(credentialsData)
 	if err != nil {
@@ -154,32 +162,50 @@ func (c *EFSAccessPointTagsController) createClientWithCredentials(credentialsDa
 		return nil, fmt.Errorf("missing required AWS credentials: role_arn or web_identity_token_file is empty")
 	}
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(awsRegion),
-	})
+	awsConfig, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(awsRegion),
+	)
 	if err != nil {
-		klog.Errorf("Error creating base AWS session: %v", err)
-		return nil, fmt.Errorf("error creating AWS session: %v", err)
+		klog.Errorf("Error creating base AWS config: %v", err)
+		return nil, fmt.Errorf("error creating AWS config: %v", err)
 	}
 
-	provider := stscreds.NewWebIdentityRoleProviderWithOptions(
-		sts.New(sess),
+	// sess, err := session.NewSession(&aws.Config{
+	// 	Region: aws.String(awsRegion),
+	// })
+	// if err != nil {
+	// 	klog.Errorf("Error creating base AWS session: %v", err)
+	// 	return nil, fmt.Errorf("error creating AWS session: %v", err)
+	// }
+
+	client := sts.NewFromConfig(awsConfig)
+
+	provider := stscreds.NewWebIdentityRoleProvider(
+		client,
 		roleARN,
-		"aws-ebs-csi-driver-operator", // Role session name
-		stscreds.FetchTokenPath(tokenFile),
+		stscreds.IdentityTokenFile(tokenFile),
+		func(o *stscreds.WebIdentityRoleOptions) {
+			o.RoleSessionName = "aws-efs-csi-driver-operator" // Role session name TODO: Check if this is correct
+		},
 	)
 
 	// Create new session with WebIdentity credentials
-	sess, err = session.NewSession(&aws.Config{
-		Region:      aws.String(awsRegion),
-		Credentials: credentials.NewCredentials(provider),
-	})
+	// sess, err = session.NewSession(&aws.Config{
+	// 	Region:      aws.String(awsRegion),
+	// 	Credentials: credentials.NewCredentials(provider),
+	// })
+
+	awsConfig, err = config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(awsRegion),
+		config.WithCredentialsProvider(provider), // TODO: Check if this is correct
+	)
+
 	if err != nil {
-		klog.Errorf("Error creating AWS session with Web Identity: %v", err)
-		return nil, fmt.Errorf("error creating AWS session with Web Identity: %v", err)
+		klog.Errorf("Error creating AWS config with Web Identity: %v", err)
+		return nil, fmt.Errorf("error creating AWS config with Web Identity: %v", err)
 	}
 
-	return efs.New(sess), nil
+	return efs.NewFromConfig(awsConfig), nil
 }
 
 // getInfrastructure retrieves the Infrastructure resource in OpenShift
@@ -238,11 +264,11 @@ func (c *EFSAccessPointTagsController) fetchAndPushPvsToQueue(ctx context.Contex
 }
 
 // updateEFSAccessPointTags updates the tags of an AWS EFS Access Points
-func (c *EFSAccessPointTagsController) updateEFSAccessPointTags(ctx context.Context, pv *v1.PersistentVolume, efsClient *efs.EFS, resourceTags []configv1.AWSResourceTag) error {
+func (c *EFSAccessPointTagsController) updateEFSAccessPointTags(ctx context.Context, pv *v1.PersistentVolume, efsClient *efs.Client, resourceTags []configv1.AWSResourceTag) error {
 	tags := newAndUpdatedTags(resourceTags)
 
 	// Create or update the tags
-	_, err := efsClient.TagResource(&efs.TagResourceInput{
+	_, err := efsClient.TagResource(context.TODO(), &efs.TagResourceInput{
 		ResourceId: aws.String(parseAccessPointID(pv.Spec.CSI.VolumeHandle)),
 		Tags:       tags,
 	})
@@ -274,11 +300,11 @@ func (c *EFSAccessPointTagsController) listPersistentVolumes() ([]*v1.Persistent
 }
 
 // newAndUpdatedTags adds and update existing AWS tags with new resource tags from OpenShift infrastructure
-func newAndUpdatedTags(resourceTags []configv1.AWSResourceTag) []*efs.Tag {
+func newAndUpdatedTags(resourceTags []configv1.AWSResourceTag) []efstypes.Tag {
 	// Convert map back to slice of EFS.Tag
-	var tags []*efs.Tag
+	var tags []efstypes.Tag
 	for _, tag := range resourceTags {
-		tags = append(tags, &efs.Tag{
+		tags = append(tags, efstypes.Tag{
 			Key:   aws.String(tag.Key),
 			Value: aws.String(tag.Value),
 		})
