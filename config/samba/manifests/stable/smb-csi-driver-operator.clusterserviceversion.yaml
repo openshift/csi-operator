@@ -1,7 +1,7 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: smb-csi-driver-operator.v4.20.0
+  name: smb-csi-driver-operator.v4.21.0
   namespace: placeholder
   annotations:
     categories: Storage
@@ -13,7 +13,8 @@ metadata:
     repository: https://github.com/openshift/csi-operator
     createdAt: "2021-07-14T00:00:00Z"
     description: Install and configure CIFS/SMB CSI driver.
-    olm.skipRange: ">=4.15.0-0 <4.20.0"
+    olm.properties: '[{"type":"olm.maxOpenShiftVersion","value":"4.22"}]'
+    olm.skipRange: ">=4.15.0-0 <4.21.0"
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "false"
     features.operators.openshift.io/proxy-aware: "true"
@@ -22,7 +23,6 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-
   labels:
     operator-metering: "true"
     "operatorframework.io/arch.amd64": supported
@@ -32,7 +32,6 @@ spec:
   displayName: CIFS/SMB CSI Driver Operator
   description: |
     CIFS/SMB CSI Driver Operator provides Server Message Block (SMB) CSI Driver that enables you to create and mount CIFS/SMB PersistentVolumes.
-
   icon:
     - base64data: PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTQ1Ij48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6I2UwMDt9PC9zdHlsZT48L2RlZnM+PHRpdGxlPlJlZEhhdC1Mb2dvLUhhdC1Db2xvcjwvdGl0bGU+PHBhdGggZD0iTTE1Ny43Nyw2Mi42MWExNCwxNCwwLDAsMSwuMzEsMy40MmMwLDE0Ljg4LTE4LjEsMTcuNDYtMzAuNjEsMTcuNDZDNzguODMsODMuNDksNDIuNTMsNTMuMjYsNDIuNTMsNDRhNi40Myw2LjQzLDAsMCwxLC4yMi0xLjk0bC0zLjY2LDkuMDZhMTguNDUsMTguNDUsMCwwLDAtMS41MSw3LjMzYzAsMTguMTEsNDEsNDUuNDgsODcuNzQsNDUuNDgsMjAuNjksMCwzNi40My03Ljc2LDM2LjQzLTIxLjc3LDAtMS4wOCwwLTEuOTQtMS43My0xMC4xM1oiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xMjcuNDcsODMuNDljMTIuNTEsMCwzMC42MS0yLjU4LDMwLjYxLTE3LjQ2YTE0LDE0LDAsMCwwLS4zMS0zLjQybC03LjQ1LTMyLjM2Yy0xLjcyLTcuMTItMy4yMy0xMC4zNS0xNS43My0xNi42QzEyNC44OSw4LjY5LDEwMy43Ni41LDk3LjUxLjUsOTEuNjkuNSw5MCw4LDgzLjA2LDhjLTYuNjgsMC0xMS42NC01LjYtMTcuODktNS42LTYsMC05LjkxLDQuMDktMTIuOTMsMTIuNSwwLDAtOC40MSwyMy43Mi05LjQ5LDI3LjE2QTYuNDMsNi40MywwLDAsMCw0Mi41Myw0NGMwLDkuMjIsMzYuMywzOS40NSw4NC45NCwzOS40NU0xNjAsNzIuMDdjMS43Myw4LjE5LDEuNzMsOS4wNSwxLjczLDEwLjEzLDAsMTQtMTUuNzQsMjEuNzctMzYuNDMsMjEuNzdDNzguNTQsMTA0LDM3LjU4LDc2LjYsMzcuNTgsNTguNDlhMTguNDUsMTguNDUsMCwwLDEsMS41MS03LjMzQzIyLjI3LDUyLC41LDU1LC41LDc0LjIyYzAsMzEuNDgsNzQuNTksNzAuMjgsMTMzLjY1LDcwLjI4LDQ1LjI4LDAsNTYuNy0yMC40OCw1Ni43LTM2LjY1LDAtMTIuNzItMTEtMjcuMTYtMzAuODMtMzUuNzgiLz48L3N2Zz4=
       mediatype: image/svg+xml
@@ -45,7 +44,7 @@ spec:
       url: https://github.com/openshift/csi-operator
     - name: Source Repository
       url: https://github.com/openshift/csi-operator
-  version: 4.20.0
+  version: 4.21.0
   maturity: stable
   maintainers:
     - email: aos-storage-staff@redhat.com
@@ -55,246 +54,246 @@ spec:
     name: Red Hat
   labels:
     alm-owner-metering: smb-csi-driver-operator
-    alm-status-descriptors: smb-csi-driver-operator.v4.20.0
+    alm-status-descriptors: smb-csi-driver-operator.v4.21.0
   selector:
     matchLabels:
       alm-owner-metering: smb-csi-driver-operator
   installModes:
-  - type: OwnNamespace
-    supported: false
-  - type: SingleNamespace
-    supported: false
-  - type: MultiNamespace
-    supported: false
-  - type: AllNamespaces
-    supported: true
+    - type: OwnNamespace
+      supported: false
+    - type: SingleNamespace
+      supported: false
+    - type: MultiNamespace
+      supported: false
+    - type: AllNamespaces
+      supported: true
   install:
     strategy: deployment
     spec:
       permissions:
         - rules:
-          - apiGroups:
-            - ''
-            resources:
-            - pods
-            - services
-            - endpoints
-            - events
-            - configmaps
-            - secrets
-            - serviceaccounts
-            verbs:
-            - get
-            - list
-            - watch
-            - create
-            - update
-            - patch
-            - delete
-          - apiGroups:
-            - apps
-            resources:
-            - deployments
-            - daemonsets
-            - replicasets
-            verbs:
-            - get
-            - list
-            - watch
-            - create
-            - update
-            - patch
-            - delete
-          - apiGroups:
-            - monitoring.coreos.com
-            resources:
-            - servicemonitors
-            verbs:
-            - get
-            - create
-            - update
-            - patch
-            - delete
-          - apiGroups:
-            - policy
-            resources:
-            - poddisruptionbudgets
-            verbs:
-            - get
-            - list
-            - watch
-            - create
-            - update
-            - patch
-            - delete
-          - apiGroups:
-            - coordination.k8s.io
-            resources:
-            - leases
-            verbs:
-            - get
-            - list
-            - watch
-            - create
-            - update
-            - patch
-            - delete
+            - apiGroups:
+                - ''
+              resources:
+                - pods
+                - services
+                - endpoints
+                - events
+                - configmaps
+                - secrets
+                - serviceaccounts
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+                - daemonsets
+                - replicasets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - servicemonitors
+              verbs:
+                - get
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - policy
+              resources:
+                - poddisruptionbudgets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - coordination.k8s.io
+              resources:
+                - leases
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
           serviceAccountName: smb-csi-driver-operator
       clusterPermissions:
         - rules:
-          - apiGroups:
-            - security.openshift.io
-            resourceNames:
-            - privileged
-            resources:
-            - securitycontextconstraints
-            verbs:
-            - use
-          - apiGroups:
-            - operator.openshift.io
-            resources:
-            - clustercsidrivers
-            verbs:
-            - get
-            - list
-            - watch
-            # The Config Observer controller updates the CR's spec
-            - update
-            - patch
-          - apiGroups:
-            - operator.openshift.io
-            resources:
-            - clustercsidrivers/status
-            verbs:
-            - get
-            - list
-            - watch
-            - update
-            - patch
-          - apiGroups:
-            - ''
-            resourceNames:
-            - extension-apiserver-authentication
-            resources:
-            - configmaps
-            verbs:
-            - get
-            - list
-            - watch
-            - create
-            - update
-            - patch
-            - delete
-          - apiGroups:
-            - rbac.authorization.k8s.io
-            resources:
-            - clusterroles
-            - clusterrolebindings
-            - roles
-            - rolebindings
-            verbs:
-            - watch
-            - list
-            - get
-            - create
-            - delete
-            - patch
-            - update
-          - apiGroups:
-            - ''
-            resources:
-            - secrets
-            verbs:
-            - get
-            - list
-            - watch
-          - apiGroups:
-            - ''
-            resources:
-            - persistentvolumes
-            verbs:
-            - create
-            - delete
-            - list
-            - get
-            - watch
-            - update
-            - patch
-          - apiGroups:
-            - ''
-            resources:
-            - persistentvolumeclaims
-            verbs:
-            - get
-            - list
-            - watch
-            - update
-          - apiGroups:
-            - ''
-            resources:
-            - persistentvolumeclaims/status
-            verbs:
-            - update
-            - patch
-          - apiGroups:
-            - storage.k8s.io
-            resources:
-            - storageclasses
-            - csinodes
-            verbs:
-            - create
-            - get
-            - list
-            - watch
-            - update
-            - delete
-          - apiGroups:
-            - '*'
-            resources:
-            - events
-            verbs:
-            - get
-            - patch
-            - create
-            - list
-            - watch
-            - update
-            - delete
-          - apiGroups:
-            - storage.k8s.io
-            resources:
-            - csidrivers
-            verbs:
-            - create
-            - get
-            - list
-            - watch
-            - update
-            - delete
-          - apiGroups:
-            - config.openshift.io
-            resources:
-            - infrastructures
-            - proxies
-            - apiservers
-            verbs:
-            - get
-            - list
-            - watch
-          - apiGroups:
-            - authentication.k8s.io
-            resources:
-            - tokenreviews
-            verbs:
-            - create
-          - apiGroups:
-            - ""
-            resources:
-            - nodes
-            verbs:
-            - get
-            - list
-            - watch
+            - apiGroups:
+                - security.openshift.io
+              resourceNames:
+                - privileged
+              resources:
+                - securitycontextconstraints
+              verbs:
+                - use
+            - apiGroups:
+                - operator.openshift.io
+              resources:
+                - clustercsidrivers
+              verbs:
+                - get
+                - list
+                - watch
+                # The Config Observer controller updates the CR's spec
+                - update
+                - patch
+            - apiGroups:
+                - operator.openshift.io
+              resources:
+                - clustercsidrivers/status
+              verbs:
+                - get
+                - list
+                - watch
+                - update
+                - patch
+            - apiGroups:
+                - ''
+              resourceNames:
+                - extension-apiserver-authentication
+              resources:
+                - configmaps
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - rbac.authorization.k8s.io
+              resources:
+                - clusterroles
+                - clusterrolebindings
+                - roles
+                - rolebindings
+              verbs:
+                - watch
+                - list
+                - get
+                - create
+                - delete
+                - patch
+                - update
+            - apiGroups:
+                - ''
+              resources:
+                - secrets
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - ''
+              resources:
+                - persistentvolumes
+              verbs:
+                - create
+                - delete
+                - list
+                - get
+                - watch
+                - update
+                - patch
+            - apiGroups:
+                - ''
+              resources:
+                - persistentvolumeclaims
+              verbs:
+                - get
+                - list
+                - watch
+                - update
+            - apiGroups:
+                - ''
+              resources:
+                - persistentvolumeclaims/status
+              verbs:
+                - update
+                - patch
+            - apiGroups:
+                - storage.k8s.io
+              resources:
+                - storageclasses
+                - csinodes
+              verbs:
+                - create
+                - get
+                - list
+                - watch
+                - update
+                - delete
+            - apiGroups:
+                - '*'
+              resources:
+                - events
+              verbs:
+                - get
+                - patch
+                - create
+                - list
+                - watch
+                - update
+                - delete
+            - apiGroups:
+                - storage.k8s.io
+              resources:
+                - csidrivers
+              verbs:
+                - create
+                - get
+                - list
+                - watch
+                - update
+                - delete
+            - apiGroups:
+                - config.openshift.io
+              resources:
+                - infrastructures
+                - proxies
+                - apiservers
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - authentication.k8s.io
+              resources:
+                - tokenreviews
+              verbs:
+                - create
+            - apiGroups:
+                - ""
+              resources:
+                - nodes
+              verbs:
+                - get
+                - list
+                - watch
           serviceAccountName: smb-csi-driver-operator
       deployments:
         - name: smb-csi-driver-operator
@@ -315,67 +314,67 @@ spec:
               spec:
                 serviceAccountName: smb-csi-driver-operator
                 containers:
-                - name: smb-csi-driver-operator
-                  image: quay.io/openshift/origin-smb-csi-driver-operator:latest
-                  imagePullPolicy: IfNotPresent
-                  args:
-                    - "start"
-                    - "-v=2"
-                  env:
-                    - name: POD_NAME
-                      valueFrom:
-                        fieldRef:
-                          fieldPath: metadata.name
-                    - name: DRIVER_IMAGE
-                      value: quay.io/openshift/origin-csi-driver-smb:latest
-                    - name: PROVISIONER_IMAGE
-                      value: quay.io/openshift/origin-csi-external-provisioner:latest
-                    - name: RESIZER_IMAGE
-                      value: quay.io/openshift/origin-csi-external-resizer:latest
-                    - name: NODE_DRIVER_REGISTRAR_IMAGE
-                      value: quay.io/openshift/origin-csi-node-driver-registrar:latest
-                    - name: LIVENESS_PROBE_IMAGE
-                      value: quay.io/openshift/origin-csi-livenessprobe:latest
-                    - name: OPERATOR_NAME
-                      value: smb-csi-driver-operator
-                    - name: KUBE_RBAC_PROXY_IMAGE
-                      value: quay.io/openshift/origin-kube-rbac-proxy:latest
-                  resources:
-                    requests:
-                      memory: 50Mi
-                      cpu: 10m
-                  terminationMessagePolicy: FallbackToLogsOnError
-                  securityContext:
-                    readOnlyRootFilesystem: true
-                    allowPrivilegeEscalation: false
-                    capabilities:
-                      drop:
-                      - ALL
-                  volumeMounts:
-                  - mountPath: /tmp
-                    name: tmp
+                  - name: smb-csi-driver-operator
+                    image: quay.io/openshift/origin-smb-csi-driver-operator:latest
+                    imagePullPolicy: IfNotPresent
+                    args:
+                      - "start"
+                      - "-v=2"
+                    env:
+                      - name: POD_NAME
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.name
+                      - name: DRIVER_IMAGE
+                        value: quay.io/openshift/origin-csi-driver-smb:latest
+                      - name: PROVISIONER_IMAGE
+                        value: quay.io/openshift/origin-csi-external-provisioner:latest
+                      - name: RESIZER_IMAGE
+                        value: quay.io/openshift/origin-csi-external-resizer:latest
+                      - name: NODE_DRIVER_REGISTRAR_IMAGE
+                        value: quay.io/openshift/origin-csi-node-driver-registrar:latest
+                      - name: LIVENESS_PROBE_IMAGE
+                        value: quay.io/openshift/origin-csi-livenessprobe:latest
+                      - name: OPERATOR_NAME
+                        value: smb-csi-driver-operator
+                      - name: KUBE_RBAC_PROXY_IMAGE
+                        value: quay.io/openshift/origin-kube-rbac-proxy:latest
+                    resources:
+                      requests:
+                        memory: 50Mi
+                        cpu: 10m
+                    terminationMessagePolicy: FallbackToLogsOnError
+                    securityContext:
+                      readOnlyRootFilesystem: true
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop:
+                          - ALL
+                    volumeMounts:
+                      - mountPath: /tmp
+                        name: tmp
                 priorityClassName: system-cluster-critical
                 securityContext:
                   runAsNonRoot: true
                   seccompProfile:
                     type: RuntimeDefault
                 volumes:
-                - name: tmp
-                  emptyDir:
-                    medium: Memory
+                  - name: tmp
+                    emptyDir:
+                      medium: Memory
                 # Strongly prefer a master node, but don't require it.
                 # We want the same Deployment to work on hypershift,
                 # without any master nodes.
                 affinity:
                   nodeAffinity:
                     preferredDuringSchedulingIgnoredDuringExecution:
-                    - weight: 100
-                      preference:
-                        matchExpressions:
-                        - key: node-role.kubernetes.io/master
-                          operator: In
-                          values:
-                          - ""
+                      - weight: 100
+                        preference:
+                          matchExpressions:
+                            - key: node-role.kubernetes.io/master
+                              operator: In
+                              values:
+                                - ""
                 tolerations:
                   - key: CriticalAddonsOnly
                     operator: Exists
