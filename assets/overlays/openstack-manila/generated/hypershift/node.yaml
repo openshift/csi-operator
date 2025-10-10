@@ -7,6 +7,7 @@
 # Applied strategic merge patch host_network_livenessprobe.yaml
 # node_driver_registrar.yaml: Loaded from common/sidecars/node_driver_registrar.yaml
 # Applied strategic merge patch node_driver_registrar.yaml
+# Applied strategic merge patch common/readOnlyRootFilesystem.yaml
 #
 #
 
@@ -78,6 +79,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /var/lib/kubelet/plugins/manila.csi.openstack.org
@@ -142,6 +144,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
