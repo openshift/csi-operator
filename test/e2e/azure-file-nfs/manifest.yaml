@@ -1,0 +1,20 @@
+ShortName: azurefile-nfs
+StorageClass:
+  FromExistingClassName: azurefile-csi-nfs
+SnapshotClass:
+  FromName: true
+DriverInfo:
+  Name: file.csi.azure.com
+  Capabilities:
+    persistence: true
+    exec: true
+    multipods: true
+    RWX: true
+    fsGroup: true
+    volumeMountGroup: true
+    topology: false
+    controllerExpansion: true
+    nodeExpansion: true
+    volumeLimits: false
+    snapshotDataSource: true
+    pvcDataSource: true
