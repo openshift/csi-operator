@@ -104,10 +104,23 @@ func GetAWSEFSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEFS")
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook, withFIPSDeploymentHook)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
-	cfg.AddDaemonSetHookBuilders(c, withFIPSDaemonSetHook, withVolumeMetricsDaemonSetHook)
+	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withFIPSDaemonSetHook, withVolumeMetricsDaemonSetHook)
 	cfg.AddCredentialsRequestHook(stsCredentialsRequestHook)
 
 	return cfg, nil
+}
+
+// withCABundleDaemonSetHook projects custom CA bundle ConfigMap into the CSI driver container
+func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
+	hook := csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
+		c.GuestNamespace,
+		trustedCAConfigMap,
+		c.GetConfigMapInformer(c.GuestNamespace),
+	)
+	informers := []factory.Informer{
+		c.GetConfigMapInformer(c.GuestNamespace).Informer(),
+	}
+	return hook, informers
 }
 
 // withCABundleDeploymentHook projects custom CA bundle ConfigMap into the CSI driver container
