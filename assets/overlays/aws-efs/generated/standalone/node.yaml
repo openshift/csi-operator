@@ -80,6 +80,8 @@ spec:
           name: efs-utils-config
         - mountPath: /etc/amazon/efs-legacy
           name: efs-utils-config-legacy
+        - mountPath: /etc/amazon
+          name: etc-amazon
         - mountPath: /etc/selinux
           name: etc-selinux
         - mountPath: /sys/fs
@@ -245,6 +247,8 @@ spec:
           secretName: node-aws-efs-cloud-credentials
       - emptyDir: {}
         name: aws-auth
+      - emptyDir: {}
+        name: etc-amazon
       - name: bound-sa-token
         projected:
           sources:
