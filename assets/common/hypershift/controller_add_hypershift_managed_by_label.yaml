@@ -1,0 +1,3 @@
+metadata:
+  labels:
+    hypershift.openshift.io/managed-by: cluster-storage-operator
