@@ -5,6 +5,8 @@ spec:
     spec:
       containers:
         - name: csi-snapshotter
+          securityContext:
+            readOnlyRootFilesystem: true
           image: ${SNAPSHOTTER_IMAGE}
           imagePullPolicy: IfNotPresent
           args:
