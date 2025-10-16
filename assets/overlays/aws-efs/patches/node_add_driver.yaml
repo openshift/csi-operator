@@ -98,6 +98,8 @@ spec:
               mountPath: /var/amazon/efs
             - name: efs-utils-config-legacy
               mountPath: /etc/amazon/efs-legacy
+            - name: etc-amazon
+              mountPath: /etc/amazon
             - name: etc-selinux
               mountPath: /etc/selinux
             - name: sys-fs
@@ -215,6 +217,10 @@ spec:
             optional: true # NODE_ARN is optional, work without it
         - name: aws-auth
           emptyDir: {}
+        - name: etc-amazon
+          hostPath:
+            path: /etc/amazon
+            type: DirectoryOrCreate
         # This service account token can be used to provide identity outside the cluster.
         # For example, this token can be used with AssumeRoleWithWebIdentity to authenticate with AWS using IAM OIDC provider and STS.
         - name: bound-sa-token
