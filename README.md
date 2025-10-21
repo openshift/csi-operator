@@ -73,6 +73,13 @@ export KUBE_RBAC_PROXY_IMAGE=quay.io/openshift/origin-kube-rbac-proxy:latest
 ./bin/aws-ebs-csi-driver-operator start --kubeconfig $MY_KUBECONFIG --namespace openshift-cluster-csi-drivers
 ```
 
+## Bumping OCP version in CSV and OLM metadata
+
+This updates the package versions in `config/aws-efs/manifests/aws-efs-csi-driver-operator.package.yaml`, `config/aws-efs/manifests/stable/aws-efs-csi-driver-operator.clusterserviceversion.yaml`, `config/samba/manifests/smb-csi-driver-operator.package.yaml`, `config/samba/manifests/stable/smb-csi-driver-operator.clusterserviceversion.yaml` to 4.20:
+```
+./hack/update-metadata.sh 4.20
+```
+
 ## Migrating an existing operator
 
 If you are looking to migrate an existing CSI Driver operator to the combined `csi-operator` operator, refer to [the docs](docs/migrating-operators.md)
