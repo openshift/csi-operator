@@ -65,7 +65,7 @@ spec:
             - --endpoint=$(CSI_ENDPOINT)
             - --k8s-tag-cluster-id=${CLUSTER_ID}
             - --logtostderr
-            - --http-endpoint=localhost:8201
+            - --http-endpoint=localhost:${DRIVER_METRICS_PORT}
             - --v=${LOG_LEVEL}
             - --batching=true
           env:

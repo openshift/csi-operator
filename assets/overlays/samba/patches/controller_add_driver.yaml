@@ -17,7 +17,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --endpoint=$(CSI_ENDPOINT)
-            - --metrics-address=localhost:8221
+            - --metrics-address=localhost:${DRIVER_METRICS_PORT}
             - --v=${LOG_LEVEL}
           ports:
             - containerPort: 10307
