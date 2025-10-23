@@ -82,6 +82,9 @@ spec:
               mountPath: /plugin
             - name: cacert
               mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+            - name: cloud-credentials
+              mountPath: /etc/openstack
+              readOnly: true
           resources:
             requests:
               cpu: 10m
@@ -109,6 +112,12 @@ spec:
               memory: 50Mi
           terminationMessagePolicy: FallbackToLogsOnError
       volumes:
+        - name: cloud-credentials
+          secret:
+            secretName: manila-cloud-credentials
+            items:
+              - key: clouds.yaml
+                path: clouds.yaml
         - name: socket-dir
           emptyDir: {}
         - name: cacert
