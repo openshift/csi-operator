@@ -1,4 +1,4 @@
-# This sidecar is injected both to Deployment and DaemonSet
+# This sidecar is injected to Deployment
 spec:
   template:
     spec:
