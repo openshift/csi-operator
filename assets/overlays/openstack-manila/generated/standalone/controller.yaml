@@ -11,9 +11,9 @@
 # Applied strategic merge patch resizer.yaml
 # snapshotter.yaml: Loaded from common/sidecars/snapshotter.yaml
 # Applied strategic merge patch snapshotter.yaml
-# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
-# livenessprobe.yaml: Added arguments [--probe-timeout=10s]
-# Applied strategic merge patch livenessprobe.yaml
+# pod_network_livenessprobe.yaml: Loaded from common/sidecars/pod_network_livenessprobe.yaml
+# pod_network_livenessprobe.yaml: Added arguments [--probe-timeout=10s]
+# Applied strategic merge patch pod_network_livenessprobe.yaml
 # Applied strategic merge patch common/standalone/controller_add_affinity.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/modify_anti_affinity_selector.yaml
 #

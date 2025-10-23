@@ -5,12 +5,13 @@ import (
 )
 
 const (
-	ProvisionerAssetName         = "common/sidecars/provisioner.yaml"
-	AttacherAssetName            = "common/sidecars/attacher.yaml"
-	SnapshotterAssetName         = "common/sidecars/snapshotter.yaml"
-	ResizerAssetName             = "common/sidecars/resizer.yaml"
-	LivenessProbeAssetName       = "common/sidecars/livenessprobe.yaml"
-	NodeDriverRegistrarAssetName = "common/sidecars/node_driver_registrar.yaml"
+	ProvisionerAssetName              = "common/sidecars/provisioner.yaml"
+	AttacherAssetName                 = "common/sidecars/attacher.yaml"
+	SnapshotterAssetName              = "common/sidecars/snapshotter.yaml"
+	ResizerAssetName                  = "common/sidecars/resizer.yaml"
+	PodNetworkLivenessProbeAssetName  = "common/sidecars/pod_network_livenessprobe.yaml"
+	HostNetworkLivenessProbeAssetName = "common/sidecars/host_network_livenessprobe.yaml"
+	NodeDriverRegistrarAssetName      = "common/sidecars/node_driver_registrar.yaml"
 )
 
 var (
@@ -111,9 +112,15 @@ var (
 			"sidecar.yaml", "common/hypershift/sidecar_add_kubeconfig.yaml.patch",
 		),
 	}
-	// DefaultLivenessProbe is definition of the default livenessprobe sidecar.
-	DefaultLivenessProbe = generator.SidecarConfig{
-		TemplateAssetName: LivenessProbeAssetName,
+	// DefaultPodNetworkLivenessProbe is definition of the default livenessprobe sidecar using pod network.
+	DefaultPodNetworkLivenessProbe = generator.SidecarConfig{
+		TemplateAssetName: PodNetworkLivenessProbeAssetName,
+		ExtraArguments:    nil,
+		HasMetricsPort:    false,
+	}
+	// DefaultHostNetworkLivenessProbe is definition of the default livenessprobe sidecar using host network .
+	DefaultHostNetworkLivenessProbe = generator.SidecarConfig{
+		TemplateAssetName: HostNetworkLivenessProbeAssetName,
 		ExtraArguments:    nil,
 		HasMetricsPort:    false,
 	}
