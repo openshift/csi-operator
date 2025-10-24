@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-        - name: kube-rbac-proxy-${LOCAL_METRICS_PORT}
+        - name: driver-kube-rbac-proxy
           args:
           - --secure-listen-address=0.0.0.0:${EXPOSED_METRICS_PORT}
           - --upstream=http://127.0.0.1:${LOCAL_METRICS_PORT}/
