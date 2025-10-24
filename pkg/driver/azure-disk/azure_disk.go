@@ -131,6 +131,8 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/azure-disk/base/csidriver.yaml",
 				"overlays/azure-disk/base/storageclass.yaml",
 				"overlays/azure-disk/base/volumesnapshotclass.yaml",
+				"overlays/azure-disk/base/node_driver_role.yaml",
+				"overlays/azure-disk/base/node_driver_binding.yaml",
 			),
 		},
 	}
