@@ -18,6 +18,7 @@
 # Applied strategic merge patch pod_network_livenessprobe.yaml
 # Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
 # Applied JSON patch common/hypershift/controller_add_kubeconfig_volume.yaml.patch
+# Applied strategic merge patch common/hypershift/controller_add_hypershift_managed_by_label.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/controller_add_hypershift_volumes.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/controller_rename_config_map.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/modify_anti_affinity_selector.yaml
@@ -30,6 +31,8 @@ metadata:
   annotations:
     config.openshift.io/inject-proxy: csi-driver
     config.openshift.io/inject-proxy-cabundle: csi-driver
+  labels:
+    hypershift.openshift.io/managed-by: cluster-storage-operator
   name: openstack-manila-csi-controllerplugin
   namespace: ${NAMESPACE}
 spec:

@@ -45,6 +45,7 @@ var (
 		"controller_sa.yaml", "common/hypershift/controller_sa_pull_secret.yaml",
 		"controller.yaml", "common/hypershift/controller_add_affinity_tolerations.yaml",
 		"controller.yaml", "common/hypershift/controller_add_kubeconfig_volume.yaml.patch",
+		"controller.yaml", "common/hypershift/controller_add_hypershift_managed_by_label.yaml",
 	)
 )
 
