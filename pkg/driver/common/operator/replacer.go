@@ -2,6 +2,8 @@ package operator
 
 import (
 	"os"
+
+	"github.com/openshift/library-go/pkg/operator/status"
 )
 
 const (
@@ -67,5 +69,6 @@ func DefaultReplacements(controlPlaneNamespace, guestNamespace string) []string 
 
 	pairs = append(pairs, []string{"${NAMESPACE}", controlPlaneNamespace}...)
 	pairs = append(pairs, []string{"${NODE_NAMESPACE}", guestNamespace}...)
+	pairs = append(pairs, []string{"${RELEASE_VERSION}", status.VersionForOperatorFromEnv()}...)
 	return pairs
 }
