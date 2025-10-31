@@ -151,9 +151,27 @@ func (c *VolumeSnapshotClassController) syncVolumeSnapshotClass(ctx context.Cont
 
 	existingVSC, err := c.snapshotClient.SnapshotV1().VolumeSnapshotClasses().Get(ctx, vsc.Name, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
+		// If Azure File VSC is not installed yet skip the creation to prevent snapshots being created by users.
+		if vsc.Name == "csi-azurefile-vsc" {
+			klog.Warningf("Azure File snapshots are TechPreview in 4.18 - skipping creation of volume snapshot class %s to prevent data loss. See the following KCS for details and snapshot removal guide: <TBD>", vsc.Name)
+			return nil
+		}
 		_, err = c.snapshotClient.SnapshotV1().VolumeSnapshotClasses().Create(ctx, vsc, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to created volumesnapshot class: %v", err)
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get volumesnapshot class %q: %w", vsc.Name, err)
+	}
+
+	// If Azure File VSC is already installed we should remove it to prevent users from creating new snapshots.
+	if existingVSC.Name == "csi-azurefile-vsc" {
+		klog.Warningf("Azure File snapshots are TechPreview in 4.18 - removing volume snapshot class %s to prevent data loss. See the following KCS for details and snapshot removal guide: <TBD>", vsc.Name)
+		err = c.snapshotClient.SnapshotV1().VolumeSnapshotClasses().Delete(ctx, vsc.Name, metav1.DeleteOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to delete volumesnapshot class: %v", err)
 		}
 		return nil
 	}
