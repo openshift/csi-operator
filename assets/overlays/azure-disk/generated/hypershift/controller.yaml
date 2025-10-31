@@ -19,9 +19,9 @@
 # snapshotter.yaml: Added arguments [--timeout=600s]
 # snapshotter.yaml: Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
 # Applied strategic merge patch snapshotter.yaml
-# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
-# livenessprobe.yaml: Added arguments [--probe-timeout=3s]
-# Applied strategic merge patch livenessprobe.yaml
+# pod_network_livenessprobe.yaml: Loaded from common/sidecars/pod_network_livenessprobe.yaml
+# pod_network_livenessprobe.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch pod_network_livenessprobe.yaml
 # Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
 # Applied strategic merge patch overlays/azure-disk/patches/controller_add_hypershift_controller.yaml
 #

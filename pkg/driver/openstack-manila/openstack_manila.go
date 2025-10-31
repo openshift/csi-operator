@@ -76,7 +76,7 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--handle-volume-inuse-error=false",
 				),
 				commongenerator.DefaultSnapshotter.WithExtraArguments(),
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultPodNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=10s",
 				),
 			},
@@ -96,7 +96,7 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			LivenessProbePort:            10305,
 			NodeRegistrarHealthCheckPort: 10307,
 			Sidecars: []generator.SidecarConfig{
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultHostNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=10s",
 				),
 				commongenerator.DefaultNodeDriverRegistrar,

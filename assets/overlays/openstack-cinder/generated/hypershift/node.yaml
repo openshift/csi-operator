@@ -2,9 +2,9 @@
 #
 # Loaded from base/node.yaml
 # Applied strategic merge patch overlays/openstack-cinder/patches/node_add_driver.yaml
-# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
-# livenessprobe.yaml: Added arguments [--probe-timeout=10s]
-# Applied strategic merge patch livenessprobe.yaml
+# host_network_livenessprobe.yaml: Loaded from common/sidecars/host_network_livenessprobe.yaml
+# host_network_livenessprobe.yaml: Added arguments [--probe-timeout=10s]
+# Applied strategic merge patch host_network_livenessprobe.yaml
 # node_driver_registrar.yaml: Loaded from common/sidecars/node_driver_registrar.yaml
 # Applied strategic merge patch node_driver_registrar.yaml
 #
@@ -49,6 +49,7 @@ spec:
         livenessProbe:
           failureThreshold: 5
           httpGet:
+            host: 127.0.0.1
             path: /healthz
             port: healthz
           initialDelaySeconds: 10
@@ -93,7 +94,7 @@ spec:
           readOnly: true
       - args:
         - --csi-address=/csi/csi.sock
-        - --health-port=10300
+        - --http-endpoint=127.0.0.1:10300
         - --v=${LOG_LEVEL}
         - --probe-timeout=10s
         env: []
@@ -111,7 +112,7 @@ spec:
       - args:
         - --csi-address=/csi/csi.sock
         - --kubelet-registration-path=/var/lib/kubelet/plugins/cinder.csi.openstack.org/csi.sock
-        - --http-endpoint=:10304
+        - --http-endpoint=127.0.0.1:10304
         - --v=${LOG_LEVEL}
         env: []
         image: ${NODE_DRIVER_REGISTRAR_IMAGE}
@@ -126,6 +127,7 @@ spec:
         livenessProbe:
           failureThreshold: 5
           httpGet:
+            host: 127.0.0.1
             path: /healthz
             port: rhealthz
           initialDelaySeconds: 10

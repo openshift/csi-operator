@@ -71,11 +71,11 @@ spec:
               mountPath: /sys/fs
           ports:
             - name: healthz
-              # Due to hostNetwork, this port is open on all nodes!
               containerPort: 10305
               protocol: TCP
           livenessProbe:
             httpGet:
+              host: 127.0.0.1
               path: /healthz
               port: healthz
             initialDelaySeconds: 10
