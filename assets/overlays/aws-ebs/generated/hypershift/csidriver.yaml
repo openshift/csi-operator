@@ -13,6 +13,7 @@ metadata:
 spec:
   attachRequired: true
   fsGroupPolicy: File
+  nodeAllocatableUpdatePeriodSeconds: ${NODE_ALLOCATABLE_UPDATE_PERIOD_SECONDS}
   podInfoOnMount: false
   requiresRepublish: false
   seLinuxMount: true

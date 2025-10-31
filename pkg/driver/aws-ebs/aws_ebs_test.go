@@ -363,3 +363,40 @@ func Test_WithKMSKeyHook(t *testing.T) {
 		})
 	}
 }
+
+func Test_WithMutableCSINodeAllocatableCount(t *testing.T) {
+	cr := clients.GetFakeOperatorCR()
+	c := clients.NewFakeClients("clusters-test", cr)
+
+	hook, _ := withMutableCSINodeAllocatableCount(c)
+	deployment := getTestDeployment()
+	// Arrange - inject custom infrastructure
+
+	// Act
+	err := hook(&cr.Spec.OperatorSpec, deployment)
+	if err != nil {
+		t.Fatalf("unexpected hook error: %v", err)
+	}
+
+	// Assert
+	found := false
+	expectedFeatureGatesArg := "--feature-gates=MutableCSINodeAllocatableCount=true"
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "csi-attacher" {
+			found = true
+			// Collect env vars from struct EnvVar to map[string]string
+			featureGatesArg := ""
+			for _, arg := range container.Args {
+				if strings.HasPrefix(arg, "--feature-gates") {
+					featureGatesArg = arg
+				}
+			}
+			if featureGatesArg != expectedFeatureGatesArg {
+				t.Errorf("expected csi-driver feature gates argument %s, got %s", expectedFeatureGatesArg, featureGatesArg)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("container csi-attacher not found")
+	}
+}
