@@ -1,0 +1,11 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: azure-disk-csi-driver-node-clusterrole
+rules:
+  # Upstream has a rule to get secrets here (https://github.com/kubernetes-sigs/azuredisk-csi-driver/blob/release-1.29/deploy/v1.29.0/rbac-csi-azuredisk-node.yaml),
+  # but OCP doesn't. Such a rule is too broad, it gives the driver access to all secrets in the cluster. The OCP environment must be properly configured,
+  # so fallback to get secrets with this rule is never needed.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]

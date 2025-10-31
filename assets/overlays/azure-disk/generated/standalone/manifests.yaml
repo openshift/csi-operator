@@ -18,6 +18,8 @@ guestStaticAssetNames:
 - main_resizer_binding.yaml
 - main_snapshotter_binding.yaml
 - node.yaml
+- node_driver_binding.yaml
+- node_driver_role.yaml
 - node_kube_rbac_proxy_binding.yaml
 - node_kube_rbac_proxy_role.yaml
 - node_privileged_binding.yaml
