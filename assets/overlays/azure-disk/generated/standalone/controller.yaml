@@ -19,7 +19,7 @@
 # pod_network_livenessprobe.yaml: Added arguments [--probe-timeout=3s]
 # Applied strategic merge patch pod_network_livenessprobe.yaml
 # Applied strategic merge patch common/standalone/controller_add_affinity.yaml
-# Applied strategic merge patch overlays/azure-disk/patches/controller_add_standalone_injector.yaml
+# Applied strategic merge patch overlays/azure-disk/patches/controller_add_injector.yaml
 #
 #
 
