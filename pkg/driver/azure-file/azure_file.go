@@ -88,7 +88,6 @@ func GetAzureFileGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				// despite naming suggesting this is for sidecar containers, it can actually be used for any
 				// pod and we happen to need the guest kubeconfig for the azure-file CSI driver
 				"controller.yaml", "common/hypershift/sidecar_add_kubeconfig.yaml.patch",
-				"controller.yaml", "overlays/azure-file/patches/controller_add_hypershift_controller.yaml",
 			).WithPatches(generator.StandaloneOnly,
 				"controller.yaml", "overlays/azure-file/patches/controller_add_standalone_injector.yaml",
 			),

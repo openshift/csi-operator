@@ -26,7 +26,6 @@
 # Applied JSON patch common/hypershift/controller_add_kubeconfig_volume.yaml.patch
 # Applied strategic merge patch common/hypershift/controller_add_hypershift_managed_by_label.yaml
 # Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
-# Applied strategic merge patch overlays/azure-file/patches/controller_add_hypershift_controller.yaml
 #
 #
 
@@ -419,9 +418,3 @@ spec:
         secret:
           defaultMode: 420
           secretName: service-network-admin-kubeconfig
-      - emptyDir:
-          medium: Memory
-        name: bound-sa-token
-      - name: cloud-config
-        secret:
-          secretName: azure-file-csi-config
