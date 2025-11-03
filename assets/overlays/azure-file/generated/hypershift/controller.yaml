@@ -26,6 +26,7 @@
 # Applied JSON patch common/hypershift/controller_add_kubeconfig_volume.yaml.patch
 # Applied strategic merge patch common/hypershift/controller_add_hypershift_managed_by_label.yaml
 # Applied JSON patch common/hypershift/sidecar_add_kubeconfig.yaml.patch
+# Applied strategic merge patch overlays/azure-file/patches/controller_add_injector.yaml
 #
 #
 
@@ -397,6 +398,27 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
+      initContainers:
+      - args:
+        - --cloud-config-file-path=/etc/cloud-config/config
+        - --output-file-path=/etc/kubernetes/cloud.conf
+        - --disable-identity-extension-auth
+        - --enable-azure-workload-identity=${ENABLE_AZURE_WORKLOAD_IDENTITY}
+        - --creds-path=/etc/azure/credentials
+        command:
+        - /azure-config-credentials-injector
+        image: ${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}
+        name: azure-inject-credentials
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/cloud-config
+          name: src-cloud-config
+          readOnly: true
+        - mountPath: /etc/kubernetes
+          name: cloud-config
+        - mountPath: /etc/azure/credentials
+          name: cloud-sa-volume
+          readOnly: true
       priorityClassName: hypershift-control-plane
       serviceAccount: azure-file-csi-driver-controller-sa
       tolerations:
@@ -418,3 +440,17 @@ spec:
         secret:
           defaultMode: 420
           secretName: service-network-admin-kubeconfig
+      - configMap:
+          name: azure-cloud-config
+        name: src-cloud-config
+      - name: cloud-sa-volume
+        secret:
+          secretName: azure-file-credentials
+      - emptyDir: {}
+        name: cloud-config
+      - name: bound-sa-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: openshift
+              path: token
