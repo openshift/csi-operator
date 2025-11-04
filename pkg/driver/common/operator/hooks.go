@@ -267,11 +267,18 @@ func withHyperShiftRunAsUser(c *clients.Clients) (dc.DeploymentHookFunc, []facto
 // The token-minter creates guest cluster service account tokens for use in the management cluster.
 // Note: The bound-sa-token and hosted-kubeconfig volumes are added by the HyperShift patch files,
 // so this hook only adds the container that uses them.
+// If HYPERSHIFT_IMAGE environment variable is not set, the hook does nothing (allows conditional behavior).
 func WithTokenMinter(serviceAccountName string) dc.DeploymentHookFunc {
 	return func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		hyperShiftImage := os.Getenv("HYPERSHIFT_IMAGE")
+		if hyperShiftImage == "" {
+			// HYPERSHIFT_IMAGE not set, skip adding token-minter
+			return nil
+		}
+
 		tokenMinter := corev1.Container{
 			Name:  "token-minter",
-			Image: "${HYPERSHIFT_IMAGE}",
+			Image: hyperShiftImage,
 			Command: []string{
 				"/usr/bin/control-plane-operator",
 				"token-minter",
