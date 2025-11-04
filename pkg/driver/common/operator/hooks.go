@@ -271,7 +271,7 @@ func WithTokenMinter(serviceAccountName string) dc.DeploymentHookFunc {
 	return func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
 		tokenMinter := corev1.Container{
 			Name:  "token-minter",
-			Image: os.Getenv("HYPERSHIFT_IMAGE"),
+			Image: "${HYPERSHIFT_IMAGE}",
 			Command: []string{
 				"/usr/bin/control-plane-operator",
 				"token-minter",
