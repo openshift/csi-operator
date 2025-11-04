@@ -61,7 +61,7 @@ func DefaultReplacements(controlPlaneNamespace, guestNamespace string) []string 
 	}
 
 	hyperShiftImage := os.Getenv(hyperShiftImageEnvName)
-	if csiDriver != "" {
+	if hyperShiftImage != "" {
 		pairs = append(pairs, []string{"${HYPERSHIFT_IMAGE}", hyperShiftImage}...)
 	}
 
