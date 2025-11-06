@@ -17,7 +17,8 @@ DriverInfo:
     controllerExpansion: true
     nodeExpansion: true
     volumeLimits: false
-    snapshotDataSource: true
+    # Snapshots are not supported in this release
+    snapshotDataSource: false
     multiplePVsSameID: true
     readWriteOncePod: true
     pvcDataSource: true
