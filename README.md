@@ -83,3 +83,4 @@ This updates the package versions in `config/aws-efs/manifests/aws-efs-csi-drive
 ## Migrating an existing operator
 
 If you are looking to migrate an existing CSI Driver operator to the combined `csi-operator` operator, refer to [the docs](docs/migrating-operators.md)
+
