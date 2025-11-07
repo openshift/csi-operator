@@ -5,9 +5,9 @@
 # Applied strategic merge patch common/sidecars/node_driver_kube_rbac_proxy.yaml
 # node_driver_registrar.yaml: Loaded from common/sidecars/node_driver_registrar.yaml
 # Applied strategic merge patch node_driver_registrar.yaml
-# livenessprobe.yaml: Loaded from common/sidecars/livenessprobe.yaml
-# livenessprobe.yaml: Added arguments [--probe-timeout=3s]
-# Applied strategic merge patch livenessprobe.yaml
+# host_network_livenessprobe.yaml: Loaded from common/sidecars/host_network_livenessprobe.yaml
+# host_network_livenessprobe.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch host_network_livenessprobe.yaml
 #
 #
 
@@ -56,6 +56,7 @@ spec:
         livenessProbe:
           failureThreshold: 5
           httpGet:
+            host: 127.0.0.1
             path: /healthz
             port: healthz
           initialDelaySeconds: 10
@@ -118,7 +119,7 @@ spec:
       - args:
         - --csi-address=/csi/csi.sock
         - --kubelet-registration-path=/var/lib/kubelet/plugins/disk.csi.azure.com/csi.sock
-        - --http-endpoint=:10304
+        - --http-endpoint=127.0.0.1:10304
         - --v=${LOG_LEVEL}
         env: []
         image: ${NODE_DRIVER_REGISTRAR_IMAGE}
@@ -133,6 +134,7 @@ spec:
         livenessProbe:
           failureThreshold: 5
           httpGet:
+            host: 127.0.0.1
             path: /healthz
             port: rhealthz
           initialDelaySeconds: 10
@@ -157,7 +159,7 @@ spec:
           name: registration-dir
       - args:
         - --csi-address=/csi/csi.sock
-        - --health-port=10300
+        - --http-endpoint=127.0.0.1:10300
         - --v=${LOG_LEVEL}
         - --probe-timeout=3s
         env: []

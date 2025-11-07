@@ -44,7 +44,7 @@ func GetSambaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				commongenerator.DefaultProvisioner.WithExtraArguments(
 					"--extra-create-metadata=true",
 				),
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultPodNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
@@ -68,7 +68,7 @@ func GetSambaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			NodeRegistrarHealthCheckPort: 10308,
 			Sidecars: []generator.SidecarConfig{
 				commongenerator.DefaultNodeDriverRegistrar,
-				commongenerator.DefaultLivenessProbe.WithExtraArguments(
+				commongenerator.DefaultHostNetworkLivenessProbe.WithExtraArguments(
 					"--probe-timeout=3s",
 				),
 			},
