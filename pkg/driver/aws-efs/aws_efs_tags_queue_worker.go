@@ -87,7 +87,7 @@ func (c *EFSAccessPointTagsController) needsTagUpdate(infra *configv1.Infrastruc
 
 // updateTags updates the EFS tags on AWS and the PersistentVolume annotations
 func (c *EFSAccessPointTagsController) updateTags(ctx context.Context, pv *v1.PersistentVolume, region string, resourceTags []configv1.AWSResourceTag) {
-	efsClient, err := c.getEFSClient(region)
+	efsClient, err := c.getEFSClient(ctx, region)
 	if err != nil {
 		klog.Errorf("Failed to get EFS client for retry: %v", err)
 		c.queue.AddRateLimited(pv.Name)

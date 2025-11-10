@@ -3,8 +3,9 @@ package aws_ebs
 import (
 	"context"
 	"errors"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/ec2"
+
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/smithy-go"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -88,7 +89,7 @@ func (c *EBSVolumeTagsController) needsTagUpdate(infra *configv1.Infrastructure,
 // their AWS EBS tags in bulk. If the tag update succeeds, it updates the PV annotations
 // with the new tag hash. In case of errors, failed PVs are re-queued individually
 // for retry with a backoff mechanism.
-func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client *ec2.EC2) {
+func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client *ec2.Client) {
 	pvList := make([]*v1.PersistentVolume, 0)
 	for _, pvName := range item.pvNames {
 		pv, err := c.getPersistentVolumeByName(pvName)
@@ -112,7 +113,7 @@ func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item 
 		return
 	}
 	// update the tags for the volume list.
-	err := c.updateEBSTags(ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pvList...)
+	err := c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pvList...)
 	if err != nil {
 		klog.Errorf("failed to update EBS tags: %v", err)
 		c.handleBatchTagUpdateFailure(pvList, err)
@@ -146,7 +147,7 @@ func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item 
 // If the tag update succeeds, it updates the PV annotations with the new tag hash.
 // If the PV is missing or the AWS volume does not exist, it removes it from the queue.
 // In case of errors, it re-queues the PV for retry with a backoff mechanism.
-func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client *ec2.EC2) {
+func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client *ec2.Client) {
 	pv, err := c.getPersistentVolumeByName(item.pvNames[0])
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -165,12 +166,13 @@ func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, i
 		c.queue.Forget(item)
 		return
 	}
-	err = c.updateEBSTags(ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pv)
+	err = c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pv)
 	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok {
-			switch awsErr.Code() {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			switch apiErr.ErrorCode() {
 			case awsErrorVolumeNotFound:
-				klog.Errorf("Volume %s not found: %v , Removing the volume from the queue", pv.Spec.CSI.VolumeHandle, awsErr.Message())
+				klog.Errorf("Volume %s not found: %v , Removing the volume from the queue", pv.Spec.CSI.VolumeHandle, apiErr.ErrorMessage())
 				c.queue.Forget(item)
 				c.removeVolumesFromQueueSet(pv.Name)
 				return
