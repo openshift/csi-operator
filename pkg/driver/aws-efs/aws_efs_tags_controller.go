@@ -118,7 +118,7 @@ func isHypershiftCluster(infra *configv1.Infrastructure) bool {
 }
 
 // getEFSClient retrieves AWS credentials from the secret and creates an AWS EFS client.
-func (c *EFSAccessPointTagsController) getEFSClient(awsRegion string) (*efs.Client, error) {
+func (c *EFSAccessPointTagsController) getEFSClient(ctx context.Context, awsRegion string) (*efs.Client, error) {
 	secret, err := c.getEFSCloudCredSecret()
 	if err != nil {
 		klog.Errorf("error getting secret: %v", err)
@@ -127,7 +127,7 @@ func (c *EFSAccessPointTagsController) getEFSClient(awsRegion string) (*efs.Clie
 
 	credentialsData, credentialsFound := secret.Data["credentials"]
 	if credentialsFound {
-		sess, err := c.createClientWithCredentials(credentialsData, awsRegion)
+		sess, err := c.createClientWithCredentials(ctx, credentialsData, awsRegion)
 		if err != nil {
 			klog.Errorf("error creating session: %v", err)
 			return nil, fmt.Errorf("error creating session: %v", err)
@@ -138,7 +138,7 @@ func (c *EFSAccessPointTagsController) getEFSClient(awsRegion string) (*efs.Clie
 }
 
 // createClientWithCredentials creates the client using the credential.
-func (c *EFSAccessPointTagsController) createClientWithCredentials(credentialsData []byte, awsRegion string) (*efs.Client, error) {
+func (c *EFSAccessPointTagsController) createClientWithCredentials(ctx context.Context, credentialsData []byte, awsRegion string) (*efs.Client, error) {
 	// Load INI file from credentialsData
 	cfg, err := ini.Load(credentialsData)
 	if err != nil {
@@ -155,7 +155,7 @@ func (c *EFSAccessPointTagsController) createClientWithCredentials(credentialsDa
 		return nil, fmt.Errorf("missing required AWS credentials: role_arn or web_identity_token_file is empty")
 	}
 
-	awsConfig, err := config.LoadDefaultConfig(context.TODO(),
+	awsConfig, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(awsRegion),
 	)
 	if err != nil {
@@ -175,7 +175,7 @@ func (c *EFSAccessPointTagsController) createClientWithCredentials(credentialsDa
 	)
 
 	// Create new config with WebIdentity credentials
-	awsConfig, err = config.LoadDefaultConfig(context.TODO(),
+	awsConfig, err = config.LoadDefaultConfig(ctx,
 		config.WithRegion(awsRegion),
 		config.WithCredentialsProvider(provider),
 	)
@@ -248,7 +248,7 @@ func (c *EFSAccessPointTagsController) updateEFSAccessPointTags(ctx context.Cont
 	tags := newAndUpdatedTags(resourceTags)
 
 	// Create or update the tags
-	_, err := efsClient.TagResource(context.TODO(), &efs.TagResourceInput{
+	_, err := efsClient.TagResource(ctx, &efs.TagResourceInput{
 		ResourceId: aws.String(parseAccessPointID(pv.Spec.CSI.VolumeHandle)),
 		Tags:       tags,
 	})

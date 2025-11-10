@@ -129,7 +129,7 @@ func (c *EBSVolumeTagsController) Sync(ctx context.Context, syncCtx factory.Sync
 // getEC2Client retrieves AWS credentials from the secret and creates an AWS EC2 client using session.Options
 func (c *EBSVolumeTagsController) getEC2Client(ctx context.Context, awsRegion string) (*ec2.Client, error) {
 	if c.awsConfig == nil || c.isSessionExpired() {
-		awsConfig, err := c.createAWSSession(awsRegion)
+		awsConfig, err := c.createAWSSession(ctx, awsRegion)
 		if err != nil {
 			klog.Errorf("Failed to create AWS session: %v", err)
 			return nil, err
@@ -140,7 +140,7 @@ func (c *EBSVolumeTagsController) getEC2Client(ctx context.Context, awsRegion st
 	return ec2.NewFromConfig(*c.awsConfig), nil
 }
 
-func (c *EBSVolumeTagsController) createAWSSession(awsRegion string) (*aws.Config, error) {
+func (c *EBSVolumeTagsController) createAWSSession(ctx context.Context, awsRegion string) (*aws.Config, error) {
 	secret, err := c.getEBSCloudCredSecret()
 	if err != nil {
 		klog.Errorf("error getting secret: %v", err)
@@ -149,7 +149,7 @@ func (c *EBSVolumeTagsController) createAWSSession(awsRegion string) (*aws.Confi
 
 	credentialsData, credentialsFound := secret.Data["credentials"]
 	if credentialsFound {
-		sess, err := c.createSessionWithCredentials(credentialsData, awsRegion)
+		sess, err := c.createSessionWithCredentials(ctx, credentialsData, awsRegion)
 		if err != nil {
 			klog.Errorf("error creating session: %v", err)
 			return nil, fmt.Errorf("error creating session: %v", err)
@@ -159,7 +159,7 @@ func (c *EBSVolumeTagsController) createAWSSession(awsRegion string) (*aws.Confi
 	return nil, fmt.Errorf("no valid AWS credentials found in secret")
 }
 
-func (c *EBSVolumeTagsController) createSessionWithCredentials(credentialsData []byte, region string) (*aws.Config, error) {
+func (c *EBSVolumeTagsController) createSessionWithCredentials(ctx context.Context, credentialsData []byte, region string) (*aws.Config, error) {
 	// Load INI file from credentialsData
 	cfg, err := ini.Load(credentialsData)
 	if err != nil {
@@ -183,7 +183,7 @@ func (c *EBSVolumeTagsController) createSessionWithCredentials(credentialsData [
 	}
 
 	// Create base AWS config
-	awsConfig, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	awsConfig, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	if err != nil {
 		klog.Errorf("Error creating base AWS config: %v", err)
 		return nil, fmt.Errorf("error creating AWS config: %v", err)
@@ -202,7 +202,7 @@ func (c *EBSVolumeTagsController) createSessionWithCredentials(credentialsData [
 	)
 
 	// Create new config with WebIdentity credentials
-	awsConfig, err = config.LoadDefaultConfig(context.TODO(),
+	awsConfig, err = config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
 		config.WithCredentialsProvider(provider),
 	)
@@ -309,12 +309,12 @@ func (c *EBSVolumeTagsController) fetchAndPushPvsToQueue(infra *configv1.Infrast
 }
 
 // updateEBSTags updates the tags of an AWS EBS volume with rate limiting
-func (c *EBSVolumeTagsController) updateEBSTags(ec2Client *ec2.Client, resourceTags []configv1.AWSResourceTag,
+func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client *ec2.Client, resourceTags []configv1.AWSResourceTag,
 	pvs ...*v1.PersistentVolume) error {
 	// Prepare tags
 	tags := newAndUpdatedTags(resourceTags)
 	// Create or update the tags
-	_, err := ec2Client.CreateTags(context.TODO(), &ec2.CreateTagsInput{
+	_, err := ec2Client.CreateTags(ctx, &ec2.CreateTagsInput{
 		Resources: pvsToResourceIDs(pvs),
 		Tags:      tags,
 	})

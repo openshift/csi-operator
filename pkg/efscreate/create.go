@@ -59,7 +59,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	efs := NewEFSSession(infra, ec2Config)
 
-	fsID, err := efs.CreateEFSVolume(nodes, singleZone)
+	fsID, err := efs.CreateEFSVolume(ctx, nodes, singleZone)
 	if err != nil {
 		klog.Errorf("error creating efs volume: %v", err)
 		return err
