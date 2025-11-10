@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 
-	//"github.com/aws/aws-sdk-go/aws/awserr"
-	//"github.com/aws/aws-sdk-go/service/ec2"
-
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/smithy-go"
 
@@ -171,15 +168,6 @@ func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, i
 	}
 	err = c.updateEBSTags(ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pv)
 	if err != nil {
-		// if awsErr, ok := err.(awserr.Error); ok {
-		// 	switch awsErr.Code() {
-		// 	case awsErrorVolumeNotFound:
-		// 		klog.Errorf("Volume %s not found: %v , Removing the volume from the queue", pv.Spec.CSI.VolumeHandle, awsErr.Message())
-		// 		c.queue.Forget(item)
-		// 		c.removeVolumesFromQueueSet(pv.Name)
-		// 		return
-		// 	}
-		// }
 		var apiErr smithy.APIError
 		if errors.As(err, &apiErr) {
 			switch apiErr.ErrorCode() {

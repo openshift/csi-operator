@@ -197,10 +197,6 @@ func getEC2Client(
 	client *kubeclient.Clientset,
 	region string) (*aws.Config, error) {
 
-	// cfg := &aws.Config{
-	// 	Region: aws.String(region),
-	// }
-
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	if err != nil {
 		return nil, err
@@ -222,16 +218,10 @@ func getEC2Client(
 		}
 
 		klog.V(2).Infof("Using AWS credentials from the cluster, got key id: %s", id)
-		//cfg.Credentials = aws.NewStaticCredentials(string(id), string(key), "")
 		cfg.Credentials = aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(string(id), string(key), ""))
 	} else {
 		klog.V(2).Infof("Using AWS credentials from local machine, either env. vars or ~/.aws/config")
 	}
 
-	//sess, err := session.NewSession(cfg)
-	// defaultCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(aws.String(region)))
-	// if err != nil {
-	// 	return nil, err
-	// }
 	return &cfg, nil
 }
