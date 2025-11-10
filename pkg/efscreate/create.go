@@ -51,7 +51,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	region := infra.Status.PlatformStatus.AWS.Region
 	klog.V(2).Infof("Detected AWS region from the OCP cluster: %s", region)
 
-	ec2Config, err := getEC2Client(ctx, useLocalAWSCredentials, kubeClient, region)
+	ec2Config, err := getEC2Config(ctx, useLocalAWSCredentials, kubeClient, region)
 	if err != nil {
 		klog.Errorf("error getting aws client: %v", err)
 		return fmt.Errorf("error getting aws client: %v", err)
@@ -191,7 +191,7 @@ func writeCSIManifest(scName string) error {
 	return err
 }
 
-func getEC2Client(
+func getEC2Config(
 	ctx context.Context,
 	useLocalAWSCreds bool,
 	client *kubeclient.Clientset,

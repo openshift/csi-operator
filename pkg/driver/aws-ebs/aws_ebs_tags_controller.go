@@ -431,7 +431,7 @@ func (c *EBSVolumeTagsController) removeVolumesFromQueueSet(volumeNames ...strin
 func pvsToResourceIDs(volumes []*v1.PersistentVolume) []string {
 	var resourceIDs []string
 	for _, volume := range volumes {
-		resourceIDs = append(resourceIDs, *aws.String(volume.Spec.CSI.VolumeHandle))
+		resourceIDs = append(resourceIDs, volume.Spec.CSI.VolumeHandle)
 	}
 	return resourceIDs
 }
