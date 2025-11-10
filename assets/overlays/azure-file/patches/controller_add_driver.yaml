@@ -62,6 +62,8 @@ spec:
             - name: bound-sa-token
               mountPath: /var/run/secrets/openshift/serviceaccount
               readOnly: true
+            - mountPath: /tmp
+              name: azcopy-log-dir
           resources:
             requests:
               memory: 50Mi
@@ -71,4 +73,6 @@ spec:
         - name: metrics-serving-cert
           secret:
             secretName: azure-file-csi-driver-controller-metrics-serving-cert
+        - emptydir: {}
+          name: azcopy-log-dir
 

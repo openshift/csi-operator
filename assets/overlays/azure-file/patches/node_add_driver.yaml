@@ -74,6 +74,8 @@ spec:
           - name: bound-sa-token
             mountPath: /var/run/secrets/openshift/serviceaccount
             readOnly: true
+          - mountPath: /tmp
+            name: azcopy-log-dir
       initContainers:
         # Merge /etc/kubernetes/cloud.conf (on the host) with secret "azure-file-credentials" into "merged-cloud-config" emptydir.
         - name: azure-inject-credentials
@@ -114,6 +116,8 @@ spec:
           name: scsi-host-dir
         - emptydir: {}
           name: cloud-config
+        - emptydir: {}
+          name: azcopy-log-dir
         - name: bound-sa-token
           projected:
             sources:
