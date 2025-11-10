@@ -21,13 +21,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	// "github.com/aws/aws-sdk-go/aws"
-	// "github.com/aws/aws-sdk-go/aws/credentials"
-	// "github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	// "github.com/aws/aws-sdk-go/aws/session"
-	// "github.com/aws/aws-sdk-go/service/ec2"
-	// "github.com/aws/aws-sdk-go/service/sts"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
@@ -189,15 +182,7 @@ func (c *EBSVolumeTagsController) createSessionWithCredentials(credentialsData [
 		return nil, err
 	}
 
-	// Create base AWS session
-	// sess, err := session.NewSession(&aws.Config{
-	// 	Region: aws.String(region),
-	// })
-	// if err != nil {
-	// 	klog.Errorf("Error creating base AWS session: %v", err)
-	// 	return nil, fmt.Errorf("error creating AWS session: %v", err)
-	// }
-
+	// Create base AWS config
 	awsConfig, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		klog.Errorf("Error creating base AWS config: %v", err)
@@ -216,15 +201,10 @@ func (c *EBSVolumeTagsController) createSessionWithCredentials(credentialsData [
 		},
 	)
 
-	// Create new session with WebIdentity credentials
-	// sess, err = session.NewSession(&aws.Config{
-	// 	Region:      aws.String(region),
-	// 	Credentials: credentials.NewCredentials(provider),
-	// })
-
+	// Create new config with WebIdentity credentials
 	awsConfig, err = config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
-		config.WithCredentialsProvider(provider), // TODO: Check if this is correct
+		config.WithCredentialsProvider(provider),
 	)
 
 	if err != nil {
