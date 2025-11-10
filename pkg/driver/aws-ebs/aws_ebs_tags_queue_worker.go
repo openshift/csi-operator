@@ -113,7 +113,7 @@ func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item 
 		return
 	}
 	// update the tags for the volume list.
-	err := c.updateEBSTags(ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pvList...)
+	err := c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pvList...)
 	if err != nil {
 		klog.Errorf("failed to update EBS tags: %v", err)
 		c.handleBatchTagUpdateFailure(pvList, err)
@@ -166,7 +166,7 @@ func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, i
 		c.queue.Forget(item)
 		return
 	}
-	err = c.updateEBSTags(ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pv)
+	err = c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pv)
 	if err != nil {
 		var apiErr smithy.APIError
 		if errors.As(err, &apiErr) {

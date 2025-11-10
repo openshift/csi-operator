@@ -62,44 +62,44 @@ func NewEFSSession(infra *v1.Infrastructure, config *aws.Config) *EFS {
 	}
 }
 
-func (efs *EFS) CreateEFSVolume(nodes *corev1.NodeList, singleZone string) (string, error) {
+func (efs *EFS) CreateEFSVolume(ctx context.Context, nodes *corev1.NodeList, singleZone string) (string, error) {
 	instances := efs.getInstanceIDs(nodes)
 
 	klog.V(4).Info("Loading AWS VPC")
-	err := efs.getSecurityInfo(instances, singleZone)
+	err := efs.getSecurityInfo(ctx, instances, singleZone)
 	if err != nil {
 		return "", err
 	}
 
 	klog.V(4).Info("Creating SecurityGroup")
-	sgid, err := efs.createSecurityGroup()
+	sgid, err := efs.createSecurityGroup(ctx)
 	if err != nil {
 		return "", err
 	}
 	efs.resources.securityGroupID = sgid
 
 	klog.V(4).Info("Adding firewall rule for NFS")
-	ok, err := efs.addFireWallRule()
+	ok, err := efs.addFireWallRule(ctx)
 	if err != nil || !ok {
 		return "", fmt.Errorf("error adding firewall rule: %v", err)
 	}
 
 	klog.V(4).Info("Creating EFS volume")
-	fileSystemID, err := efs.createEFSFileSystem(singleZone)
+	fileSystemID, err := efs.createEFSFileSystem(ctx, singleZone)
 	if err != nil {
 		return "", err
 	}
 	efs.resources.efsID = fileSystemID
 
 	klog.V(4).Info("Creating MountTargets")
-	mts, err := efs.createMountTargets()
+	mts, err := efs.createMountTargets(ctx)
 	if err != nil {
 		return "", err
 	}
 	efs.resources.mountTargets = mts
 
 	klog.V(4).Info("Waiting for MountTargets to get available")
-	err = efs.waitForAvailableMountTarget()
+	err = efs.waitForAvailableMountTarget(ctx)
 	if err != nil {
 		return fileSystemID, fmt.Errorf("waiting for mount targets to be available failed: %v", err)
 	}
@@ -120,7 +120,7 @@ func (efs *EFS) getInstanceIDs(nodes *corev1.NodeList) []string {
 	return nodeIDs.List()
 }
 
-func (efs *EFS) createSecurityGroup() (string, error) {
+func (efs *EFS) createSecurityGroup(ctx context.Context) (string, error) {
 	infraID := efs.infra.Status.InfrastructureName
 	groupName := fmt.Sprintf(securityGroupNameFormat, infraID)
 	securityGroupInput := ec2.CreateSecurityGroupInput{
@@ -129,7 +129,7 @@ func (efs *EFS) createSecurityGroup() (string, error) {
 		VpcId:             &efs.vpcID,
 		TagSpecifications: efs.getTags(ec2types.ResourceTypeSecurityGroup, groupName),
 	}
-	response, err := efs.client.CreateSecurityGroup(context.TODO(), &securityGroupInput)
+	response, err := efs.client.CreateSecurityGroup(ctx, &securityGroupInput)
 	if err != nil {
 		return "", fmt.Errorf("error creating security group: %v", err)
 	}
@@ -159,7 +159,7 @@ func (efs *EFS) getClusterTagKey() string {
 	return fmt.Sprintf(tagFormat, efs.infra.Status.InfrastructureName)
 }
 
-func (efs *EFS) addFireWallRule() (bool, error) {
+func (efs *EFS) addFireWallRule(ctx context.Context) (bool, error) {
 	ruleInput := ec2.AuthorizeSecurityGroupIngressInput{
 		CidrIp:     aws.String(efs.cidrBlock),
 		GroupId:    aws.String(efs.resources.securityGroupID),
@@ -167,7 +167,7 @@ func (efs *EFS) addFireWallRule() (bool, error) {
 		ToPort:     aws.Int32(2049),
 		FromPort:   aws.Int32(2049),
 	}
-	response, err := efs.client.AuthorizeSecurityGroupIngress(context.TODO(), &ruleInput)
+	response, err := efs.client.AuthorizeSecurityGroupIngress(ctx, &ruleInput)
 	if err != nil {
 		return false, fmt.Errorf("error creating firewall rule: %v", err)
 	}
@@ -178,7 +178,7 @@ func log(msg string, args ...interface{}) {
 	klog.Infof(msg, args...)
 }
 
-func (efs *EFS) createEFSFileSystem(singleZone string) (string, error) {
+func (efs *EFS) createEFSFileSystem(ctx context.Context, singleZone string) (string, error) {
 	volumeName := fmt.Sprintf(efsVolumeNameFormat, efs.infra.Status.InfrastructureName)
 	input := &awsefs.CreateFileSystemInput{
 		Encrypted:       aws.Bool(true),
@@ -198,12 +198,12 @@ func (efs *EFS) createEFSFileSystem(singleZone string) (string, error) {
 		klog.V(4).Infof("Creating EFS in single zone: %s", singleZone)
 		input.AvailabilityZoneName = aws.String(singleZone)
 	}
-	response, err := efs.efsClient.CreateFileSystem(context.TODO(), input)
+	response, err := efs.efsClient.CreateFileSystem(ctx, input)
 	if err != nil {
 		log("error creating filesystem: %v", err)
 		return "", fmt.Errorf("error creating filesystem: %v", err)
 	}
-	err = efs.waitForEFSToBeAvailable(*response.FileSystemId)
+	err = efs.waitForEFSToBeAvailable(ctx, *response.FileSystemId)
 	if err != nil {
 		log("error waiting for filesystem to become available: %v", err)
 		return *response.FileSystemId, fmt.Errorf("waiting for EFS filesystem to become available failed: %v", err)
@@ -211,7 +211,7 @@ func (efs *EFS) createEFSFileSystem(singleZone string) (string, error) {
 	return *response.FileSystemId, nil
 }
 
-func (efs *EFS) createMountTargets() ([]string, error) {
+func (efs *EFS) createMountTargets(ctx context.Context) ([]string, error) {
 	var mountTargets []string
 	for i := range efs.subnetIDs {
 		subnet := efs.subnetIDs[i]
@@ -220,7 +220,7 @@ func (efs *EFS) createMountTargets() ([]string, error) {
 			SecurityGroups: []string{efs.resources.securityGroupID},
 			SubnetId:       aws.String(subnet),
 		}
-		mt, err := efs.efsClient.CreateMountTarget(context.TODO(), mountTargetInput)
+		mt, err := efs.efsClient.CreateMountTarget(ctx, mountTargetInput)
 		if err != nil {
 			return mountTargets, fmt.Errorf("error creating mount target: %v", err)
 		}
@@ -229,7 +229,7 @@ func (efs *EFS) createMountTargets() ([]string, error) {
 	return mountTargets, nil
 }
 
-func (efs *EFS) waitForAvailableMountTarget() error {
+func (efs *EFS) waitForAvailableMountTarget(ctx context.Context) error {
 	efsID := efs.resources.efsID
 	describeInput := &awsefs.DescribeMountTargetsInput{FileSystemId: aws.String(efsID)}
 	backoff := wait.Backoff{
@@ -238,7 +238,7 @@ func (efs *EFS) waitForAvailableMountTarget() error {
 		Steps:    volumeCreateBackoffSteps,
 	}
 	err := wait.ExponentialBackoff(backoff, func() (bool, error) {
-		response, describeErr := efs.efsClient.DescribeMountTargets(context.TODO(), describeInput)
+		response, describeErr := efs.efsClient.DescribeMountTargets(ctx, describeInput)
 		if describeErr != nil {
 			return false, describeErr
 		}
@@ -260,7 +260,7 @@ func (efs *EFS) waitForAvailableMountTarget() error {
 	return err
 }
 
-func (efs *EFS) waitForEFSToBeAvailable(efsID string) error {
+func (efs *EFS) waitForEFSToBeAvailable(ctx context.Context, efsID string) error {
 	describeInput := &awsefs.DescribeFileSystemsInput{FileSystemId: aws.String(efsID)}
 	backoff := wait.Backoff{
 		Duration: volumeCreateInitialDelay,
@@ -268,7 +268,7 @@ func (efs *EFS) waitForEFSToBeAvailable(efsID string) error {
 		Steps:    volumeCreateBackoffSteps,
 	}
 	err := wait.ExponentialBackoff(backoff, func() (done bool, err error) {
-		response, err := efs.efsClient.DescribeFileSystems(context.TODO(), describeInput)
+		response, err := efs.efsClient.DescribeFileSystems(ctx, describeInput)
 		if err != nil {
 			return false, err
 		}
@@ -285,7 +285,7 @@ func (efs *EFS) waitForEFSToBeAvailable(efsID string) error {
 	return err
 }
 
-func (efs *EFS) getSecurityInfo(instances []string, singleZone string) error {
+func (efs *EFS) getSecurityInfo(ctx context.Context, instances []string, singleZone string) error {
 	var instancePointers []string
 	for i := range instances {
 		instancePointers = append(instancePointers, instances[i])
@@ -297,7 +297,7 @@ func (efs *EFS) getSecurityInfo(instances []string, singleZone string) error {
 	var nextToken *string
 
 	for {
-		response, err := efs.client.DescribeInstances(context.TODO(), request)
+		response, err := efs.client.DescribeInstances(ctx, request)
 		if err != nil {
 			return fmt.Errorf("error listing AWS instances: %v", err)
 		}
@@ -319,7 +319,7 @@ func (efs *EFS) getSecurityInfo(instances []string, singleZone string) error {
 	efs.vpcID = *instance.VpcId
 
 	vpcRequest := &ec2.DescribeVpcsInput{VpcIds: []string{*instance.VpcId}}
-	response, err := efs.client.DescribeVpcs(context.TODO(), vpcRequest)
+	response, err := efs.client.DescribeVpcs(ctx, vpcRequest)
 	if err != nil {
 		return fmt.Errorf("error listing vpc: %v", err)
 	}
