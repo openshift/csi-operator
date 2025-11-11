@@ -204,7 +204,8 @@ func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 
 	if flavour == generator.FlavourHyperShift {
 		volumeTagController := NewEBSVolumeTagsController(cfg.GetControllerName("EBSVolumeTagsController"), c, c.EventRecorder)
-		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, volumeTagController)
+		versionController := operator.NewVersionController(cfg.GetControllerName("EBSVesrsionController"), "aws-ebs-csi-driver-controller", c, c.EventRecorder)
+		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, volumeTagController, versionController)
 		cfg.DeploymentInformers = append(cfg.DeploymentInformers, c.KubeInformers.InformersFor("").Core().V1().PersistentVolumes().Informer())
 		cfg.DeploymentInformers = append(cfg.DeploymentInformers, c.KubeInformers.InformersFor(awsEBSSecretNamespace).Core().V1().Secrets().Informer())
 	}
