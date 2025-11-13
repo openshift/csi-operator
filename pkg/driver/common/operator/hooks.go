@@ -11,14 +11,16 @@ import (
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
 	hypev1beta1api "github.com/openshift/hypershift/api/hypershift/v1beta1"
-	hypev1beta1listers "github.com/openshift/hypershift/client/listers/hypershift/v1beta1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
 
@@ -79,7 +81,7 @@ func withHyperShiftNodeSelector(c *clients.Clients) (dc.DeploymentHookFunc, []fa
 		podSpec := &deployment.Spec.Template.Spec
 		// Add nodeSelector
 		nodeSelector, err := getHostedControlPlaneNodeSelector(
-			c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Lister(),
+			c.ControlPlaneDynamicInformer.ForResource(hostedControlPlaneGVR).Lister(),
 			c.ControlPlaneNamespace)
 		if err != nil {
 			return err
@@ -89,7 +91,7 @@ func withHyperShiftNodeSelector(c *clients.Clients) (dc.DeploymentHookFunc, []fa
 		return nil
 	}
 	informers := []factory.Informer{
-		c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Informer(),
+		c.ControlPlaneDynamicInformer.ForResource(hostedControlPlaneGVR).Informer(),
 	}
 	return hook, informers
 }
@@ -100,7 +102,7 @@ func withHyperShiftCustomTolerations(c *clients.Clients) (dc.DeploymentHookFunc,
 		podSpec := &deployment.Spec.Template.Spec
 		// Add Custom Tolerations
 		customTolerations, err := getHostedControlPlaneTolerations(
-			c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Lister(),
+			c.ControlPlaneDynamicInformer.ForResource(hostedControlPlaneGVR).Lister(),
 			c.ControlPlaneNamespace)
 		if err != nil {
 			return err
@@ -110,13 +112,13 @@ func withHyperShiftCustomTolerations(c *clients.Clients) (dc.DeploymentHookFunc,
 		return nil
 	}
 	informers := []factory.Informer{
-		c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Informer(),
+		c.ControlPlaneDynamicInformer.ForResource(hostedControlPlaneGVR).Informer(),
 	}
 	return hook, informers
 }
 
 // getHostedControlPlaneNodeSelector returns the node selector from the HostedControlPlane CR.
-func getHostedControlPlaneNodeSelector(hostedControlPlaneLister hypev1beta1listers.HostedControlPlaneLister, namespace string) (map[string]string, error) {
+func getHostedControlPlaneNodeSelector(hostedControlPlaneLister cache.GenericLister, namespace string) (map[string]string, error) {
 	hcp, err := getHostedControlPlane(hostedControlPlaneLister, namespace)
 	if err != nil {
 		return nil, err
@@ -129,7 +131,7 @@ func getHostedControlPlaneNodeSelector(hostedControlPlaneLister hypev1beta1liste
 	return nodeSelector, nil
 }
 
-func getHostedControlPlaneTolerations(hostedControlPlaneLister hypev1beta1listers.HostedControlPlaneLister, namespace string) ([]corev1.Toleration, error) {
+func getHostedControlPlaneTolerations(hostedControlPlaneLister cache.GenericLister, namespace string) ([]corev1.Toleration, error) {
 	hcp, err := getHostedControlPlane(hostedControlPlaneLister, namespace)
 	if err != nil {
 		return nil, err
@@ -146,7 +148,7 @@ func getHostedControlPlaneTolerations(hostedControlPlaneLister hypev1beta1lister
 func withHyperShiftLabels(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
 	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
 		labels, err := getHostedControlLabels(
-			c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Lister(),
+			c.ControlPlaneDynamicInformer.ForResource(hostedControlPlaneGVR).Lister(),
 			c.ControlPlaneNamespace)
 		if err != nil {
 			return err
@@ -165,13 +167,13 @@ func withHyperShiftLabels(c *clients.Clients) (dc.DeploymentHookFunc, []factory.
 		return nil
 	}
 	informers := []factory.Informer{
-		c.ControlPlaneHypeInformer.Hypershift().V1beta1().HostedControlPlanes().Informer(),
+		c.ControlPlaneDynamicInformer.ForResource(hostedControlPlaneGVR).Informer(),
 	}
 	return hook, informers
 }
 
 // getHostedControlLabels returns the labels from the HostedControlPlane CR.
-func getHostedControlLabels(hostedControlPlaneLister hypev1beta1listers.HostedControlPlaneLister, namespace string) (map[string]string, error) {
+func getHostedControlLabels(hostedControlPlaneLister cache.GenericLister, namespace string) (map[string]string, error) {
 	hcp, err := getHostedControlPlane(hostedControlPlaneLister, namespace)
 	if err != nil {
 		return nil, err
@@ -186,8 +188,8 @@ func getHostedControlLabels(hostedControlPlaneLister hypev1beta1listers.HostedCo
 }
 
 // getHostedControlPlane returns the HostedControlPlane CR.
-func getHostedControlPlane(hostedControlPlaneLister hypev1beta1listers.HostedControlPlaneLister, namespace string) (*hypev1beta1api.HostedControlPlane, error) {
-	list, err := hostedControlPlaneLister.List(labels.Everything())
+func getHostedControlPlane(hostedControlPlaneLister cache.GenericLister, namespace string) (*hypev1beta1api.HostedControlPlane, error) {
+	list, err := hostedControlPlaneLister.ByNamespace(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +200,14 @@ func getHostedControlPlane(hostedControlPlaneLister hypev1beta1listers.HostedCon
 		return nil, fmt.Errorf("more than one HostedControlPlane found in namespace %s", namespace)
 	}
 
-	hcp := list[0]
+	unstructuredObj := list[0].(*unstructured.Unstructured)
+	if unstructuredObj == nil {
+		return nil, fmt.Errorf("unknown type of HostedControlPlane found in namespace %s", namespace)
+	}
+	hcp := &hypev1beta1api.HostedControlPlane{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, hcp); err != nil {
+		return nil, fmt.Errorf("unable to convert to HostedControlPlane: %w", err)
+	}
 	return hcp, nil
 }
 

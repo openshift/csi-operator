@@ -8,13 +8,11 @@ import (
 	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
 	"github.com/openshift/csi-operator/pkg/clients"
 	"github.com/openshift/csi-operator/pkg/driver/common/operator/test_manifests"
-	hypev1beta1api "github.com/openshift/hypershift/api/hypershift/v1beta1"
-	fakehype "github.com/openshift/hypershift/client/clientset/clientset/fake"
-	hypescheme "github.com/openshift/hypershift/client/clientset/clientset/scheme"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	fakedynamic "k8s.io/client-go/dynamic/fake"
 )
 
 func getTestDeployment() *appsv1.Deployment {
@@ -88,22 +86,14 @@ func Test_WithStandaloneReplicas(t *testing.T) {
 	}
 }
 
-func readHcpOrDie(objBytes []byte) *hypev1beta1api.HostedControlPlane {
-	requiredObj, err := runtime.Decode(hypescheme.Codecs.UniversalDecoder(hypev1beta1api.SchemeGroupVersion), objBytes)
-	if err != nil {
-		panic(err)
-	}
-	return requiredObj.(*hypev1beta1api.HostedControlPlane)
-}
-
-func getTestHostedControlPlane(assetName string) *hypev1beta1api.HostedControlPlane {
-	return readHcpOrDie(test_manifests.ReadFileOrDie(assetName))
+func getTestHostedControlPlane(assetName string) *unstructured.Unstructured {
+	return resourceread.ReadUnstructuredOrDie(test_manifests.ReadFileOrDie(assetName))
 }
 
 func Test_WithHyperShiftNodeSelector(t *testing.T) {
 	tests := []struct {
 		name                 string
-		hcp                  *hypev1beta1api.HostedControlPlane
+		hcp                  *unstructured.Unstructured
 		expectedNodeSelector map[string]string
 	}{
 		{
@@ -125,7 +115,7 @@ func Test_WithHyperShiftNodeSelector(t *testing.T) {
 			cr := clients.GetFakeOperatorCR()
 			c := clients.NewFakeClients("clusters-test", cr)
 			// Arrange: inject HostedControlPlane to the clients
-			c.ControlPlaneHypeClient.(*fakehype.Clientset).Tracker().Add(tt.hcp)
+			c.ControlPlaneDynamicClient.(*fakedynamic.FakeDynamicClient).Tracker().Add(tt.hcp)
 
 			hook, _ := withHyperShiftNodeSelector(c)
 			deployment := getTestDeployment()
@@ -149,7 +139,7 @@ func Test_WithHyperShiftNodeSelector(t *testing.T) {
 func Test_WithHyperShiftLabels(t *testing.T) {
 	tests := []struct {
 		name           string
-		hcp            *hypev1beta1api.HostedControlPlane
+		hcp            *unstructured.Unstructured
 		expectedLabels map[string]string
 	}{
 		{
@@ -179,7 +169,7 @@ func Test_WithHyperShiftLabels(t *testing.T) {
 			cr := clients.GetFakeOperatorCR()
 			c := clients.NewFakeClients("clusters-test", cr)
 			// Arrange: inject HostedControlPlane to the clients
-			c.ControlPlaneHypeClient.(*fakehype.Clientset).Tracker().Add(tt.hcp)
+			c.ControlPlaneDynamicClient.(*fakedynamic.FakeDynamicClient).Tracker().Add(tt.hcp)
 
 			hook, _ := withHyperShiftLabels(c)
 			deployment := getTestDeployment()
