@@ -7,6 +7,7 @@
 # host_network_livenessprobe.yaml: Loaded from common/sidecars/host_network_livenessprobe.yaml
 # host_network_livenessprobe.yaml: Added arguments [--probe-timeout=3s]
 # Applied strategic merge patch host_network_livenessprobe.yaml
+# Applied strategic merge patch common/readOnlyRootFilesystem.yaml
 #
 #
 
@@ -62,6 +63,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /var/lib/kubelet
@@ -110,6 +112,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
@@ -129,6 +132,8 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
