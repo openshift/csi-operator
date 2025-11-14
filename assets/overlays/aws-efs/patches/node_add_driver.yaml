@@ -110,6 +110,8 @@ spec:
             - name: bound-sa-token
               mountPath: /var/run/secrets/openshift/serviceaccount
               readOnly: true
+            - name: log-dir
+              mountPath: /var/log/amazon/efs
           ports:
             - name: healthz
               # Due to hostNetwork, this port is open on all nodes!
@@ -216,6 +218,8 @@ spec:
             secretName: node-aws-efs-cloud-credentials
             optional: true # NODE_ARN is optional, work without it
         - name: aws-auth
+          emptyDir: {}
+        - name: log-dir
           emptyDir: {}
         - name: etc-amazon
           hostPath:
