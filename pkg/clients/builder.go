@@ -12,8 +12,6 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	opclient "github.com/openshift/client-go/operator/clientset/versioned"
 	opinformers "github.com/openshift/client-go/operator/informers/externalversions"
-	hypextclient "github.com/openshift/hypershift/client/clientset/clientset"
-	hypextinformers "github.com/openshift/hypershift/client/informers/externalversions"
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -114,9 +112,6 @@ func (b *Builder) BuildOrDie(ctx context.Context) *Clients {
 			klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
 		}
 		b.client.EventRecorder = events.NewKubeRecorder(guestKubeClient.CoreV1().Events(b.guestNamespace), b.userAgent, controllerRef, clock.RealClock{})
-
-		b.client.ControlPlaneHypeClient = hypextclient.NewForConfigOrDie(controlPlaneRestConfig)
-		b.client.ControlPlaneHypeInformer = hypextinformers.NewFilteredSharedInformerFactory(b.client.ControlPlaneHypeClient, b.resync, b.controllerConfig.OperatorNamespace, nil)
 	}
 	// store guestKubeConfig in case we need it later for running
 	b.guestKubeConfig = guestKubeConfig

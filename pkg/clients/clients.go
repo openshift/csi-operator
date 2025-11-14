@@ -9,8 +9,6 @@ import (
 	cfgv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	opclient "github.com/openshift/client-go/operator/clientset/versioned"
 	opinformers "github.com/openshift/client-go/operator/informers/externalversions"
-	hypextclient "github.com/openshift/hypershift/client/clientset/clientset"
-	hypextinformers "github.com/openshift/hypershift/client/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	apiextclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -53,11 +51,6 @@ type Clients struct {
 	ControlPlaneDynamicClient dynamic.Interface
 	// Informer in HyperShift or standalone control plane. E.g. for HyperShift's HostedControlPlane and Prometheus CRs.
 	ControlPlaneDynamicInformer dynamicinformer.DynamicSharedInformerFactory
-
-	// HyperShift Client for HyperShift control plane
-	ControlPlaneHypeClient hypextclient.Interface
-	// HyperShift Informer in HyperShift control plane
-	ControlPlaneHypeInformer hypextinformers.SharedInformerFactory
 
 	// Kubernetes API client for guest or standalone.
 	KubeClient kubernetes.Interface
@@ -134,9 +127,6 @@ func (c *Clients) Start(ctx context.Context) {
 	}
 	c.ControlPlaneKubeInformers.Start(ctx.Done())
 	c.ControlPlaneDynamicInformer.Start(ctx.Done())
-	if c.ControlPlaneHypeInformer != nil {
-		c.ControlPlaneHypeInformer.Start(ctx.Done())
-	}
 	c.KubeInformers.Start(ctx.Done())
 	c.APIExtInformer.Start(ctx.Done())
 	c.DynamicInformer.Start(ctx.Done())
@@ -154,9 +144,6 @@ func (c *Clients) WaitForCacheSync(ctx context.Context) {
 		c.ControlPlaneKubeInformers.InformersFor(ns).WaitForCacheSync(ctx.Done())
 	}
 	c.ControlPlaneDynamicInformer.WaitForCacheSync(ctx.Done())
-	if c.ControlPlaneHypeInformer != nil {
-		c.ControlPlaneHypeInformer.WaitForCacheSync(ctx.Done())
-	}
 	for ns := range c.KubeInformers.Namespaces() {
 		c.KubeInformers.InformersFor(ns).WaitForCacheSync(ctx.Done())
 	}
