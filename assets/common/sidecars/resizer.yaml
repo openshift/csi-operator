@@ -5,6 +5,8 @@ spec:
     spec:
       containers:
         - name: csi-resizer
+          securityContext:
+            readOnlyRootFilesystem: true
           image: ${RESIZER_IMAGE}
           imagePullPolicy: IfNotPresent
           args:

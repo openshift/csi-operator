@@ -8,6 +8,7 @@ spec:
   template:
     metadata:
       annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: azcopy-log-dir,socket-dir
         openshift.io/required-scc: restricted-v2
       labels:
         openshift.storage.network-policy.dns: allow
@@ -62,6 +63,8 @@ spec:
             - name: bound-sa-token
               mountPath: /var/run/secrets/openshift/serviceaccount
               readOnly: true
+            - mountPath: /tmp
+              name: azcopy-log-dir
           resources:
             requests:
               memory: 50Mi
@@ -71,4 +74,6 @@ spec:
         - name: metrics-serving-cert
           secret:
             secretName: azure-file-csi-driver-controller-metrics-serving-cert
+        - emptydir: {}
+          name: azcopy-log-dir
 

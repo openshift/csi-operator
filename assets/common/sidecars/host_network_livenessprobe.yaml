@@ -4,6 +4,8 @@ spec:
     spec:
       containers:
         - name: csi-liveness-probe
+          securityContext:
+            readOnlyRootFilesystem: true
           image: ${LIVENESS_PROBE_IMAGE}
           imagePullPolicy: IfNotPresent
           terminationMessagePolicy: FallbackToLogsOnError
