@@ -37,6 +37,13 @@ type configDestination struct {
 	kubeClient kubernetes.Interface
 }
 
+type caCertSource string
+
+const (
+	configCACertSource caCertSource = "config"
+	secretCACertSource caCertSource = "secret"
+)
+
 // This ConfigSyncController generates the configuration file needed for the Cinder CSI controller
 // and driver, including optional configuration from the user, and save it to a config map in a
 // well-known location that both services can use
@@ -159,27 +166,39 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 		enableTopology = strconv.FormatBool(enableTopologyFeature)
 	}
 
-	// ...and we watch the clusters-${NAME} namespace (on the control plane cluster)
-	configMapLister = c.controlPlaneInformers.InformersFor(c.controlPlaneNamespace).Core().V1().ConfigMaps().Lister()
+	secretLister := c.controlPlaneInformers.InformersFor(c.controlPlaneNamespace).Core().V1().Secrets().Lister()
 
-	// FIXME(stephenfin): We extract the CA cert from the cloud-provider-config because we know
-	// it will exist here in both a standalone (IPI) deployment and in both clusters in a
-	// Hypershift deployment. However, this is less than ideal: cloud providers and CSI drivers are
-	// now separate things and we should be able to get this information from the credentials
-	// secret, along with our clouds.yaml. Fixing this will requires changes to
-	// cloud-credential-operator and hypershift (because the latter doesn't currently use the
-	// former). Once we have that feature, we should rejig this.
-	cloudProviderConfig := "cloud-provider-config"
-	if c.isHypershift {
-		// unfortunately hypershift uses a different name
-		cloudProviderConfig = "openstack-cloud-config"
-	}
-	caCert, err := getCACert(configMapLister, c.controlPlaneNamespace, cloudProviderConfig)
+	var caCertSource caCertSource
+
+	hasCACert, err := hasCACert(secretLister, c.controlPlaneNamespace, "openstack-cloud-credentials")
 	if err != nil {
 		return err
 	}
 
-	generatedConfig, err := generateConfig(sourceConfig, caCert)
+	if hasCACert {
+		caCertSource = secretCACertSource
+	} else {
+		// TODO(stephenfin): Remove this fallback in 4.22. At that point, the
+		// cloud-credentials-operator will have ensured the root credential has
+		// been updated.
+		configMapLister = c.controlPlaneInformers.InformersFor(c.controlPlaneNamespace).Core().V1().ConfigMaps().Lister()
+		cloudProviderConfig := "cloud-provider-config"
+		if c.isHypershift {
+			// unfortunately hypershift uses a different name
+			cloudProviderConfig = "openstack-cloud-config"
+		}
+
+		hasCACert, err = getCACertLegacy(configMapLister, c.controlPlaneNamespace, cloudProviderConfig)
+		if err != nil {
+			return err
+		}
+
+		if hasCACert {
+			caCertSource = configCACertSource
+		}
+	}
+
+	generatedConfig, err := generateConfig(sourceConfig, caCertSource)
 	if err != nil {
 		return err
 	}
@@ -195,9 +214,6 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 				"enable_topology": enableTopology,
 			},
 		}
-		if caCert != nil {
-			targetConfig.Data["ca-bundle.pem"] = *caCert
-		}
 		_, _, err = resourceapply.ApplyConfigMap(ctx, configDestination.kubeClient.CoreV1(), c.eventRecorder, targetConfig)
 		if err != nil {
 			return err
@@ -206,18 +222,35 @@ func (c *ConfigSyncController) sync(ctx context.Context, syncCtx factory.SyncCon
 	return nil
 }
 
-// getCACert gets the (optional) embedded CA Cert provided in a config map by either the Installer
-// or the hypershift-operator so that we can inject it into our config files
-func getCACert(configMapLister corelisters.ConfigMapLister, ns, name string) (*string, error) {
+// hasCACert determines whether there is a CA Cert provided in the credentials
+// secret by either the cloud-credential-operator or hypershift-operator so
+// that we can inject it into our configuration
+func hasCACert(secretLister corelisters.SecretLister, ns, name string) (bool, error) {
+	cm, err := secretLister.Secrets(ns).Get(name)
+	if err != nil {
+		return false, err
+	}
+	caCert, ok := cm.Data["cacert"]
+	if !ok || len(caCert) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+// getCACertLegacy determines whether there is a CA Cert provided in the cloud
+// provider config map by either the Installer or the hypershift-operator so
+// that we can inject it into our config files. This is the legacy path for the
+// transition period as the CA cert is now provided in the credentials secret
+func getCACertLegacy(configMapLister corelisters.ConfigMapLister, ns, name string) (bool, error) {
 	cm, err := configMapLister.ConfigMaps(ns).Get(name)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	caCert, ok := cm.Data["ca-bundle.pem"]
 	if !ok || len(caCert) == 0 {
-		return nil, nil
+		return false, nil
 	}
-	return &caCert, nil
+	return true, nil
 }
 
 // getSourceConfig extracts any source configuration present in any of the provided for the legacy,
@@ -258,7 +291,7 @@ func getSourceConfig(
 // '[BlockStorage]' section (and only that section) will be used in generation.
 func generateConfig(
 	sourceContent []byte,
-	caCert *string,
+	caCertSource caCertSource,
 ) (string, error) {
 	var cfg *ini.File
 
@@ -295,7 +328,7 @@ func generateConfig(
 	}
 	for _, o := range []struct{ k, v string }{
 		{"use-clouds", "true"},
-		{"clouds-file", "/etc/kubernetes/secret/clouds.yaml"},
+		{"clouds-file", "/etc/openstack/clouds.yaml"},
 		{"cloud", "openstack"},
 	} {
 		_, err = global.NewKey(o.k, o.v)
@@ -304,12 +337,18 @@ func generateConfig(
 		}
 	}
 
-	if caCert != nil {
+	if caCertSource != "" {
 		// We don't have a (non-deprecated) way to inject the CA cert itself into the config
 		// file, so instead we pass a file path. The path itself may look like a magic value but
 		// its where we have configured both the deployment (for controller) and daemonset (for
 		// driver) assets to mount the cert, if present.
-		_, err = global.NewKey("ca-file", "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bundle.pem")
+		var path string
+		if caCertSource == secretCACertSource {
+			path = caFile
+		} else { // legacy path
+			path = legacyCAFile
+		}
+		_, err = global.NewKey("ca-file", path)
 		if err != nil {
 			return "", err
 		}
