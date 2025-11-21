@@ -1,14 +1,15 @@
 package aws_ebs
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"testing"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	configv1 "github.com/openshift/api/config/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
-	"testing"
-	"time"
 )
 
 // TestNewAndUpdatedTags checks that newAndUpdatedTags converts OpenShift AWS resource tags to AWS ec2.Tags correctly
@@ -16,14 +17,14 @@ func TestNewAndUpdatedTags(t *testing.T) {
 	tests := []struct {
 		name         string
 		inputTags    []configv1.AWSResourceTag
-		expectedTags []*ec2.Tag
+		expectedTags []*ec2types.Tag
 	}{
 		{
 			name: "Single tag",
 			inputTags: []configv1.AWSResourceTag{
 				{Key: "key1", Value: "value1"},
 			},
-			expectedTags: []*ec2.Tag{
+			expectedTags: []*ec2types.Tag{
 				{Key: aws.String("key1"), Value: aws.String("value1")},
 			},
 		},
@@ -33,7 +34,7 @@ func TestNewAndUpdatedTags(t *testing.T) {
 				{Key: "key1", Value: "value1"},
 				{Key: "key2", Value: "value2"},
 			},
-			expectedTags: []*ec2.Tag{
+			expectedTags: []*ec2types.Tag{
 				{Key: aws.String("key1"), Value: aws.String("value1")},
 				{Key: aws.String("key2"), Value: aws.String("value2")},
 			},
@@ -41,7 +42,7 @@ func TestNewAndUpdatedTags(t *testing.T) {
 		{
 			name:         "Empty tags",
 			inputTags:    []configv1.AWSResourceTag{},
-			expectedTags: []*ec2.Tag{},
+			expectedTags: []*ec2types.Tag{},
 		},
 	}
 
@@ -131,8 +132,8 @@ func TestVolumesIDsToResourceIDs(t *testing.T) {
 			}
 
 			for i, resourceID := range result {
-				if *resourceID != *tt.expectedResult[i] {
-					t.Errorf("expected resource ID %s, got %s", *tt.expectedResult[i], *resourceID)
+				if resourceID != *tt.expectedResult[i] {
+					t.Errorf("expected resource ID %s, got %s", *tt.expectedResult[i], resourceID)
 				}
 			}
 		})

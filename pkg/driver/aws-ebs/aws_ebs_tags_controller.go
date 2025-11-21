@@ -7,12 +7,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/ini.v1"
 	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"gopkg.in/ini.v1"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,12 +21,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorapi "github.com/openshift/api/operator/v1"
@@ -56,7 +57,7 @@ type EBSVolumeTagsController struct {
 	queue          workqueue.TypedRateLimitingInterface[*pvUpdateQueueItem]
 	queueSet       map[string]struct{}
 	mutex          sync.Mutex
-	awsSession     *session.Session
+	awsConfig      *aws.Config
 	sessionExpTime int64
 }
 
@@ -126,20 +127,20 @@ func (c *EBSVolumeTagsController) Sync(ctx context.Context, syncCtx factory.Sync
 }
 
 // getEC2Client retrieves AWS credentials from the secret and creates an AWS EC2 client using session.Options
-func (c *EBSVolumeTagsController) getEC2Client(ctx context.Context, awsRegion string) (*ec2.EC2, error) {
-	if c.awsSession == nil || c.isSessionExpired() {
-		sess, err := c.createAWSSession(awsRegion)
+func (c *EBSVolumeTagsController) getEC2Client(ctx context.Context, awsRegion string) (*ec2.Client, error) {
+	if c.awsConfig == nil || c.isSessionExpired() {
+		awsConfig, err := c.createAWSSession(ctx, awsRegion)
 		if err != nil {
 			klog.Errorf("Failed to create AWS session: %v", err)
 			return nil, err
 		}
-		c.awsSession = sess
-		return ec2.New(c.awsSession), nil
+		c.awsConfig = awsConfig
+		return ec2.NewFromConfig(*c.awsConfig), nil
 	}
-	return ec2.New(c.awsSession), nil
+	return ec2.NewFromConfig(*c.awsConfig), nil
 }
 
-func (c *EBSVolumeTagsController) createAWSSession(awsRegion string) (*session.Session, error) {
+func (c *EBSVolumeTagsController) createAWSSession(ctx context.Context, awsRegion string) (*aws.Config, error) {
 	secret, err := c.getEBSCloudCredSecret()
 	if err != nil {
 		klog.Errorf("error getting secret: %v", err)
@@ -148,7 +149,7 @@ func (c *EBSVolumeTagsController) createAWSSession(awsRegion string) (*session.S
 
 	credentialsData, credentialsFound := secret.Data["credentials"]
 	if credentialsFound {
-		sess, err := c.createSessionWithCredentials(credentialsData, awsRegion)
+		sess, err := c.createSessionWithCredentials(ctx, credentialsData, awsRegion)
 		if err != nil {
 			klog.Errorf("error creating session: %v", err)
 			return nil, fmt.Errorf("error creating session: %v", err)
@@ -158,7 +159,7 @@ func (c *EBSVolumeTagsController) createAWSSession(awsRegion string) (*session.S
 	return nil, fmt.Errorf("no valid AWS credentials found in secret")
 }
 
-func (c *EBSVolumeTagsController) createSessionWithCredentials(credentialsData []byte, region string) (*session.Session, error) {
+func (c *EBSVolumeTagsController) createSessionWithCredentials(ctx context.Context, credentialsData []byte, region string) (*aws.Config, error) {
 	// Load INI file from credentialsData
 	cfg, err := ini.Load(credentialsData)
 	if err != nil {
@@ -181,34 +182,37 @@ func (c *EBSVolumeTagsController) createSessionWithCredentials(credentialsData [
 		return nil, err
 	}
 
-	// Create base AWS session
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(region),
-	})
+	// Create base AWS config
+	awsConfig, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	if err != nil {
-		klog.Errorf("Error creating base AWS session: %v", err)
-		return nil, fmt.Errorf("error creating AWS session: %v", err)
+		klog.Errorf("Error creating base AWS config: %v", err)
+		return nil, fmt.Errorf("error creating AWS config: %v", err)
 	}
+
+	client := sts.NewFromConfig(awsConfig)
 
 	// Configure WebIdentityRoleProvider
-	provider := stscreds.NewWebIdentityRoleProviderWithOptions(
-		sts.New(sess),
+	provider := stscreds.NewWebIdentityRoleProvider(
+		client,
 		roleARN,
-		"aws-ebs-csi-driver-operator", // Role session name
-		stscreds.FetchTokenPath(tokenFile),
+		stscreds.IdentityTokenFile(tokenFile),
+		func(o *stscreds.WebIdentityRoleOptions) {
+			o.RoleSessionName = "aws-ebs-csi-driver-operator" // Role session name
+		},
 	)
 
-	// Create new session with WebIdentity credentials
-	sess, err = session.NewSession(&aws.Config{
-		Region:      aws.String(region),
-		Credentials: credentials.NewCredentials(provider),
-	})
+	// Create new config with WebIdentity credentials
+	awsConfig, err = config.LoadDefaultConfig(ctx,
+		config.WithRegion(region),
+		config.WithCredentialsProvider(provider),
+	)
+
 	if err != nil {
-		klog.Errorf("Error creating AWS session with Web Identity: %v", err)
-		return nil, fmt.Errorf("error creating AWS session with Web Identity: %v", err)
+		klog.Errorf("Error creating AWS config with Web Identity: %v", err)
+		return nil, fmt.Errorf("error creating AWS config with Web Identity: %v", err)
 	}
 	c.sessionExpTime = tokenExpirationTime
-	return sess, nil
+	return &awsConfig, nil
 }
 
 // awsSessionExpirationTime gives the token expiry time for session.
@@ -305,12 +309,12 @@ func (c *EBSVolumeTagsController) fetchAndPushPvsToQueue(infra *configv1.Infrast
 }
 
 // updateEBSTags updates the tags of an AWS EBS volume with rate limiting
-func (c *EBSVolumeTagsController) updateEBSTags(ec2Client *ec2.EC2, resourceTags []configv1.AWSResourceTag,
+func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client *ec2.Client, resourceTags []configv1.AWSResourceTag,
 	pvs ...*v1.PersistentVolume) error {
 	// Prepare tags
 	tags := newAndUpdatedTags(resourceTags)
 	// Create or update the tags
-	_, err := ec2Client.CreateTags(&ec2.CreateTagsInput{
+	_, err := ec2Client.CreateTags(ctx, &ec2.CreateTagsInput{
 		Resources: pvsToResourceIDs(pvs),
 		Tags:      tags,
 	})
@@ -366,11 +370,11 @@ func (c *EBSVolumeTagsController) handleIndividualTagUpdateFailure(pv *v1.Persis
 }
 
 // newAndUpdatedTags adds and update existing AWS tags with new resource tags from OpenShift infrastructure
-func newAndUpdatedTags(resourceTags []configv1.AWSResourceTag) []*ec2.Tag {
+func newAndUpdatedTags(resourceTags []configv1.AWSResourceTag) []ec2types.Tag {
 	// Convert map back to slice of ec2.Tag
-	var tags []*ec2.Tag
+	var tags []ec2types.Tag
 	for _, tag := range resourceTags {
-		tags = append(tags, &ec2.Tag{
+		tags = append(tags, ec2types.Tag{
 			Key:   aws.String(tag.Key),
 			Value: aws.String(tag.Value),
 		})
@@ -424,10 +428,10 @@ func (c *EBSVolumeTagsController) removeVolumesFromQueueSet(volumeNames ...strin
 }
 
 // pvsToResourceIDs returns list of resource IDs from list of PV
-func pvsToResourceIDs(volumes []*v1.PersistentVolume) []*string {
-	var resourceIDs []*string
+func pvsToResourceIDs(volumes []*v1.PersistentVolume) []string {
+	var resourceIDs []string
 	for _, volume := range volumes {
-		resourceIDs = append(resourceIDs, aws.String(volume.Spec.CSI.VolumeHandle))
+		resourceIDs = append(resourceIDs, volume.Spec.CSI.VolumeHandle)
 	}
 	return resourceIDs
 }

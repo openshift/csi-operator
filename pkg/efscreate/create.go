@@ -10,9 +10,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
@@ -51,15 +51,15 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	region := infra.Status.PlatformStatus.AWS.Region
 	klog.V(2).Infof("Detected AWS region from the OCP cluster: %s", region)
 
-	ec2Session, err := getEC2Client(ctx, useLocalAWSCredentials, kubeClient, region)
+	ec2Config, err := getEC2Config(ctx, useLocalAWSCredentials, kubeClient, region)
 	if err != nil {
 		klog.Errorf("error getting aws client: %v", err)
 		return fmt.Errorf("error getting aws client: %v", err)
 	}
 
-	efs := NewEFSSession(infra, ec2Session)
+	efs := NewEFSSession(infra, ec2Config)
 
-	fsID, err := efs.CreateEFSVolume(nodes, singleZone)
+	fsID, err := efs.CreateEFSVolume(ctx, nodes, singleZone)
 	if err != nil {
 		klog.Errorf("error creating efs volume: %v", err)
 		return err
@@ -191,14 +191,15 @@ func writeCSIManifest(scName string) error {
 	return err
 }
 
-func getEC2Client(
+func getEC2Config(
 	ctx context.Context,
 	useLocalAWSCreds bool,
 	client *kubeclient.Clientset,
-	region string) (*session.Session, error) {
+	region string) (*aws.Config, error) {
 
-	cfg := &aws.Config{
-		Region: aws.String(region),
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	if err != nil {
+		return nil, err
 	}
 
 	if !useLocalAWSCreds {
@@ -217,14 +218,10 @@ func getEC2Client(
 		}
 
 		klog.V(2).Infof("Using AWS credentials from the cluster, got key id: %s", id)
-		cfg.Credentials = credentials.NewStaticCredentials(string(id), string(key), "")
+		cfg.Credentials = aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(string(id), string(key), ""))
 	} else {
 		klog.V(2).Infof("Using AWS credentials from local machine, either env. vars or ~/.aws/config")
 	}
 
-	sess, err := session.NewSession(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return sess, nil
+	return &cfg, nil
 }
