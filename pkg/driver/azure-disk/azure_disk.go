@@ -107,10 +107,8 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				),
 			},
 			Assets: commongenerator.DefaultControllerAssets,
-			AssetPatches: commongenerator.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
-				"controller.yaml", "overlays/azure-disk/patches/controller_add_hypershift_controller.yaml",
-			).WithPatches(generator.StandaloneOnly,
-				"controller.yaml", "overlays/azure-disk/patches/controller_add_standalone_injector.yaml",
+			AssetPatches: commongenerator.DefaultAssetPatches.WithPatches(generator.AllFlavours,
+				"controller.yaml", "overlays/azure-disk/patches/controller_add_injector.yaml",
 			),
 		},
 
