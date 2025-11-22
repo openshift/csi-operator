@@ -134,6 +134,7 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/azure-disk/base/node_driver_role.yaml",
 				"overlays/azure-disk/base/node_driver_binding.yaml",
 			),
+			AssetPatches: commongenerator.DefaultGuestAssetPatches,
 		},
 	}
 }
