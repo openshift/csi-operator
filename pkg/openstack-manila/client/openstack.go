@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -103,7 +102,7 @@ func (o *openStackClient) GetShareTypes() ([]sharetypes.ShareType, error) {
 }
 
 func getCloudFromFile(filename string) (*clientconfig.Cloud, error) {
-	cloudConfig, err := ioutil.ReadFile(filename)
+	cloudConfig, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -121,5 +120,5 @@ func getCloudFromFile(filename string) (*clientconfig.Cloud, error) {
 }
 
 func getCloudProviderCert() ([]byte, error) {
-	return ioutil.ReadFile(util.CertFile)
+	return os.ReadFile(util.CertFile)
 }
