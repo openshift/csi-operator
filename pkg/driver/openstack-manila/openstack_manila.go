@@ -16,7 +16,6 @@ import (
 	"github.com/openshift/csi-operator/pkg/driver/common/operator"
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/openstack-manila/client"
-	"github.com/openshift/csi-operator/pkg/openstack-manila/secret"
 	"github.com/openshift/csi-operator/pkg/openstack-manila/util"
 	"github.com/openshift/csi-operator/pkg/operator/config"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -98,6 +97,7 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/openstack-manila/base/csidriver.yaml",
 				"overlays/openstack-manila/base/volumesnapshotclass.yaml",
 				"overlays/openstack-manila/base/node_nfs.yaml",
+				"overlays/openstack-manila/base/config_secret.yaml",
 			),
 			AssetPatches: commongenerator.DefaultGuestAssetPatches,
 		},
@@ -187,11 +187,7 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 	}
 
 	cfg.PreconditionInformers = []factory.Informer{c.GetCSIDriverInformer().Informer(), c.GetStorageClassInformer().Informer()}
-	secretSyncer, err := createSecretSyncer(c)
-	if err != nil {
-		return nil, err
-	}
-	cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer, secretSyncer, nfsCSIDriverController)
+	cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer, nfsCSIDriverController)
 
 	cfg.ExtraReplacementsFunc = func() []string {
 		pairs := []string{}
@@ -322,19 +318,6 @@ func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroll
 	}
 
 	return hook, informers
-}
-
-func createSecretSyncer(c *clients.Clients) (factory.Controller, error) {
-	secretSyncController := secret.NewSecretSyncController(
-		c.OperatorClient,
-		c.KubeClient,
-		c.ControlPlaneKubeInformers,
-		c.ControlPlaneNamespace,
-		c.GuestNamespace,
-		resyncInterval,
-		c.EventRecorder)
-
-	return secretSyncController, nil
 }
 
 func createConfigMapSyncer(c *clients.Clients) (factory.Controller, error) {
