@@ -99,6 +99,7 @@ func GetOpenStackManilaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/openstack-manila/base/volumesnapshotclass.yaml",
 				"overlays/openstack-manila/base/node_nfs.yaml",
 			),
+			AssetPatches: commongenerator.DefaultGuestAssetPatches,
 		},
 	}
 }

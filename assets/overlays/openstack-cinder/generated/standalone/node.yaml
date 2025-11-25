@@ -7,6 +7,7 @@
 # Applied strategic merge patch host_network_livenessprobe.yaml
 # node_driver_registrar.yaml: Loaded from common/sidecars/node_driver_registrar.yaml
 # Applied strategic merge patch node_driver_registrar.yaml
+# Applied strategic merge patch common/readOnlyRootFilesystem.yaml
 #
 #
 
@@ -76,6 +77,7 @@ spec:
             add:
             - SYS_ADMIN
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /var/lib/kubelet
@@ -111,6 +113,8 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
@@ -150,6 +154,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi

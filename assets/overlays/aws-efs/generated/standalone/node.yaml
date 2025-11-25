@@ -7,6 +7,7 @@
 # host_network_livenessprobe.yaml: Loaded from common/sidecars/host_network_livenessprobe.yaml
 # host_network_livenessprobe.yaml: Added arguments [--probe-timeout=3s]
 # Applied strategic merge patch host_network_livenessprobe.yaml
+# Applied strategic merge patch common/readOnlyRootFilesystem.yaml
 #
 #
 
@@ -65,6 +66,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /var/lib/kubelet
@@ -78,6 +80,8 @@ spec:
           name: efs-utils-config
         - mountPath: /etc/amazon/efs-legacy
           name: efs-utils-config-legacy
+        - mountPath: /etc/amazon
+          name: etc-amazon
         - mountPath: /etc/selinux
           name: etc-selinux
         - mountPath: /sys/fs
@@ -88,6 +92,8 @@ spec:
         - mountPath: /var/run/secrets/openshift/serviceaccount
           name: bound-sa-token
           readOnly: true
+        - mountPath: /var/log/amazon/efs
+          name: log-dir
       - args:
         - --csi-address=/csi/csi.sock
         - --kubelet-registration-path=/var/lib/kubelet/plugins/efs.csi.aws.com/csi.sock
@@ -123,6 +129,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
@@ -142,6 +149,8 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /csi
@@ -240,6 +249,10 @@ spec:
           secretName: node-aws-efs-cloud-credentials
       - emptyDir: {}
         name: aws-auth
+      - emptyDir: {}
+        name: log-dir
+      - emptyDir: {}
+        name: etc-amazon
       - name: bound-sa-token
         projected:
           sources:

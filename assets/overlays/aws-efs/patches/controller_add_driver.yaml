@@ -4,6 +4,7 @@ metadata:
   name: aws-efs-csi-driver-controller
   namespace: ${NAMESPACE}
   annotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: log-dir,socket-dir
     config.openshift.io/inject-proxy: csi-driver
     config.openshift.io/inject-proxy-cabundle: csi-driver
 spec:
@@ -127,6 +128,8 @@ spec:
               readOnly: true
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
+            - name: log-dir
+              mountPath: /var/log/amazon/efs
           resources:
             requests:
               memory: 50Mi
@@ -224,6 +227,8 @@ spec:
                   path: token
                   audience: openshift
         - name: socket-dir
+          emptyDir: {}
+        - name: log-dir
           emptyDir: {}
         - name: metrics-serving-cert
           secret:

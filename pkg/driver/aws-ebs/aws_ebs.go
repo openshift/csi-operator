@@ -120,6 +120,7 @@ func GetAWSEBSGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/aws-ebs/base/storageclass_gp3.yaml",
 				"overlays/aws-ebs/base/volumesnapshotclass.yaml",
 			),
+			AssetPatches: commongenerator.DefaultGuestAssetPatches,
 		},
 	}
 }

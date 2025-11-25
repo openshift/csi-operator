@@ -77,7 +77,7 @@ func GetSambaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"overlays/samba/base/csi-driver-cluster-role.yaml",
 				"overlays/samba/base/csi-driver-cluster-role-binding.yaml",
 			),
-			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
+			AssetPatches: commongenerator.DefaultGuestAssetPatches.WithPatches(generator.StandaloneOnly,
 				// Any role or cluster role bindings should not hardcode service account namespace because this operator is OLM based and can be installed into a custom namespace.
 				"main_provisioner_binding.yaml", "overlays/samba/patches/binding_with_namespace_placeholder_controller.yaml",
 				"lease_leader_election_binding.yaml", "overlays/samba/patches/binding_with_namespace_placeholder_controller.yaml",
