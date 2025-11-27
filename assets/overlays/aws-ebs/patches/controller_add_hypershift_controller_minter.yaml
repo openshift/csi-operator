@@ -6,6 +6,8 @@ spec:
         - name: csi-driver
 
         - name: token-minter
+          securityContext:
+            readOnlyRootFilesystem: true
           args:
           - --service-account-namespace=openshift-cluster-csi-drivers
           - --service-account-name=aws-ebs-csi-driver-controller-sa

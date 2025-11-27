@@ -89,6 +89,8 @@ spec:
           terminationMessagePolicy: FallbackToLogsOnError
         # TODO: fix manila CSI driver not to require NFS driver socket!
         - name: csi-driver-nfs
+          securityContext:
+            readOnlyRootFilesystem: true
           image: ${NFS_DRIVER_IMAGE}
           imagePullPolicy: IfNotPresent
           args:
