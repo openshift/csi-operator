@@ -4,6 +4,8 @@ StorageClass:
   FromExistingClassName: gp2-csi
 SnapshotClass:
   FromName: true
+VolumeAttributesClass:
+  FromFile: volumeattributesclass.yaml
 DriverInfo:
   Name: ebs.csi.aws.com
   SupportedSizeRange:
