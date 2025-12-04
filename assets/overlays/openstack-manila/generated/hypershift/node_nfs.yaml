@@ -42,6 +42,7 @@ spec:
             memory: 50Mi
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /plugin

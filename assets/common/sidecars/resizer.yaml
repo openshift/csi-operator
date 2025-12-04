@@ -29,6 +29,8 @@ spec:
               cpu: 10m
           terminationMessagePolicy: FallbackToLogsOnError
         - name: resizer-kube-rbac-proxy
+          securityContext:
+            readOnlyRootFilesystem: true
           args:
           - --secure-listen-address=0.0.0.0:${EXPOSED_METRICS_PORT}
           - --upstream=http://127.0.0.1:${LOCAL_METRICS_PORT}/
