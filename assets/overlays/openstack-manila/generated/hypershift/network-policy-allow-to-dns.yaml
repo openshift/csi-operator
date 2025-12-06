@@ -1,0 +1,36 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/openstack-manila/base/network-policy-allow-to-dns.yaml
+#
+#
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    capability.openshift.io/name: Storage
+    include.release.openshift.io/hypershift: "true"
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  name: allow-to-dns
+  namespace: ${NAMESPACE}
+spec:
+  egress:
+  - ports:
+    - port: dns-tcp
+      protocol: TCP
+    - port: dns
+      protocol: UDP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+      podSelector:
+        matchLabels:
+          dns.operator.openshift.io/daemonset-dns: default
+  podSelector:
+    matchLabels:
+      openshift.storage.network-policy.dns: allow
+  policyTypes:
+  - Egress
