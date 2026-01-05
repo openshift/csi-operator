@@ -194,7 +194,7 @@ func (gen *AssetGenerator) generateDriverMetricsService(serviceYAML, serviceMoni
 	return nil
 }
 
-func (gen *AssetGenerator) generateSidecarMetricsServices(serviceYAML, serviceMonitorYAML *YAMLWithHistory, localPortStart, exposedPortStart int, sidecars []SidecarConfig, servicePerfix string) error {
+func (gen *AssetGenerator) generateSidecarMetricsServices(serviceYAML, serviceMonitorYAML *YAMLWithHistory, localPortStart, exposedPortStart int, sidecars []SidecarConfig, servicePrefix string) error {
 	localPortIndex := localPortStart
 	exposedPortIndex := exposedPortStart
 
@@ -207,7 +207,7 @@ func (gen *AssetGenerator) generateSidecarMetricsServices(serviceYAML, serviceMo
 			"${LOCAL_METRICS_PORT}", strconv.Itoa(localPortIndex),
 			"${EXPOSED_METRICS_PORT}", strconv.Itoa(exposedPortIndex),
 			"${PORT_NAME}", sidecar.MetricPortName,
-			"${SERVICE_PREFIX}", servicePerfix,
+			"${SERVICE_PREFIX}", servicePrefix,
 		}
 		localPortIndex++
 		exposedPortIndex++
