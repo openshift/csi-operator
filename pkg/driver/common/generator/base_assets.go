@@ -20,12 +20,6 @@ var (
 		"base/cabundle_cm.yaml",
 		"base/controller_sa.yaml",
 		"base/controller_pdb.yaml",
-	).WithAssets(generator.StandaloneOnly,
-		// TODO: figure out metrics in hypershift - it's probably a different Prometheus there
-		"base/rbac/kube_rbac_proxy_role.yaml",
-		"base/rbac/kube_rbac_proxy_binding.yaml",
-		"base/rbac/prometheus_role.yaml",
-		"base/rbac/prometheus_binding.yaml",
 	)
 	// DefaultNodeAssets contains assets that most CSI drivers need to run in the guest cluster (or in standalone OCP).
 	DefaultNodeAssets = generator.NewAssets(generator.AllFlavours,
@@ -35,6 +29,11 @@ var (
 		// The controller Deployment runs leader election in the GUEST cluster
 		"base/rbac/lease_leader_election_role.yaml",
 		"base/rbac/lease_leader_election_binding.yaml",
+		// Prometheus metrics should be available in the GUEST cluster
+		"base/rbac/kube_rbac_proxy_role.yaml",
+		"base/rbac/kube_rbac_proxy_binding.yaml",
+		"base/rbac/prometheus_role.yaml",
+		"base/rbac/prometheus_binding.yaml",
 	)
 
 	// DefaultAssetPatches contains patches that most CSI drivers need applied to their control plane assets. It adds
