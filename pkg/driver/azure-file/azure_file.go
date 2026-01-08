@@ -176,7 +176,11 @@ func GetAzureFileOperatorControllerConfig(ctx context.Context, flavour generator
 	if flavour == generator.FlavourHyperShift {
 		azureFileSecretProviderClass := strings.TrimSpace(os.Getenv("ARO_HCP_SECRET_PROVIDER_CLASS_FOR_FILE"))
 		if azureFileSecretProviderClass != "" {
+			// ARO HCP: use Secret Provider Class for managed identities
 			cfg.DeploymentHooks = append(cfg.DeploymentHooks, withAROCSIVolume(azureFileSecretProviderClass))
+		} else {
+			// Self-managed Azure: use token-minter for workload identity
+			cfg.DeploymentHooks = append(cfg.DeploymentHooks, operator.WithTokenMinter("azure-file-csi-driver-controller-sa"))
 		}
 	}
 

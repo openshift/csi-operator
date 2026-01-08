@@ -211,7 +211,11 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 	if flavour == generator.FlavourHyperShift {
 		azureDiskSecretProviderClass := strings.TrimSpace(os.Getenv("ARO_HCP_SECRET_PROVIDER_CLASS_FOR_DISK"))
 		if azureDiskSecretProviderClass != "" {
+			// ARO HCP: use Secret Provider Class for managed identities
 			cfg.DeploymentHooks = append(cfg.DeploymentHooks, withAROCSIVolume(azureDiskSecretProviderClass))
+		} else {
+			// Self-managed Azure: use token-minter for workload identity
+			cfg.DeploymentHooks = append(cfg.DeploymentHooks, operator.WithTokenMinter("azure-disk-csi-driver-controller-sa"))
 		}
 	}
 

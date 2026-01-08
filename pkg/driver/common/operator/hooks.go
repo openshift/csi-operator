@@ -16,6 +16,7 @@ import (
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -260,4 +261,57 @@ func withHyperShiftRunAsUser(c *clients.Clients) (dc.DeploymentHookFunc, []facto
 		return nil
 	}
 	return hook, nil
+}
+
+// WithTokenMinter returns a Deployment hook that adds a token-minter sidecar container for HyperShift.
+// The token-minter creates guest cluster service account tokens for use in the management cluster.
+// Note: The bound-sa-token and hosted-kubeconfig volumes are added by the HyperShift patch files,
+// so this hook only adds the container that uses them.
+// If HYPERSHIFT_IMAGE environment variable is not set, the hook does nothing (allows conditional behavior).
+func WithTokenMinter(serviceAccountName string) dc.DeploymentHookFunc {
+	return func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		hyperShiftImage := os.Getenv("HYPERSHIFT_IMAGE")
+		if hyperShiftImage == "" {
+			// HYPERSHIFT_IMAGE not set, skip adding token-minter
+			return nil
+		}
+
+		tokenMinter := corev1.Container{
+			Name:  "token-minter",
+			Image: hyperShiftImage,
+			Command: []string{
+				"/usr/bin/control-plane-operator",
+				"token-minter",
+			},
+			Args: []string{
+				"--service-account-namespace=openshift-cluster-csi-drivers",
+				"--service-account-name=" + serviceAccountName,
+				"--token-audience=openshift",
+				"--token-file=/var/run/secrets/openshift/serviceaccount/token",
+				"--kubeconfig=/etc/hosted-kubernetes/kubeconfig",
+			},
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("10Mi"),
+				},
+			},
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "bound-sa-token",
+					MountPath: "/var/run/secrets/openshift/serviceaccount",
+				},
+				{
+					Name:      "hosted-kubeconfig",
+					MountPath: "/etc/hosted-kubernetes",
+					ReadOnly:  true,
+				},
+			},
+		}
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, tokenMinter)
+
+		return nil
+	}
 }
