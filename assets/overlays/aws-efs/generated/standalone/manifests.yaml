@@ -5,16 +5,14 @@ controllerStaticAssetNames:
 - controller_privileged_binding.yaml
 - controller_sa.yaml
 - credentials.yaml
-- kube_rbac_proxy_binding.yaml
-- kube_rbac_proxy_role.yaml
 - privileged_role.yaml
-- prometheus_binding.yaml
-- prometheus_role.yaml
 - service.yaml
 - servicemonitor.yaml
 guestStaticAssetNames:
 - credentials-node.yaml
 - csidriver.yaml
+- kube_rbac_proxy_binding.yaml
+- kube_rbac_proxy_role.yaml
 - lease_leader_election_binding.yaml
 - lease_leader_election_role.yaml
 - main_provisioner_binding.yaml
@@ -22,3 +20,5 @@ guestStaticAssetNames:
 - node_privileged_binding.yaml
 - node_sa.yaml
 - privileged_role.yaml
+- prometheus_binding.yaml
+- prometheus_role.yaml
