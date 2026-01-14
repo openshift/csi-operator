@@ -82,6 +82,9 @@ spec:
           readOnlyRootFilesystem: true
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
+        - mountPath: /etc/openstack
+          name: cloud-credentials
+          readOnly: true
         - mountPath: /var/lib/kubelet/plugins/manila.csi.openstack.org
           name: plugin-dir
         - mountPath: /var/lib/kubelet/plugins/csi-nfsplugin
@@ -189,6 +192,12 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: manila-csi-driver-node-metrics-serving-cert
+      - name: cloud-credentials
+        secret:
+          items:
+          - key: clouds.yaml
+            path: clouds.yaml
+          secretName: manila-cloud-credentials
       - hostPath:
           path: /var/lib/kubelet/plugins/manila.csi.openstack.org
           type: DirectoryOrCreate
