@@ -3,7 +3,7 @@ WORKDIR /go/src/github.com/openshift/csi-operator
 COPY . .
 RUN make GO_BUILD_PACKAGES=./cmd/openstack-manila-csi-driver-operator
 
-FROM registry.ci.openshift.org/ocp/4.22:base-rhel9
+FROM registry.ci.openshift.org/ocp/4.22:base-rhel9-minimal
 COPY --from=builder /go/src/github.com/openshift/csi-operator/bin/openstack-manila-csi-driver-operator /usr/bin/
 ENTRYPOINT ["/usr/bin/openstack-manila-csi-driver-operator"]
 LABEL io.k8s.display-name="OpenShift OpenStack Manila CSI Driver Operator" \
