@@ -3,7 +3,7 @@ WORKDIR /go/src/github.com/openshift/csi-operator
 COPY . .
 RUN make GO_BUILD_PACKAGES=./cmd/aws-efs-csi-driver-operator
 
-FROM registry.ci.openshift.org/ocp/4.22:base-rhel9
+FROM registry.ci.openshift.org/ocp/4.22:base-rhel9-minimal
 COPY --from=builder /go/src/github.com/openshift/csi-operator/bin/aws-efs-csi-driver-operator /usr/bin/
 ENTRYPOINT ["/usr/bin/aws-efs-csi-driver-operator"]
 LABEL io.k8s.display-name="OpenShift AWS EFS CSI Driver Operator" \
