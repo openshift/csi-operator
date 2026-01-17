@@ -4,7 +4,7 @@ COPY . .
 RUN make GO_BUILD_PACKAGES=./cmd/azure-disk-csi-driver-operator
 
 
-FROM registry.ci.openshift.org/ocp/4.22:base-rhel9
+FROM registry.ci.openshift.org/ocp/4.22:base-rhel9-minimal
 COPY --from=builder /go/src/github.com/openshift/csi-operator/bin/azure-disk-csi-driver-operator /usr/bin/
 ENTRYPOINT ["/usr/bin/azure-disk-csi-driver-operator"]
 LABEL io.k8s.display-name="OpenShift Azure Disk CSI Driver Operator" \
