@@ -15,6 +15,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
+	"github.com/openshift/library-go/pkg/operator/hypershift/deploymentversion"
 )
 
 const (
@@ -121,6 +122,18 @@ func GetOpenStackCinderOperatorControllerConfig(ctx context.Context, flavour gen
 		return nil, err
 	}
 	cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, configMapSyncer)
+
+	if flavour == generator.FlavourHyperShift {
+		versionController := deploymentversioncontroller.NewDeploymentVersionController(
+			cfg.GetControllerName("DeploymentVersionController"),
+			c.ControlPlaneNamespace,
+			"openstack-cinder-csi-driver-controller",
+			c.ControlPlaneKubeInformers.InformersFor(c.ControlPlaneNamespace).Apps().V1().Deployments(),
+			c.OperatorClient,
+			c.ControlPlaneKubeClient,
+			c.EventRecorder)
+		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, versionController)
+	}
 
 	return cfg, nil
 }

@@ -45,6 +45,7 @@ var (
 		"controller.yaml", "common/hypershift/controller_add_affinity_tolerations.yaml",
 		"controller.yaml", "common/hypershift/controller_add_kubeconfig_volume.yaml.patch",
 		"controller.yaml", "common/hypershift/controller_add_hypershift_managed_by_label.yaml",
+		"controller.yaml", "common/hypershift/controller_add_hypershift_desired_version_annotation.yaml",
 	).WithPatches(generator.AllFlavours,
 		"controller.yaml", "common/readOnlyRootFilesystem.yaml",
 	)

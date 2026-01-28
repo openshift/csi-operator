@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
+	"github.com/openshift/library-go/pkg/operator/hypershift/deploymentversion"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
@@ -217,6 +218,15 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 			// Self-managed Azure: use token-minter for workload identity
 			cfg.DeploymentHooks = append(cfg.DeploymentHooks, operator.WithTokenMinter("azure-disk-csi-driver-controller-sa"))
 		}
+		versionController := deploymentversioncontroller.NewDeploymentVersionController(
+			cfg.GetControllerName("DeploymentVersionController"),
+			c.ControlPlaneNamespace,
+			"azure-disk-csi-driver-controller",
+			c.ControlPlaneKubeInformers.InformersFor(c.ControlPlaneNamespace).Apps().V1().Deployments(),
+			c.OperatorClient,
+			c.ControlPlaneKubeClient,
+			c.EventRecorder)
+		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, versionController)
 	}
 
 	// add extra replacement for stuff

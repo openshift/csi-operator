@@ -25,6 +25,7 @@
 # Applied strategic merge patch common/hypershift/controller_add_affinity_tolerations.yaml
 # Applied JSON patch common/hypershift/controller_add_kubeconfig_volume.yaml.patch
 # Applied strategic merge patch common/hypershift/controller_add_hypershift_managed_by_label.yaml
+# Applied strategic merge patch common/hypershift/controller_add_hypershift_desired_version_annotation.yaml
 # Applied strategic merge patch common/readOnlyRootFilesystem.yaml
 # Applied strategic merge patch overlays/aws-ebs/patches/controller_add_hypershift_controller_minter.yaml
 #
@@ -36,6 +37,7 @@ metadata:
   annotations:
     config.openshift.io/inject-proxy: csi-driver
     config.openshift.io/inject-proxy-cabundle: csi-driver
+    release.openshift.io/desired-version: ${RELEASE_VERSION}
   labels:
     hypershift.openshift.io/managed-by: cluster-storage-operator
   name: aws-ebs-csi-driver-controller
