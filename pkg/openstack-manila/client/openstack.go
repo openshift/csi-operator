@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -58,7 +59,7 @@ func (o *openStackClient) GetShareTypes() ([]sharetypes.ShareType, error) {
 	provider.UserAgent = ua
 
 	cert, err := getCloudProviderCert()
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to get cloud provider CA certificate: %w", err)
 	}
 
@@ -120,5 +121,11 @@ func getCloudFromFile(filename string) (*clientconfig.Cloud, error) {
 }
 
 func getCloudProviderCert() ([]byte, error) {
-	return os.ReadFile(util.CertFile)
+	data, err := os.ReadFile(util.CertFile)
+	if err == nil || !errors.Is(err, os.ErrNotExist) {
+		return data, err
+	}
+
+	// legacy path; remove in 4.22
+	return os.ReadFile(util.LegacyCertFile)
 }
