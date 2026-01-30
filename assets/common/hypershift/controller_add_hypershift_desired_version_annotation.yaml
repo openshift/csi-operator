@@ -1,0 +1,3 @@
+metadata:
+  annotations:
+    release.openshift.io/desired-version: ${RELEASE_VERSION}

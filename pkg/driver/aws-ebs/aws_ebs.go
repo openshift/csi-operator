@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
+	"github.com/openshift/library-go/pkg/operator/hypershift/deploymentversion"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -217,7 +218,15 @@ func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 
 	if flavour == generator.FlavourHyperShift {
 		volumeTagController := NewEBSVolumeTagsController(cfg.GetControllerName("EBSVolumeTagsController"), c, c.EventRecorder)
-		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, volumeTagController)
+		versionController := deploymentversioncontroller.NewDeploymentVersionController(
+			cfg.GetControllerName("DeploymentVersionController"),
+			c.ControlPlaneNamespace,
+			"aws-ebs-csi-driver-controller",
+			c.ControlPlaneKubeInformers.InformersFor(c.ControlPlaneNamespace).Apps().V1().Deployments(),
+			c.OperatorClient,
+			c.ControlPlaneKubeClient,
+			c.EventRecorder)
+		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, volumeTagController, versionController)
 		cfg.DeploymentInformers = append(cfg.DeploymentInformers, c.KubeInformers.InformersFor("").Core().V1().PersistentVolumes().Informer())
 		cfg.DeploymentInformers = append(cfg.DeploymentInformers, c.KubeInformers.InformersFor(awsEBSSecretNamespace).Core().V1().Secrets().Informer())
 	}

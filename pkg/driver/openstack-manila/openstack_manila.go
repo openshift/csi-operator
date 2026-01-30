@@ -24,6 +24,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/hypershift/deploymentversion"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -156,6 +157,18 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 	configMapSyncer, err := createConfigMapSyncer(c)
 	if err != nil {
 		return nil, err
+	}
+
+	if flavour == generator.FlavourHyperShift {
+		versionController := deploymentversioncontroller.NewDeploymentVersionController(
+			cfg.GetControllerName("DeploymentVersionController"),
+			c.ControlPlaneNamespace,
+			"openstack-manila-csi-controllerplugin",
+			c.ControlPlaneKubeInformers.InformersFor(c.ControlPlaneNamespace).Apps().V1().Deployments(),
+			c.OperatorClient,
+			c.ControlPlaneKubeClient,
+			c.EventRecorder)
+		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, versionController)
 	}
 
 	cfg.Precondition = func() (bool, error) {
