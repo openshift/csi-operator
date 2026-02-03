@@ -176,9 +176,6 @@ func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.Cl
 		withCABundleDeploymentHook,
 	)
 
-	if featureGates.Enabled(configv1.FeatureGateName("VolumeAttributesClass")) {
-		cfg.AddDeploymentHookBuilders(c, withVolumeAttributesClassHook)
-	}
 	if featureGates.Enabled(configv1.FeatureGateName("MutableCSINodeAllocatableCount")) {
 		cfg.AddDeploymentHookBuilders(c, withMutableCSINodeAllocatableCount)
 	}
@@ -500,21 +497,6 @@ func withKMSKeyHook(c *clients.Clients) csistorageclasscontroller.StorageClassHo
 		return nil
 	}
 	return hook
-}
-
-func withVolumeAttributesClassHook(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
-	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
-		newArg := "--feature-gates=VolumeAttributesClass=true"
-		for i := range deployment.Spec.Template.Spec.Containers {
-			container := &deployment.Spec.Template.Spec.Containers[i]
-			if container.Name == "csi-provisioner" || container.Name == "csi-resizer" {
-				container.Args = append(container.Args, newArg)
-			}
-		}
-
-		return nil
-	}
-	return hook, nil
 }
 
 // withMutableCSINodeAllocatableCount enables the MutableCSINodeAllocatableCount feature gate in the external attacher
