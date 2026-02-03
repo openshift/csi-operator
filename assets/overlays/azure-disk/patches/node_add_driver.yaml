@@ -21,8 +21,8 @@ spec:
             - --nodeid=$(KUBE_NODE_NAME)
             - --metrics-address=localhost:${DRIVER_METRICS_PORT}
             # Use credentials provided by the azure-inject-credentials container
-            - --cloud-config-secret-name=""
-            - --cloud-config-secret-namespace=""
+            - --cloud-config-secret-name=
+            - --cloud-config-secret-namespace=
             # Disable the remove-not-ready-taint, as it is not implemented in ocp
             # https://github.com/kubernetes-sigs/azuredisk-csi-driver/pull/2309
             - --remove-not-ready-taint=false

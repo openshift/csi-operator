@@ -25,8 +25,8 @@ spec:
             - --metrics-address=localhost:${DRIVER_METRICS_PORT}
             - --v=${LOG_LEVEL}
             # Use credentials provided by the azure-inject-credentials container
-            - --cloud-config-secret-name=""
-            - --cloud-config-secret-namespace=""
+            - --cloud-config-secret-name=
+            - --cloud-config-secret-namespace=
           env:
             - name: AZURE_CREDENTIAL_FILE
               value: "/etc/kubernetes/cloud.conf"

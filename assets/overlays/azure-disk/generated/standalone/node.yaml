@@ -40,8 +40,8 @@ spec:
         - --v=${LOG_LEVEL}
         - --nodeid=$(KUBE_NODE_NAME)
         - --metrics-address=localhost:8206
-        - --cloud-config-secret-name=""
-        - --cloud-config-secret-namespace=""
+        - --cloud-config-secret-name=
+        - --cloud-config-secret-namespace=
         - --remove-not-ready-taint=false
         env:
         - name: AZURE_CREDENTIAL_FILE
