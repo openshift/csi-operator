@@ -42,3 +42,4 @@ spec:
   selector:
     matchLabels:
       app: smb-csi-driver-controller-metrics
+  serviceDiscoveryRole: EndpointSlice

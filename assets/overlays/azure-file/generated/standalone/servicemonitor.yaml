@@ -60,3 +60,4 @@ spec:
   selector:
     matchLabels:
       app: azure-file-csi-driver-controller-metrics
+  serviceDiscoveryRole: EndpointSlice
