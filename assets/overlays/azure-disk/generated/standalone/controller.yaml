@@ -69,8 +69,8 @@ spec:
         - --logtostderr
         - --metrics-address=localhost:8201
         - --v=${LOG_LEVEL}
-        - --cloud-config-secret-name=""
-        - --cloud-config-secret-namespace=""
+        - --cloud-config-secret-name=
+        - --cloud-config-secret-namespace=
         env:
         - name: AZURE_CREDENTIAL_FILE
           value: /etc/kubernetes/cloud.conf
