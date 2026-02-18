@@ -8,7 +8,7 @@ spec:
   template:
     metadata:
       annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: "cacert,config-cinderplugin,secret-cinderplugin,socket-dir"
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: "config-cinderplugin,cloud-credentials,legacy-cacert,socket-dir"
         openshift.io/required-scc: restricted-v2
       labels:
         openshift.storage.network-policy.all-egress: allow
@@ -71,43 +71,50 @@ spec:
             periodSeconds: 30
             failureThreshold: 5
           volumeMounts:
-            - name: cacert
-              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+            - name: socket-dir
+              mountPath: /csi
+            # credentials and configuration
             - name: config-cinderplugin
               mountPath: /etc/kubernetes/config
               readOnly: true
-            - name: secret-cinderplugin
-              mountPath: /etc/kubernetes/secret
+            - name: cloud-credentials
+              mountPath: /etc/openstack
               readOnly: true
-            - name: socket-dir
-              mountPath: /csi
+            # TODO(stephenfin): Remove in 4.22
+            - name: legacy-cacert
+              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+              readOnly: true
           resources:
             requests:
               memory: 50Mi
               cpu: 10m
           terminationMessagePolicy: FallbackToLogsOnError
       volumes:
-        - name: secret-cinderplugin
-          secret:
-            secretName: openstack-cloud-credentials
-            items:
-              - key: clouds.yaml
-                path: clouds.yaml
+        - name: cloud-credentials
+          projected:
+            sources:
+              - secret:
+                  name: openstack-cloud-credentials
+                  items:
+                    - key: cacert
+                      path: ca.crt
+                  optional: true
+              - secret:
+                  name: openstack-cloud-credentials
+                  items:
+                    - key: clouds.yaml
+                      path: clouds.yaml
         - name: config-cinderplugin
           configMap:
             name: cloud-conf
             items:
               - key: cloud.conf
                 path: cloud.conf
-        - name: cacert
-          # If present, extract ca-bundle.pem to
-          # /etc/kubernetes/static-pod-resources/configmaps/cloud-config
-          # Let the pod start when the ConfigMap does not exist or the certificate
-          # is not preset there. The certificate file will be created once the
-          # ConfigMap is created / the certificate is added to it.
+        # TODO(stephenfin): Remove in 4.22
+        - name: legacy-cacert
           configMap:
             name: cloud-conf
             items:
-            - key: ca-bundle.pem
-              path: ca-bundle.pem
+              - key: ca-bundle.pem
+                path: ca-bundle.pem
             optional: true

@@ -35,9 +35,10 @@ type SecretSyncController struct {
 const (
 	// Name of key with clouds.yaml in Secret provided by cloud-credentials-operator.
 	cloudSecretKey = "clouds.yaml"
-	// Name of OpenStack in clouds.yaml
-	// Canonical path for custom ca certificates
-	cacertPath = "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bundle.pem"
+	// Path for custom CA certificates when provided by cloud-credentials-operator.
+	defaultCACertPath = "/etc/openstack/ca.crt"
+	// Path for custom CA certificates when provided by Installer (legacy path).
+	legacyCACertPath = "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bundle.pem"
 )
 
 func NewSecretSyncController(
@@ -115,11 +116,29 @@ func (c *SecretSyncController) translateSecret(cloudSecret *v1.Secret) (*v1.Secr
 
 	data := cloudToConf(cloud)
 
-	// In the hypershift secret, the clouds.yaml field might not have the cacert defined. The content of the certificate
-	// is defined in the ca-bundle.pem field instead.
-	_, ok = cloudSecret.Data["ca-bundle.pem"]
-	if ok {
-		data["os-certAuthorityPath"] = []byte(cacertPath)
+	// Determine where our CA cert is stored.
+	// TODO(stephenfin): Remove most of this in 4.22
+	var caCertPath string
+	if _, ok := cloudSecret.Data["cacert"]; ok {
+		// Option A: We have the CA cert in our credentials under the 'cacert'
+		// key which indicates a recent (>= 4.19) version of
+		// cluster-credential-operator (CCO) or hypershift
+		caCertPath = defaultCACertPath
+	} else if _, ok = cloudSecret.Data["ca-bundle.pem"]; ok {
+		// Option B: We have the CA cert in our credentials but under the
+		// 'ca-bundle.pem' key, which indicates an older (< 4.19) version of
+		// hypershift
+		caCertPath = legacyCACertPath
+	} else if cloud.CACertFile != "" {
+		// Option C: We have a non-empty 'cafile' field in our clouds.yaml.
+		// This means our root credential secret has this defined yet
+		// cloud-credential-operator (CCO) didn't populate the 'cacert' key of
+		// the secret. This indicates an older (< 4.19) version of CCO.
+		caCertPath = legacyCACertPath
+	}
+
+	if caCertPath != "" {
+		data["os-certAuthorityPath"] = []byte(caCertPath)
 	}
 
 	secret := v1.Secret{
@@ -182,10 +201,8 @@ func cloudToConf(cloud clientconfig.Cloud) map[string][]byte {
 		data["os-userDomainName"] = []byte(cloud.AuthInfo.UserDomainName)
 		data["os-domainName"] = []byte(cloud.AuthInfo.UserDomainName)
 	}
-	if cloud.CACertFile != "" {
-		// Replace the original cert authority path from clouds.yaml with the canonical one
-		data["os-certAuthorityPath"] = []byte(cacertPath)
-	}
+
+	// We don't set os-certAuthorityPath here as it's handled separately.
 
 	return data
 }

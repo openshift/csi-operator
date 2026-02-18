@@ -80,7 +80,9 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /plugin
-            - name: cacert
+            - name: cloud-credentials
+              mountPath: /etc/openstack
+            - name: legacy-cacert
               mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
           resources:
             requests:
@@ -113,12 +115,17 @@ spec:
       volumes:
         - name: socket-dir
           emptyDir: {}
-        - name: cacert
-          # If present, extract ca-bundle.pem to
-          # /etc/kubernetes/static-pod-resources/configmaps/cloud-config
-          # Let the pod start when the ConfigMap does not exist or the certificate
-          # is not preset there. The certificate file will be created once the
-          # ConfigMap is created / the cerificate is added to it.
+        - name: cloud-credentials
+          secret:
+            secretName: manila-cloud-credentials
+            # TODO(stephenfin): We should also mount the clouds.yaml file
+            # here and start consuming that rather than converting it into
+            # the cloud.conf format
+            items:
+              - key: cacert
+                path: ca.crt
+        - name: legacy-cacert
+          # TODO(stephenfin): Remove in 4.22
           configMap:
             name: cloud-provider-config
             items:

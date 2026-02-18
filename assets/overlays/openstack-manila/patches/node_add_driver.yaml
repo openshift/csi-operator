@@ -63,12 +63,15 @@ spec:
               mountPath: /var/lib/kubelet/plugins/manila.csi.openstack.org
             - name: fwd-plugin-dir
               mountPath: /var/lib/kubelet/plugins/csi-nfsplugin
-            - name: cacert
-              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
             - name: etc-selinux
               mountPath: /etc/selinux
             - name: sys-fs
               mountPath: /sys/fs
+            # credentials and configuration
+            - name: cloud-credentials
+              mountPath: /etc/openstack
+            - name: legacy-cacert
+              mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
           ports:
             - name: healthz
               containerPort: 10305
@@ -100,17 +103,6 @@ spec:
           hostPath:
             path: /var/lib/kubelet/plugins/csi-nfsplugin
             type: DirectoryOrCreate
-        - name: cacert
-          # Extract ca-bundle.pem to /etc/kubernetes/static-pod-resources/configmaps/cloud-config if present.
-          # Let the pod start when the ConfigMap does not exist or the certificate
-          # is not preset there. The certificate file will be created once the
-          # ConfigMap is created / the cerificate is added to it.
-          configMap:
-            name: cloud-provider-config
-            items:
-            - key: ca-bundle.pem
-              path: ca-bundle.pem
-            optional: true
         - name: etc-selinux
           hostPath:
             path: /etc/selinux
@@ -119,3 +111,20 @@ spec:
           hostPath:
             path: /sys/fs
             type: Directory
+        - name: cloud-credentials
+          secret:
+            secretName: manila-cloud-credentials
+            # TODO(stephenfin): We should also mount the clouds.yaml file
+            # here and start consuming that rather than converting it into
+            # the cloud.conf format
+            items:
+              - key: cacert
+                path: ca.crt
+        # TODO(stephenfin): Remove in 4.22
+        - name: legacy-cacert
+          configMap:
+            name: cloud-provider-config
+            items:
+            - key: ca-bundle.pem
+              path: ca-bundle.pem
+            optional: true
