@@ -5,6 +5,7 @@ controllerStaticAssetNames:
 - controller_sa.yaml
 - service.yaml
 guestStaticAssetNames:
+- config_secret.yaml
 - csidriver.yaml
 - kube_rbac_proxy_binding.yaml
 - kube_rbac_proxy_role.yaml

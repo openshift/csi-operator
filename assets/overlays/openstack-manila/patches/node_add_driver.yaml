@@ -59,6 +59,9 @@ spec:
             - name: MANILA_SHARE_PROTO
               value: NFS
           volumeMounts:
+            - name: cloud-credentials
+              mountPath: /etc/openstack
+              readOnly: true
             - name: plugin-dir
               mountPath: /var/lib/kubelet/plugins/manila.csi.openstack.org
             - name: fwd-plugin-dir
@@ -88,6 +91,12 @@ spec:
               memory: 50Mi
           terminationMessagePolicy: FallbackToLogsOnError
       volumes:
+        - name: cloud-credentials
+          secret:
+            secretName: manila-cloud-credentials
+            items:
+              - key: clouds.yaml
+                path: clouds.yaml
         - name: registration-dir
           hostPath:
             path: /var/lib/kubelet/plugins_registry/
