@@ -2,10 +2,11 @@ spec:
   template:
     spec:
       volumes:
-      - configMap:
-          items:
-          - key: ca-bundle.pem
-            path: ca-bundle.pem
-          name: openstack-cloud-config
-          optional: true
-        name: cacert
+        # TODO(stephenfin): Remove in 4.22
+        - name: legacy-cacert
+          configMap:
+            name: openstack-cloud-config
+            items:
+            - key: ca-bundle.pem
+              path: ca-bundle.pem
+            optional: true

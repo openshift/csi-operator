@@ -86,12 +86,14 @@ spec:
           name: plugin-dir
         - mountPath: /var/lib/kubelet/plugins/csi-nfsplugin
           name: fwd-plugin-dir
-        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
-          name: cacert
         - mountPath: /etc/selinux
           name: etc-selinux
         - mountPath: /sys/fs
           name: sys-fs
+        - mountPath: /etc/openstack
+          name: cloud-credentials
+        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+          name: legacy-cacert
       - args:
         - --csi-address=/csi/csi.sock
         - --http-endpoint=127.0.0.1:10305
@@ -197,13 +199,19 @@ spec:
           path: /var/lib/kubelet/plugins/csi-nfsplugin
           type: DirectoryOrCreate
         name: fwd-plugin-dir
+      - name: cloud-credentials
+        secret:
+          items:
+          - key: cacert
+            path: ca.crt
+          secretName: manila-cloud-credentials
       - configMap:
           items:
           - key: ca-bundle.pem
             path: ca-bundle.pem
           name: cloud-provider-config
           optional: true
-        name: cacert
+        name: legacy-cacert
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 10%
