@@ -270,7 +270,7 @@ func (c *EBSVolumeTagsController) getEBSCloudCredSecret() (*v1.Secret, error) {
 // processInfrastructure processes the Infrastructure resource and push pvNames for tags update in retry queue worker.
 func (c *EBSVolumeTagsController) processInfrastructure(infra *configv1.Infrastructure) error {
 	if infra.Status.PlatformStatus != nil && infra.Status.PlatformStatus.AWS != nil &&
-		infra.Status.PlatformStatus.AWS.ResourceTags != nil {
+		infra.Status.PlatformStatus.AWS.ResourceTags != nil && len(infra.Status.PlatformStatus.AWS.ResourceTags) > 0 {
 		err := c.fetchAndPushPvsToQueue(infra)
 		if err != nil {
 			klog.Errorf("error processing PVs for infrastructure update: %v", err)
