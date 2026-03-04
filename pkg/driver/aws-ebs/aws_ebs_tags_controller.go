@@ -308,14 +308,24 @@ func (c *EBSVolumeTagsController) fetchAndPushPvsToQueue(infra *configv1.Infrast
 	return nil
 }
 
-// updateEBSTags updates the tags of an AWS EBS volume with rate limiting
+// updateEBSTags updates the tags of an AWS EBS volume with rate limiting.
+// It first checks if the volumes already have the desired tags and skips the
+// CreateTags call for volumes that are already up to date.
 func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client *ec2.Client, resourceTags []configv1.AWSResourceTag,
 	pvs ...*v1.PersistentVolume) error {
 	// Prepare tags
 	tags := newAndUpdatedTags(resourceTags)
-	// Create or update the tags
+
+	// Filter out volumes that already have all desired tags
+	pvsNeedingUpdate := filterVolumesNeedingTagUpdate(ctx, ec2Client, tags, pvs)
+	if len(pvsNeedingUpdate) == 0 {
+		klog.V(4).Infof("All volumes already have the desired tags, skipping CreateTags call")
+		return nil
+	}
+
+	// Create or update the tags only for volumes that need it
 	_, err := ec2Client.CreateTags(ctx, &ec2.CreateTagsInput{
-		Resources: pvsToResourceIDs(pvs),
+		Resources: pvsToResourceIDs(pvsNeedingUpdate),
 		Tags:      tags,
 	})
 	if err != nil {
@@ -380,6 +390,61 @@ func newAndUpdatedTags(resourceTags []configv1.AWSResourceTag) []ec2types.Tag {
 		})
 	}
 	return tags
+}
+
+// volumeHasAllTags returns true if all desired tags already exist on the volume with matching values.
+// Extra tags on the volume that are not in the desired set are ignored.
+func volumeHasAllTags(existingTags []ec2types.Tag, desiredTags []ec2types.Tag) bool {
+	existing := make(map[string]string, len(existingTags))
+	for _, tag := range existingTags {
+		if tag.Key != nil && tag.Value != nil {
+			existing[*tag.Key] = *tag.Value
+		}
+	}
+	for _, tag := range desiredTags {
+		val, ok := existing[*tag.Key]
+		if !ok || val != *tag.Value {
+			return false
+		}
+	}
+	return true
+}
+
+// filterVolumesNeedingTagUpdate calls DescribeVolumes to fetch existing tags and returns
+// only the PVs whose AWS volumes do not already have all desired tags applied.
+// If DescribeVolumes fails, all PVs are returned unchanged (fail-open).
+func filterVolumesNeedingTagUpdate(ctx context.Context, ec2Client *ec2.Client, desiredTags []ec2types.Tag, pvs []*v1.PersistentVolume) []*v1.PersistentVolume {
+	volumeIDs := pvsToResourceIDs(pvs)
+	if len(volumeIDs) == 0 {
+		return pvs
+	}
+
+	output, err := ec2Client.DescribeVolumes(ctx, &ec2.DescribeVolumesInput{
+		VolumeIds: volumeIDs,
+	})
+	if err != nil {
+		klog.V(4).Infof("Failed to describe volumes for tag check, proceeding with tag update: %v", err)
+		return pvs
+	}
+
+	// Build a map of volumeID -> existing tags
+	volumeTags := make(map[string][]ec2types.Tag, len(output.Volumes))
+	for _, vol := range output.Volumes {
+		if vol.VolumeId != nil && vol.Tags != nil {
+			volumeTags[*vol.VolumeId] = vol.Tags
+		}
+	}
+
+	var needUpdate []*v1.PersistentVolume
+	for _, pv := range pvs {
+		existingTags, found := volumeTags[pv.Spec.CSI.VolumeHandle]
+		if !found || !volumeHasAllTags(existingTags, desiredTags) {
+			needUpdate = append(needUpdate, pv)
+		} else {
+			klog.V(4).Infof("Skipping tag update for volume %s (%s): all tags already present", pv.Name, pv.Spec.CSI.VolumeHandle)
+		}
+	}
+	return needUpdate
 }
 
 // filterUpdatableVolumes filters the list of volumes whose tags needs to be updated.
