@@ -449,3 +449,70 @@ func TestRemoveVolumesFromQueueSet(t *testing.T) {
 		t.Error("removeVolumesFromQueueSet() incorrectly removed PV pv2 from queue set")
 	}
 }
+
+func TestVolumeHasAllTags(t *testing.T) {
+	tests := []struct {
+		name         string
+		existingTags []ec2types.Tag
+		desiredTags  []ec2types.Tag
+		expected     bool
+	}{
+		{
+			name: "all desired tags present with matching values",
+			existingTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+				{Key: aws.String("key2"), Value: aws.String("value2")},
+				{Key: aws.String("extra"), Value: aws.String("ignored")},
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+				{Key: aws.String("key2"), Value: aws.String("value2")},
+			},
+			expected: true,
+		},
+		{
+			name: "missing a desired tag",
+			existingTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+				{Key: aws.String("key2"), Value: aws.String("value2")},
+			},
+			expected: false,
+		},
+		{
+			name: "desired tag exists but value differs",
+			existingTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("old-value")},
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("new-value")},
+			},
+			expected: false,
+		},
+		{
+			name:         "empty desired tags",
+			existingTags: []ec2types.Tag{},
+			desiredTags:  []ec2types.Tag{},
+			expected:     true,
+		},
+		{
+			name:         "no existing tags with desired tags",
+			existingTags: []ec2types.Tag{},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := volumeHasAllTags(tt.existingTags, tt.desiredTags)
+			if result != tt.expected {
+				t.Errorf("volumeHasAllTags() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
