@@ -516,3 +516,69 @@ func TestVolumeHasAllTags(t *testing.T) {
 		})
 	}
 }
+
+// TestProcessInfrastructureSkipsWhenNoTags verifies that processInfrastructure
+// returns nil without calling fetchAndPushPvsToQueue when ResourceTags is nil,
+// empty, or the platform status is missing. The controller has no informers
+// set up, so reaching fetchAndPushPvsToQueue would panic — a clean return
+// confirms the guard condition works.
+func TestProcessInfrastructureSkipsWhenNoTags(t *testing.T) {
+	c := &EBSVolumeTagsController{}
+
+	tests := []struct {
+		name  string
+		infra *configv1.Infrastructure
+	}{
+		{
+			name: "nil PlatformStatus",
+			infra: &configv1.Infrastructure{
+				Status: configv1.InfrastructureStatus{
+					PlatformStatus: nil,
+				},
+			},
+		},
+		{
+			name: "nil AWS in PlatformStatus",
+			infra: &configv1.Infrastructure{
+				Status: configv1.InfrastructureStatus{
+					PlatformStatus: &configv1.PlatformStatus{
+						AWS: nil,
+					},
+				},
+			},
+		},
+		{
+			name: "nil ResourceTags",
+			infra: &configv1.Infrastructure{
+				Status: configv1.InfrastructureStatus{
+					PlatformStatus: &configv1.PlatformStatus{
+						AWS: &configv1.AWSPlatformStatus{
+							ResourceTags: nil,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "empty ResourceTags",
+			infra: &configv1.Infrastructure{
+				Status: configv1.InfrastructureStatus{
+					PlatformStatus: &configv1.PlatformStatus{
+						AWS: &configv1.AWSPlatformStatus{
+							ResourceTags: []configv1.AWSResourceTag{},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := c.processInfrastructure(tt.infra)
+			if err != nil {
+				t.Errorf("processInfrastructure() returned error: %v, want nil", err)
+			}
+		})
+	}
+}
