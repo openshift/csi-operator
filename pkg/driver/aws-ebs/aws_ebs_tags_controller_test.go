@@ -453,16 +453,16 @@ func TestRemoveVolumesFromQueueSet(t *testing.T) {
 func TestVolumeHasAllTags(t *testing.T) {
 	tests := []struct {
 		name         string
-		existingTags []ec2types.Tag
+		existingTags map[string]string
 		desiredTags  []ec2types.Tag
 		expected     bool
 	}{
 		{
 			name: "all desired tags present with matching values",
-			existingTags: []ec2types.Tag{
-				{Key: aws.String("key1"), Value: aws.String("value1")},
-				{Key: aws.String("key2"), Value: aws.String("value2")},
-				{Key: aws.String("extra"), Value: aws.String("ignored")},
+			existingTags: map[string]string{
+				"key1":  "value1",
+				"key2":  "value2",
+				"extra": "ignored",
 			},
 			desiredTags: []ec2types.Tag{
 				{Key: aws.String("key1"), Value: aws.String("value1")},
@@ -472,8 +472,8 @@ func TestVolumeHasAllTags(t *testing.T) {
 		},
 		{
 			name: "missing a desired tag",
-			existingTags: []ec2types.Tag{
-				{Key: aws.String("key1"), Value: aws.String("value1")},
+			existingTags: map[string]string{
+				"key1": "value1",
 			},
 			desiredTags: []ec2types.Tag{
 				{Key: aws.String("key1"), Value: aws.String("value1")},
@@ -483,8 +483,8 @@ func TestVolumeHasAllTags(t *testing.T) {
 		},
 		{
 			name: "desired tag exists but value differs",
-			existingTags: []ec2types.Tag{
-				{Key: aws.String("key1"), Value: aws.String("old-value")},
+			existingTags: map[string]string{
+				"key1": "old-value",
 			},
 			desiredTags: []ec2types.Tag{
 				{Key: aws.String("key1"), Value: aws.String("new-value")},
@@ -492,18 +492,53 @@ func TestVolumeHasAllTags(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:         "empty desired tags",
-			existingTags: []ec2types.Tag{},
+			name:         "empty desired tags always matches",
+			existingTags: map[string]string{},
 			desiredTags:  []ec2types.Tag{},
 			expected:     true,
 		},
 		{
 			name:         "no existing tags with desired tags",
-			existingTags: []ec2types.Tag{},
+			existingTags: map[string]string{},
 			desiredTags: []ec2types.Tag{
 				{Key: aws.String("key1"), Value: aws.String("value1")},
 			},
 			expected: false,
+		},
+		{
+			name:         "nil existing tags map",
+			existingTags: nil,
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+			},
+			expected: false,
+		},
+		{
+			name: "all keys present but one value wrong",
+			existingTags: map[string]string{
+				"key1": "value1",
+				"key2": "wrong-value",
+				"key3": "value3",
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+				{Key: aws.String("key2"), Value: aws.String("value2")},
+				{Key: aws.String("key3"), Value: aws.String("value3")},
+			},
+			expected: false,
+		},
+		{
+			name: "many extra tags do not affect match",
+			existingTags: map[string]string{
+				"aws:cloudformation:stack-name": "my-stack",
+				"kubernetes.io/cluster/test":    "owned",
+				"Name":                          "my-volume",
+				"key1":                          "value1",
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+			},
+			expected: true,
 		},
 	}
 
