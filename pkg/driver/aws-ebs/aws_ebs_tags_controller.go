@@ -73,6 +73,34 @@ type pvUpdateQueueItem struct {
 	pvNames    []string
 }
 
+// ec2TagsAPI defines the EC2 API methods used by the tags controller.
+// Using an interface allows mocking the EC2 client in unit tests.
+type ec2TagsAPI interface {
+	CreateTags(ctx context.Context, params *ec2.CreateTagsInput, optFns ...func(*ec2.Options)) (*ec2.CreateTagsOutput, error)
+	DescribeTags(ctx context.Context, params *ec2.DescribeTagsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeTagsOutput, error)
+}
+
+type failedTagError struct {
+	pvs      []*v1.PersistentVolume
+	awsError error
+}
+
+func (f *failedTagError) Error() string {
+	return f.awsError.Error()
+}
+
+type failWholeBatchErrror struct {
+	failedTagError
+}
+
+type failOneOrMoreTagError struct {
+	failedTagError
+}
+
+var _ error = &failedTagError{}
+var _ error = &failWholeBatchErrror{}
+var _ error = &failOneOrMoreTagError{}
+
 func NewEBSVolumeTagsController(
 	name string,
 	commonClient *clients.Clients,
@@ -311,7 +339,7 @@ func (c *EBSVolumeTagsController) fetchAndPushPvsToQueue(infra *configv1.Infrast
 // updateEBSTags updates the tags of an AWS EBS volume with rate limiting.
 // It first checks if the volumes already have the desired tags and skips the
 // CreateTags call for volumes that are already up to date.
-func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client *ec2.Client, resourceTags []configv1.AWSResourceTag,
+func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client ec2TagsAPI, resourceTags []configv1.AWSResourceTag,
 	pvs ...*v1.PersistentVolume) error {
 	// Prepare tags
 	tags := newAndUpdatedTags(resourceTags)
@@ -319,7 +347,7 @@ func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client *
 	// Filter out volumes that already have all desired tags
 	pvsNeedingUpdate, err := filterVolumesNeedingTagUpdate(ctx, ec2Client, tags, pvs)
 	if err != nil {
-		return err
+		return &failWholeBatchErrror{failedTagError{pvs, err}}
 	}
 
 	if len(pvsNeedingUpdate) == 0 {
@@ -333,7 +361,7 @@ func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client *
 		Tags:      tags,
 	})
 	if err != nil {
-		return err
+		return &failOneOrMoreTagError{failedTagError{pvsNeedingUpdate, err}}
 	}
 	return nil
 }
@@ -411,7 +439,7 @@ func volumeHasAllTags(existingTags map[string]string, desiredTags []ec2types.Tag
 // filterVolumesNeedingTagUpdate calls DescribeVolumes to fetch existing tags and returns
 // only the PVs whose AWS volumes do not already have all desired tags applied.
 // If DescribeVolumes fails, all PVs are returned unchanged (fail-open).
-func filterVolumesNeedingTagUpdate(ctx context.Context, ec2Client *ec2.Client, desiredTags []ec2types.Tag, pvs []*v1.PersistentVolume) ([]*v1.PersistentVolume, error) {
+func filterVolumesNeedingTagUpdate(ctx context.Context, ec2Client ec2TagsAPI, desiredTags []ec2types.Tag, pvs []*v1.PersistentVolume) ([]*v1.PersistentVolume, error) {
 	volumeIDs := pvsToResourceIDs(pvs)
 	if len(volumeIDs) == 0 {
 		return pvs, nil
@@ -434,7 +462,7 @@ func filterVolumesNeedingTagUpdate(ctx context.Context, ec2Client *ec2.Client, d
 	return needUpdate, nil
 }
 
-func fetchTagsOnVolumes(ctx context.Context, ec2Client *ec2.Client, pvs []*v1.PersistentVolume) (map[string]map[string]string, error) {
+func fetchTagsOnVolumes(ctx context.Context, ec2Client ec2TagsAPI, pvs []*v1.PersistentVolume) (map[string]map[string]string, error) {
 	volumeIDs := pvsToResourceIDs(pvs)
 	volumeTags := make(map[string]map[string]string)
 	if len(volumeIDs) == 0 {
