@@ -116,8 +116,10 @@ func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item 
 	err := c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pvList...)
 	if err != nil {
 		klog.Errorf("failed to update EBS tags: %v", err)
-		c.handleBatchTagUpdateFailure(pvList, err)
-		c.queue.Forget(item)
+		// if tagging fails here, there is no point in tagging individually, because all the API
+		// calls we are making to AWS are supposed to be idempotent together for all volumes.
+		// There is no way, one bad volume is the list can cause whole thing to fail.
+		c.queue.AddRateLimited(item)
 		return
 	}
 	newTagsHash := computeTagsHash(infra.Status.PlatformStatus.AWS.ResourceTags)
