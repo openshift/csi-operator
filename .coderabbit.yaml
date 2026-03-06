@@ -1,3 +1,6 @@
+# inherit any OpenShift global settings
+inheritance: true
+
 language: en-US
 reviews:
   profile: chill
