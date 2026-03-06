@@ -383,18 +383,17 @@ func TestProcessBatchVolumes(t *testing.T) {
 				}
 				verify := func(t *testing.T, c *EBSVolumeTagsController, workItem *pvUpdateQueueItem) {
 					c.queue.Forget(workItem)
-					workItems := []pvUpdateQueueItem{}
+					workItems := []*pvUpdateQueueItem{}
 					wg := sync.WaitGroup{}
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
 						for {
 							item, quit := c.queue.Get()
-							if quit {
-								break
+							if item != nil {
+								workItems = append(workItems, item)
 							}
-							workItems = append(workItems, *item)
-							if len(workItems) == 2 {
+							if len(workItems) == 2 || quit {
 								break
 							}
 						}
@@ -407,7 +406,7 @@ func TestProcessBatchVolumes(t *testing.T) {
 						if item.updateType != updateTypeIndividual {
 							t.Errorf("Expected updateTypeIndividual, got %v", item.updateType)
 						}
-						c.queue.Done(&item)
+						c.queue.Done(item)
 					}
 					expectedPVNames := []string{"pv1", "pv2"}
 					for _, pvName := range expectedPVNames {
@@ -433,7 +432,7 @@ func TestProcessBatchVolumes(t *testing.T) {
 			c.queue.Add(item)
 			c.queue.Get() // mark as processing
 
-			c.processBatchVolumes(context.Background(), item, infra, mock)
+			c.processBatchVolumes(t.Context(), item, infra, mock)
 			// Mark the original item done so any rate-limited re-adds become dequeue-able.
 			c.queue.Done(item)
 
