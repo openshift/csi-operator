@@ -320,6 +320,8 @@ spec:
                     args:
                       - "start"
                       - "-v=2"
+                      - --terminate-on-files=/var/run/secrets/serving-cert/tls.crt
+                      - --terminate-on-files=/var/run/secrets/serving-cert/tls.key
                     env:
                       - name: POD_NAME
                         valueFrom:
@@ -353,6 +355,8 @@ spec:
                     volumeMounts:
                       - mountPath: /tmp
                         name: tmp
+                      - mountPath: /var/run/secrets/serving-cert
+                        name: metrics-serving-cert
                 priorityClassName: system-cluster-critical
                 securityContext:
                   runAsNonRoot: true
@@ -362,6 +366,9 @@ spec:
                   - name: tmp
                     emptyDir:
                       medium: Memory
+                  - name: metrics-serving-cert
+                    secret:
+                      secretName: smb-csi-driver-operator-metrics-serving-cert
                 # Strongly prefer a master node, but don't require it.
                 # We want the same Deployment to work on hypershift,
                 # without any master nodes.
