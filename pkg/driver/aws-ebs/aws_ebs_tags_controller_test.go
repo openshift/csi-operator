@@ -449,3 +449,171 @@ func TestRemoveVolumesFromQueueSet(t *testing.T) {
 		t.Error("removeVolumesFromQueueSet() incorrectly removed PV pv2 from queue set")
 	}
 }
+
+func TestVolumeHasAllTags(t *testing.T) {
+	tests := []struct {
+		name         string
+		existingTags map[string]string
+		desiredTags  []ec2types.Tag
+		expected     bool
+	}{
+		{
+			name: "all desired tags present with matching values",
+			existingTags: map[string]string{
+				"key1":  "value1",
+				"key2":  "value2",
+				"extra": "ignored",
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+				{Key: aws.String("key2"), Value: aws.String("value2")},
+			},
+			expected: true,
+		},
+		{
+			name: "missing a desired tag",
+			existingTags: map[string]string{
+				"key1": "value1",
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+				{Key: aws.String("key2"), Value: aws.String("value2")},
+			},
+			expected: false,
+		},
+		{
+			name: "desired tag exists but value differs",
+			existingTags: map[string]string{
+				"key1": "old-value",
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("new-value")},
+			},
+			expected: false,
+		},
+		{
+			name:         "empty desired tags always matches",
+			existingTags: map[string]string{},
+			desiredTags:  []ec2types.Tag{},
+			expected:     true,
+		},
+		{
+			name:         "no existing tags with desired tags",
+			existingTags: map[string]string{},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+			},
+			expected: false,
+		},
+		{
+			name:         "nil existing tags map",
+			existingTags: nil,
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+			},
+			expected: false,
+		},
+		{
+			name: "all keys present but one value wrong",
+			existingTags: map[string]string{
+				"key1": "value1",
+				"key2": "wrong-value",
+				"key3": "value3",
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+				{Key: aws.String("key2"), Value: aws.String("value2")},
+				{Key: aws.String("key3"), Value: aws.String("value3")},
+			},
+			expected: false,
+		},
+		{
+			name: "many extra tags do not affect match",
+			existingTags: map[string]string{
+				"aws:cloudformation:stack-name": "my-stack",
+				"kubernetes.io/cluster/test":    "owned",
+				"Name":                          "my-volume",
+				"key1":                          "value1",
+			},
+			desiredTags: []ec2types.Tag{
+				{Key: aws.String("key1"), Value: aws.String("value1")},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := volumeHasAllTags(tt.existingTags, tt.desiredTags)
+			if result != tt.expected {
+				t.Errorf("volumeHasAllTags() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestProcessInfrastructureSkipsWhenNoTags verifies that processInfrastructure
+// returns nil without calling fetchAndPushPvsToQueue when ResourceTags is nil,
+// empty, or the platform status is missing. The controller has no informers
+// set up, so reaching fetchAndPushPvsToQueue would panic — a clean return
+// confirms the guard condition works.
+func TestProcessInfrastructureSkipsWhenNoTags(t *testing.T) {
+	c := &EBSVolumeTagsController{}
+
+	tests := []struct {
+		name  string
+		infra *configv1.Infrastructure
+	}{
+		{
+			name: "nil PlatformStatus",
+			infra: &configv1.Infrastructure{
+				Status: configv1.InfrastructureStatus{
+					PlatformStatus: nil,
+				},
+			},
+		},
+		{
+			name: "nil AWS in PlatformStatus",
+			infra: &configv1.Infrastructure{
+				Status: configv1.InfrastructureStatus{
+					PlatformStatus: &configv1.PlatformStatus{
+						AWS: nil,
+					},
+				},
+			},
+		},
+		{
+			name: "nil ResourceTags",
+			infra: &configv1.Infrastructure{
+				Status: configv1.InfrastructureStatus{
+					PlatformStatus: &configv1.PlatformStatus{
+						AWS: &configv1.AWSPlatformStatus{
+							ResourceTags: nil,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "empty ResourceTags",
+			infra: &configv1.Infrastructure{
+				Status: configv1.InfrastructureStatus{
+					PlatformStatus: &configv1.PlatformStatus{
+						AWS: &configv1.AWSPlatformStatus{
+							ResourceTags: []configv1.AWSResourceTag{},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := c.processInfrastructure(tt.infra)
+			if err != nil {
+				t.Errorf("processInfrastructure() returned error: %v, want nil", err)
+			}
+		})
+	}
+}

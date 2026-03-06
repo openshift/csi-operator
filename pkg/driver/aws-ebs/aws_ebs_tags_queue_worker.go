@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/smithy-go"
 
 	v1 "k8s.io/api/core/v1"
@@ -89,7 +88,7 @@ func (c *EBSVolumeTagsController) needsTagUpdate(infra *configv1.Infrastructure,
 // their AWS EBS tags in bulk. If the tag update succeeds, it updates the PV annotations
 // with the new tag hash. In case of errors, failed PVs are re-queued individually
 // for retry with a backoff mechanism.
-func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client *ec2.Client) {
+func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client ec2TagsAPI) {
 	pvList := make([]*v1.PersistentVolume, 0)
 	for _, pvName := range item.pvNames {
 		pv, err := c.getPersistentVolumeByName(pvName)
@@ -116,8 +115,21 @@ func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item 
 	err := c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pvList...)
 	if err != nil {
 		klog.Errorf("failed to update EBS tags: %v", err)
-		c.handleBatchTagUpdateFailure(pvList, err)
-		c.queue.Forget(item)
+		var batchErr *failWholeBatchErrror
+		var oneOrMoreErr *failOneOrMoreTagError
+		switch {
+		case errors.As(err, &batchErr):
+			// DescribeTags failed — re-queue the whole batch to retry later.
+			c.queue.AddRateLimited(item)
+		case errors.As(err, &oneOrMoreErr):
+			// CreateTags failed — one or more volumes may be bad (e.g. deleted).
+			// Re-queue each volume individually so the bad one can be identified
+			// and removed by processIndividualVolume's NotFound handling.
+			c.handleBatchTagUpdateFailure(pvList, err)
+			c.queue.Forget(item)
+		default:
+			c.queue.AddRateLimited(item)
+		}
 		return
 	}
 	newTagsHash := computeTagsHash(infra.Status.PlatformStatus.AWS.ResourceTags)
@@ -147,7 +159,7 @@ func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item 
 // If the tag update succeeds, it updates the PV annotations with the new tag hash.
 // If the PV is missing or the AWS volume does not exist, it removes it from the queue.
 // In case of errors, it re-queues the PV for retry with a backoff mechanism.
-func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client *ec2.Client) {
+func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client ec2TagsAPI) {
 	pv, err := c.getPersistentVolumeByName(item.pvNames[0])
 	if err != nil {
 		if apierrors.IsNotFound(err) {
