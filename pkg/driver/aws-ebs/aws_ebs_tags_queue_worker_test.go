@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -339,18 +338,19 @@ func TestProcessBatchVolumes(t *testing.T) {
 					// forget the item here to avoid rate limiting
 					c.queue.Forget(workItem)
 					var updateItem *pvUpdateQueueItem
-
-					wg := sync.WaitGroup{}
-					wg.Add(1)
+					itemCh := make(chan *pvUpdateQueueItem, 1)
 					go func() {
-						defer wg.Done()
 						for {
 							item, _ := c.queue.Get()
-							updateItem = item
+							itemCh <- item
 							break
 						}
 					}()
-					wg.Wait()
+					select {
+					case updateItem = <-itemCh:
+					case <-time.After(2 * time.Second):
+						t.Fatalf("Failed waiting for updateItem")
+					}
 
 					expectedPVNames := []string{"pv1", "pv2", "pv3"}
 					if !reflect.DeepEqual(updateItem.pvNames, expectedPVNames) {
@@ -384,21 +384,28 @@ func TestProcessBatchVolumes(t *testing.T) {
 				verify := func(t *testing.T, c *EBSVolumeTagsController, workItem *pvUpdateQueueItem) {
 					c.queue.Forget(workItem)
 					workItems := []*pvUpdateQueueItem{}
-					wg := sync.WaitGroup{}
-					wg.Add(1)
+					itemCh := make(chan *pvUpdateQueueItem, 3)
 					go func() {
-						defer wg.Done()
 						for {
 							item, quit := c.queue.Get()
-							if item != nil {
-								workItems = append(workItems, item)
-							}
-							if len(workItems) == 2 || quit {
+							if quit {
 								break
 							}
+							itemCh <- item
 						}
 					}()
-					wg.Wait()
+					for {
+						select {
+						case item := <-itemCh:
+							workItems = append(workItems, item)
+						case <-time.After(2 * time.Second):
+							t.Fatalf("failed waiting for workitems")
+						}
+
+						if len(workItems) == 2 {
+							break
+						}
+					}
 					if len(workItems) != 2 {
 						t.Errorf("Expected 2 work items, got %d", len(workItems))
 					}

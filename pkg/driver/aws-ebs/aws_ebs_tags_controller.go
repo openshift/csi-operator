@@ -89,6 +89,10 @@ func (f *failedTagError) Error() string {
 	return f.awsError.Error()
 }
 
+func (f *failedTagError) Unwrap() error {
+	return f.awsError
+}
+
 type failWholeBatchErrror struct {
 	failedTagError
 }
