@@ -102,7 +102,7 @@ type failOneOrMoreTagError struct {
 }
 
 var _ error = &failedTagError{}
-var _ error = &failWholeBatchErrror{}
+var _ error = &failWholeBatchError{}
 var _ error = &failOneOrMoreTagError{}
 
 func NewEBSVolumeTagsController(
@@ -343,20 +343,24 @@ func (c *EBSVolumeTagsController) fetchAndPushPvsToQueue(infra *configv1.Infrast
 // updateEBSTags updates the tags of an AWS EBS volume with rate limiting.
 // It first checks if the volumes already have the desired tags and skips the
 // CreateTags call for volumes that are already up to date.
+//
+// Returns error and whether tags were actually updated on AWS.
+// A nil error with false return value implies all tags were already updated on AWS.
+// A nil error with true return value implies some tags were updated on AWS.
 func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client ec2TagsAPI, resourceTags []configv1.AWSResourceTag,
-	pvs ...*v1.PersistentVolume) error {
+	pvs ...*v1.PersistentVolume) (bool, error) {
 	// Prepare tags
 	tags := newAndUpdatedTags(resourceTags)
 
 	// Filter out volumes that already have all desired tags
 	pvsNeedingUpdate, err := filterVolumesNeedingTagUpdate(ctx, ec2Client, tags, pvs)
 	if err != nil {
-		return &failWholeBatchErrror{failedTagError{pvs, err}}
+		return false, &failWholeBatchError{failedTagError{pvs, err}}
 	}
 
 	if len(pvsNeedingUpdate) == 0 {
 		klog.V(4).Infof("All volumes already have the desired tags, skipping CreateTags call")
-		return nil
+		return false, nil
 	}
 
 	// Create or update the tags only for volumes that need it
@@ -365,9 +369,9 @@ func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client e
 		Tags:      tags,
 	})
 	if err != nil {
-		return &failOneOrMoreTagError{failedTagError{pvsNeedingUpdate, err}}
+		return false, &failOneOrMoreTagError{failedTagError{pvsNeedingUpdate, err}}
 	}
-	return nil
+	return true, nil
 }
 
 // listPersistentVolumes lists the volume
