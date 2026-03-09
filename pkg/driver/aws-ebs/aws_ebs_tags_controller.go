@@ -440,9 +440,9 @@ func volumeHasAllTags(existingTags map[string]string, desiredTags []ec2types.Tag
 	return true
 }
 
-// filterVolumesNeedingTagUpdate calls DescribeVolumes to fetch existing tags and returns
+// filterVolumesNeedingTagUpdate calls DescribeTags to fetch existing tags and returns
 // only the PVs whose AWS volumes do not already have all desired tags applied.
-// If DescribeVolumes fails, all PVs are returned unchanged (fail-open).
+// If DescribeTags fails, all PVs are returned unchanged (fail-open).
 func filterVolumesNeedingTagUpdate(ctx context.Context, ec2Client ec2TagsAPI, desiredTags []ec2types.Tag, pvs []*v1.PersistentVolume) ([]*v1.PersistentVolume, error) {
 	volumeIDs := pvsToResourceIDs(pvs)
 	if len(volumeIDs) == 0 {
