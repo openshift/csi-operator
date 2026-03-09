@@ -217,6 +217,118 @@ func TestNeedsTagUpdate(t *testing.T) {
 	}
 }
 
+func TestProcessIndividualVolume(t *testing.T) {
+	resourceTags := []configv1.AWSResourceTag{{Key: "env", Value: "prod"}}
+	infra := newTestInfra(resourceTags)
+
+	tests := []struct {
+		name   string
+		pvs    []*v1.PersistentVolume // PVs to seed in the informer
+		pvName string                 // the name put into the queue item
+		setup  func(t *testing.T) *mockEC2Client
+		verify func(t *testing.T, c *EBSVolumeTagsController, item *pvUpdateQueueItem)
+	}{
+		{
+			// Regression test: the old code called pv.Name after a not-found error,
+			// which would panic because pv is nil when the API returns not-found.
+			// The fix extracts pvName before the call and uses that string instead.
+			name:   "PV not found: removes from queue without panicking",
+			pvs:    nil, // no PV in the informer — will produce a not-found error
+			pvName: "missing-pv",
+			setup: func(t *testing.T) *mockEC2Client {
+				return &mockEC2Client{} // EC2 should never be reached
+			},
+			verify: func(t *testing.T, c *EBSVolumeTagsController, item *pvUpdateQueueItem) {
+				if c.isVolumeInQueue("missing-pv") {
+					t.Error("missing-pv should have been removed from queueSet after not-found")
+				}
+				// The item should have been Forgotten, not rate-limited — so the
+				// queue should be empty (no requeue).
+				if c.queue.Len() != 0 {
+					t.Errorf("queue should be empty after not-found, got len=%d", c.queue.Len())
+				}
+			},
+		},
+		{
+			name:   "success: tags applied and annotations updated",
+			pvs:    []*v1.PersistentVolume{newTestPV("pv1", "vol-111")},
+			pvName: "pv1",
+			setup: func(t *testing.T) *mockEC2Client {
+				return &mockEC2Client{
+					describeTagsFunc: func(_ context.Context, _ *ec2.DescribeTagsInput, _ ...func(*ec2.Options)) (*ec2.DescribeTagsOutput, error) {
+						return &ec2.DescribeTagsOutput{}, nil
+					},
+				}
+			},
+			verify: func(t *testing.T, c *EBSVolumeTagsController, item *pvUpdateQueueItem) {
+				if c.isVolumeInQueue("pv1") {
+					t.Error("pv1 should have been removed from queueSet after successful update")
+				}
+				updated, err := c.commonClient.KubeClient.CoreV1().PersistentVolumes().Get(context.Background(), "pv1", metav1.GetOptions{})
+				if err != nil {
+					t.Fatalf("failed to get pv1: %v", err)
+				}
+				expectedHash := computeTagsHash(resourceTags)
+				if updated.Annotations[tagHashAnnotationKey] != expectedHash {
+					t.Errorf("hash = %q, want %q", updated.Annotations[tagHashAnnotationKey], expectedHash)
+				}
+			},
+		},
+		{
+			name:   "transient error: PV re-queued for retry",
+			pvs:    []*v1.PersistentVolume{newTestPV("pv1", "vol-111")},
+			pvName: "pv1",
+			setup: func(t *testing.T) *mockEC2Client {
+				return &mockEC2Client{
+					describeTagsFunc: func(_ context.Context, _ *ec2.DescribeTagsInput, _ ...func(*ec2.Options)) (*ec2.DescribeTagsOutput, error) {
+						return nil, fmt.Errorf("transient network error")
+					},
+				}
+			},
+			verify: func(t *testing.T, c *EBSVolumeTagsController, item *pvUpdateQueueItem) {
+				c.queue.Forget(item) // avoid rate-limit delay
+				itemCh := make(chan *pvUpdateQueueItem, 1)
+				go func() {
+					got, _ := c.queue.Get()
+					itemCh <- got
+				}()
+				select {
+				case got := <-itemCh:
+					if got.updateType != updateTypeIndividual {
+						t.Errorf("requeued item updateType = %v, want %v", got.updateType, updateTypeIndividual)
+					}
+					if len(got.pvNames) != 1 || got.pvNames[0] != "pv1" {
+						t.Errorf("requeued pvNames = %v, want [pv1]", got.pvNames)
+					}
+					c.queue.Done(got)
+				case <-time.After(2 * time.Second):
+					t.Fatal("timed out waiting for requeued item")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := tt.setup(t)
+			c := newTestControllerWithFakeKubeClient(t, tt.pvs...)
+
+			item := &pvUpdateQueueItem{updateType: updateTypeIndividual, pvNames: []string{tt.pvName}}
+			c.queue.Add(item)
+			c.addVolumesToQueueSet(tt.pvs...)
+			// Also add the target name to the queueSet so removeVolumesFromQueueSet
+			// has something to remove (mirrors real usage where the item was enqueued).
+			c.queueSet[tt.pvName] = struct{}{}
+			c.queue.Get() // mark as processing
+
+			c.processIndividualVolume(t.Context(), item, infra, mock)
+			c.queue.Done(item)
+
+			tt.verify(t, c, item)
+		})
+	}
+}
+
 func TestProcessBatchVolumes(t *testing.T) {
 	resourceTags := []configv1.AWSResourceTag{{Key: "env", Value: "prod"}}
 	expectedHash := computeTagsHash(resourceTags)
