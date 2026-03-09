@@ -81,7 +81,6 @@ type ec2TagsAPI interface {
 }
 
 type failedTagError struct {
-	pvs      []*v1.PersistentVolume
 	awsError error
 }
 
@@ -355,7 +354,7 @@ func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client e
 	// Filter out volumes that already have all desired tags
 	pvsNeedingUpdate, err := filterVolumesNeedingTagUpdate(ctx, ec2Client, tags, pvs)
 	if err != nil {
-		return false, &failWholeBatchError{failedTagError{pvs, err}}
+		return false, &failWholeBatchError{failedTagError{err}}
 	}
 
 	if len(pvsNeedingUpdate) == 0 {
@@ -369,7 +368,7 @@ func (c *EBSVolumeTagsController) updateEBSTags(ctx context.Context, ec2Client e
 		Tags:      tags,
 	})
 	if err != nil {
-		return false, &failOneOrMoreTagError{failedTagError{pvsNeedingUpdate, err}}
+		return false, &failOneOrMoreTagError{failedTagError{err}}
 	}
 	return true, nil
 }
