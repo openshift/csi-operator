@@ -213,6 +213,6 @@ func logTagCompletionMessage(volumeName string, tagsUpdatedOnAWS bool) {
 	if tagsUpdatedOnAWS {
 		klog.Infof("Successfully updated PV annotations and tags for volume %s", volumeName)
 	} else {
-		klog.Infof("Successfully updated PV annotations and tags for volume %s", volumeName)
+		klog.Infof("Successfully updated PV annotations for volume %s", volumeName)
 	}
 }
