@@ -486,7 +486,7 @@ func fetchTagsOnVolumes(ctx context.Context, ec2Client ec2TagsAPI, pvs []*v1.Per
 		}
 		output, err := ec2Client.DescribeTags(ctx, input)
 		if err != nil {
-			return volumeTags, fmt.Errorf("fetching tags for one or more voumes with: %w", err)
+			return volumeTags, fmt.Errorf("fetching tags for one or more volumes with: %w", err)
 		}
 
 		for _, td := range output.Tags {
