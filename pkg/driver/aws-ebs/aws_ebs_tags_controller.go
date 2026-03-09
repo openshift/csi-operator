@@ -452,7 +452,7 @@ func filterVolumesNeedingTagUpdate(ctx context.Context, ec2Client ec2TagsAPI, de
 		return pvs, nil
 	}
 
-	volumeTags, err := fetchTagsOnVolumes(ctx, ec2Client, pvs)
+	volumeTags, err := fetchTagsOnVolumes(ctx, ec2Client, volumeIDs)
 	if err != nil {
 		return pvs, err
 	}
@@ -469,13 +469,8 @@ func filterVolumesNeedingTagUpdate(ctx context.Context, ec2Client ec2TagsAPI, de
 	return needUpdate, nil
 }
 
-func fetchTagsOnVolumes(ctx context.Context, ec2Client ec2TagsAPI, pvs []*v1.PersistentVolume) (map[string]map[string]string, error) {
-	volumeIDs := pvsToResourceIDs(pvs)
+func fetchTagsOnVolumes(ctx context.Context, ec2Client ec2TagsAPI, volumeIDs []string) (map[string]map[string]string, error) {
 	volumeTags := make(map[string]map[string]string)
-	if len(volumeIDs) == 0 {
-		return volumeTags, nil
-	}
-
 	var nextToken *string
 
 	for {
