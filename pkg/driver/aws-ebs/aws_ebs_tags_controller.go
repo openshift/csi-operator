@@ -93,7 +93,7 @@ func (f *failedTagError) Unwrap() error {
 	return f.awsError
 }
 
-type failWholeBatchErrror struct {
+type failWholeBatchError struct {
 	failedTagError
 }
 
