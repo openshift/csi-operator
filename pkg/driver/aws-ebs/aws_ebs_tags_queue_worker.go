@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/smithy-go"
 
 	v1 "k8s.io/api/core/v1"
@@ -89,7 +88,7 @@ func (c *EBSVolumeTagsController) needsTagUpdate(infra *configv1.Infrastructure,
 // their AWS EBS tags in bulk. If the tag update succeeds, it updates the PV annotations
 // with the new tag hash. In case of errors, failed PVs are re-queued individually
 // for retry with a backoff mechanism.
-func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client *ec2.Client) {
+func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client ec2TagsAPI) {
 	pvList := make([]*v1.PersistentVolume, 0)
 	for _, pvName := range item.pvNames {
 		pv, err := c.getPersistentVolumeByName(pvName)
@@ -113,11 +112,24 @@ func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item 
 		return
 	}
 	// update the tags for the volume list.
-	err := c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pvList...)
+	tagsUpdatedOnAWS, err := c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pvList...)
 	if err != nil {
 		klog.Errorf("failed to update EBS tags: %v", err)
-		c.handleBatchTagUpdateFailure(pvList, err)
-		c.queue.Forget(item)
+		var batchErr *failWholeBatchError
+		var oneOrMoreErr *failOneOrMoreTagError
+		switch {
+		case errors.As(err, &batchErr):
+			// DescribeTags failed — re-queue the whole batch to retry later.
+			c.queue.AddRateLimited(item)
+		case errors.As(err, &oneOrMoreErr):
+			// CreateTags failed — one or more volumes may be bad (e.g. deleted).
+			// Re-queue each volume individually so the bad one can be identified
+			// and removed by processIndividualVolume's NotFound handling.
+			c.handleBatchTagUpdateFailure(pvList, err)
+			c.queue.Forget(item)
+		default:
+			c.queue.AddRateLimited(item)
+		}
 		return
 	}
 	newTagsHash := computeTagsHash(infra.Status.PlatformStatus.AWS.ResourceTags)
@@ -137,7 +149,7 @@ func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item 
 			continue
 		}
 		c.removeVolumesFromQueueSet(volume.Name)
-		klog.Infof("Successfully updated PV annotations and tags for volume %s", volume.Name)
+		logTagCompletionMessage(volume.Name, tagsUpdatedOnAWS)
 	}
 	c.queue.Forget(item)
 }
@@ -147,12 +159,13 @@ func (c *EBSVolumeTagsController) processBatchVolumes(ctx context.Context, item 
 // If the tag update succeeds, it updates the PV annotations with the new tag hash.
 // If the PV is missing or the AWS volume does not exist, it removes it from the queue.
 // In case of errors, it re-queues the PV for retry with a backoff mechanism.
-func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client *ec2.Client) {
-	pv, err := c.getPersistentVolumeByName(item.pvNames[0])
+func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, item *pvUpdateQueueItem, infra *configv1.Infrastructure, ec2Client ec2TagsAPI) {
+	pvName := item.pvNames[0]
+	pv, err := c.getPersistentVolumeByName(pvName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			klog.Infof("skipping volume tags update because PV %v does not exist", item.pvNames[0])
-			c.removeVolumesFromQueueSet(pv.Name)
+			klog.Infof("skipping volume tags update because PV %v does not exist", pvName)
+			c.removeVolumesFromQueueSet(pvName)
 			c.queue.Forget(item)
 			return
 		}
@@ -166,7 +179,7 @@ func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, i
 		c.queue.Forget(item)
 		return
 	}
-	err = c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pv)
+	tagsUpdatedOnAWS, err := c.updateEBSTags(ctx, ec2Client, infra.Status.PlatformStatus.AWS.ResourceTags, pv)
 	if err != nil {
 		var apiErr smithy.APIError
 		if errors.As(err, &apiErr) {
@@ -192,6 +205,14 @@ func (c *EBSVolumeTagsController) processIndividualVolume(ctx context.Context, i
 		return
 	}
 	c.removeVolumesFromQueueSet(pv.Name)
-	klog.Infof("Successfully updated PV annotations and tags for volume %s", pv.Name)
+	logTagCompletionMessage(pv.Name, tagsUpdatedOnAWS)
 	c.queue.Forget(item)
+}
+
+func logTagCompletionMessage(volumeName string, tagsUpdatedOnAWS bool) {
+	if tagsUpdatedOnAWS {
+		klog.Infof("Successfully updated PV annotations and tags for volume %s", volumeName)
+	} else {
+		klog.Infof("Successfully updated PV annotations for volume %s", volumeName)
+	}
 }
