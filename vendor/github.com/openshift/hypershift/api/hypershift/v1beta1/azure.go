@@ -241,7 +241,6 @@ const (
 type Diagnostics struct {
 	// storageAccountType determines if the storage account for storing the diagnostics data
 	// should be disabled (Disabled), provisioned by Azure (Managed) or by the user (UserManaged).
-	// +kubebuilder:validation:Enum=Managed;UserManaged;Disabled
 	// +kubebuilder:default:=Disabled
 	// +unionDiscriminator
 	// +optional
@@ -267,11 +266,12 @@ type UserManagedDiagnostics struct {
 	StorageAccountURI string `json:"storageAccountURI"`
 }
 
-// +kubebuilder:validation:Enum=Premium_LRS;PremiumV2_LRS;Standard_LRS;StandardSSD_LRS;UltraSSD_LRS
+// +kubebuilder:validation:Enum=Premium_LRS;PremiumV2_LRS;Standard_LRS;StandardSSD_LRS
 type AzureDiskStorageAccountType string
 
 // Values copied from https://github.com/openshift/cluster-api-provider-azure/blob/release-4.18/vendor/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v5/constants.go#L614
-// excluding zone redundant storage(ZRS) types as they are not available in all regions.
+// excluding zone redundant storage(ZRS) types as they are not available in all regions
+// and UltraSSD_LRS as it is not supported for OS disks (https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#disk-type-comparison).
 const (
 	// DiskStorageAccountTypesPremiumLRS - Premium SSD locally redundant storage. Best for production and performance sensitive
 	// workloads.
@@ -285,9 +285,6 @@ const (
 	// DiskStorageAccountTypesStandardSSDLRS - Standard SSD locally redundant storage. Best for web servers, lightly used enterprise
 	// applications and dev/test.
 	DiskStorageAccountTypesStandardSSDLRS AzureDiskStorageAccountType = "StandardSSD_LRS"
-	// DiskStorageAccountTypesUltraSSDLRS - Ultra SSD locally redundant storage. Best for IO-intensive workloads such as SAP HANA,
-	// top tier databases (for example, SQL, Oracle), and other transaction-heavy workloads.
-	DiskStorageAccountTypesUltraSSDLRS AzureDiskStorageAccountType = "UltraSSD_LRS"
 )
 
 // +kubebuilder:validation:Enum=Persistent;Ephemeral
@@ -301,21 +298,21 @@ const (
 	EphemeralDiskPersistence AzureDiskPersistence = "Ephemeral"
 )
 
-// +kubebuilder:validation:XValidation:rule="!has(self.diskStorageAccountType) || self.diskStorageAccountType != 'UltraSSD_LRS' || self.sizeGiB <= 32767",message="When not using diskStorageAccountType UltraSSD_LRS, the SizeGB value must be less than or equal to 32,767"
 type AzureNodePoolOSDisk struct {
 	// sizeGiB is the size in GiB (1024^3 bytes) to assign to the OS disk.
-	// This should be between 16 and 65,536 when using the UltraSSD_LRS storage account type and between 16 and 32,767 when using any other storage account type.
+	// This should be between 16 and 32,767.
 	// When not set, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.
 	// The current default is 30.
 	//
 	// +kubebuilder:validation:Minimum=16
-	// +kubebuilder:validation:Maximum=65536
+	// +kubebuilder:validation:Maximum=32767
 	// +optional
 	SizeGiB int32 `json:"sizeGiB,omitempty"`
 
 	// diskStorageAccountType is the disk storage account type to use.
-	// Valid values are Premium_LRS, PremiumV2_LRS, Standard_LRS, StandardSSD_LRS, UltraSSD_LRS.
+	// Valid values are Premium_LRS, PremiumV2_LRS, Standard_LRS, StandardSSD_LRS.
 	// Note that Standard means a HDD.
+	// UltraSSD_LRS is not supported for OS disks (see https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types#disk-type-comparison).
 	// The disk performance is tied to the disk type, please refer to the Azure documentation for further details
 	// https://docs.microsoft.com/en-us/azure/virtual-machines/disks-types#disk-type-comparison.
 	// When omitted this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.
@@ -578,8 +575,6 @@ type ManagedIdentity struct {
 	//
 	// See this for more info - https://github.com/Azure/secrets-store-csi-driver-provider-azure/blob/master/website/content/en/getting-started/usage/_index.md
 	//
-	// +kubebuilder:validation:Enum:=utf-8;hex;base64
-	// +kubebuilder:default:="utf-8"
 	// +required
 	ObjectEncoding ObjectEncodingFormat `json:"objectEncoding"`
 
@@ -687,7 +682,21 @@ type DataPlaneManagedIdentities struct {
 	FileMSIClientID string `json:"fileMSIClientID"`
 }
 
+// AzureKeyVaultAccessType specifies the access method for the Azure Key Vault.
+// +kubebuilder:validation:Enum=Public;Private;""
+type AzureKeyVaultAccessType string
+
+const (
+	// AzureKeyVaultPublic indicates the Key Vault is accessible via its public endpoint.
+	AzureKeyVaultPublic AzureKeyVaultAccessType = "Public"
+	// AzureKeyVaultPrivate indicates the Key Vault is behind a private endpoint
+	// and traffic must be routed through the private router (Swift).
+	AzureKeyVaultPrivate AzureKeyVaultAccessType = "Private"
+)
+
 // AzureKMSSpec defines metadata about the configuration of the Azure KMS Secret Encryption provider using Azure key vault
+//
+// +kubebuilder:validation:XValidation:rule="!has(self.backupKey) || self.backupKey.keyVaultName == self.activeKey.keyVaultName",message="backupKey.keyVaultName must match activeKey.keyVaultName; both keys must reside in the same Key Vault"
 type AzureKMSSpec struct {
 	// activeKey defines the active key used to encrypt new secrets
 	//
@@ -702,6 +711,14 @@ type AzureKMSSpec struct {
 	//
 	// +required
 	KMS ManagedIdentity `json:"kms"`
+
+	// keyVaultAccess specifies how the Key Vault should be accessed.
+	// When set to "Private", the control plane routes Key Vault traffic through
+	// the private router to reach the Key Vault's private endpoint in the customer VNet.
+	// When set to "Public" or omitted, the Key Vault is accessed via its public endpoint.
+	//
+	// +optional
+	KeyVaultAccess AzureKeyVaultAccessType `json:"keyVaultAccess,omitempty"`
 }
 
 type AzureKMSKey struct {
