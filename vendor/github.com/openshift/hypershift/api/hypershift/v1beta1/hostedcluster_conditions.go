@@ -101,6 +101,10 @@ const (
 	// A failure here may require external user intervention to resolve. E.g. oidc was deleted out of band.
 	ValidOIDCConfiguration ConditionType = "ValidOIDCConfiguration"
 
+	// ValidProxyConfiguration indicates if the proxy CA bundle is valid.
+	// A failure here may require external user intervention to resolve. E.g. certificates in the CA bundle have expired.
+	ValidProxyConfiguration ConditionType = "ValidProxyConfiguration"
+
 	// ValidIDPConfiguration indicates if the Identity Provider configuration is valid.
 	// A failure here may require external user intervention to resolve
 	// e.g. the user-provided IDP configuration provided is invalid or the IDP is not reachable.
@@ -151,6 +155,17 @@ const (
 	// A failure here indicates that the input is invalid, or permissions are missing to use the encryption key.
 	ValidAzureKMSConfig ConditionType = "ValidAzureKMSConfig"
 
+	// ValidGCPCredentials indicates if GCP credentials are valid and operational
+	// for the HostedCluster. This includes service account authentication and
+	// proper IAM permissions for CAPG controllers.
+	// A failure here may require external user intervention to resolve.
+	ValidGCPCredentials ConditionType = "ValidGCPCredentials"
+
+	// ValidGCPWorkloadIdentity indicates if GCP Workload Identity Federation
+	// is properly configured and operational for the cluster.
+	// A failure here may require external user intervention to resolve.
+	ValidGCPWorkloadIdentity ConditionType = "ValidGCPWorkloadIdentity"
+
 	// AWSDefaultSecurityGroupCreated indicates whether the default security group
 	// for AWS workers has been created.
 	// A failure here indicates that NodePools without a security group will be
@@ -195,6 +210,28 @@ const (
 	// This condition is used to track the status of the recovery process and to determine if the HostedCluster
 	// is ready to be used after restoration.
 	HostedClusterRestoredFromBackup ConditionType = "HostedClusterRestoredFromBackup"
+
+	// DataPlaneConnectionAvailable indicates whether the control plane has a successful
+	// network connection to the data plane components.
+	// **True** means the control plane can successfully reach the data plane nodes.
+	// **False** means there are network connection issues preventing the control plane from reaching the data plane.
+	// A failure here suggests potential issues such as: network policy restrictions,
+	// firewall rules, missing data plane nodes, or problems with infrastructure
+	// components like the konnectivity-agent workload.
+	// **Unknown** means the status cannot be determined (e.g., no worker nodes available or unable to inspect).
+	DataPlaneConnectionAvailable ConditionType = "DataPlaneConnectionAvailable"
+
+	// ControlPlaneConnectionAvailable indicates whether data plane workloads have a successful
+	// network connection to the control plane components. This condition is computed using
+	// a 3-replica Deployment that tests the full data path (DNS resolution of kubernetes.default.svc
+	// -> advertise address on lo -> apiserver proxy -> KAS on HCP) and reports results to a shared
+	// ConfigMap. The HCCO evaluates the staleness of the lastSucceeded timestamp in the ConfigMap.
+	// **True** means the data plane can successfully reach the control plane (a recent successful check was recorded).
+	// **False** means there are connectivity failures preventing the data plane from reaching the control plane,
+	// or the last successful check is stale (older than 5 minutes).
+	// **Unknown** means the status cannot be determined due to true inability to inspect (e.g., no worker nodes exist or inspection cannot be performed),
+	// not due to missing required components.
+	ControlPlaneConnectionAvailable ConditionType = "ControlPlaneConnectionAvailable"
 )
 
 // Reasons.
@@ -225,6 +262,7 @@ const (
 	UnsupportedHostedClusterReason        = "UnsupportedHostedCluster"
 	InsufficientClusterCapabilitiesReason = "InsufficientClusterCapabilities"
 	OIDCConfigurationInvalidReason        = "OIDCConfigurationInvalid"
+	ProxyCABundleInvalidReason            = "ProxyCABundleInvalid"
 	PlatformCredentialsNotFoundReason     = "PlatformCredentialsNotFound"
 	InvalidImageReason                    = "InvalidImage"
 	InvalidIdentityProvider               = "InvalidIdentityProvider"
@@ -250,7 +288,25 @@ const (
 
 	RecoveryFinishedReason = "RecoveryFinished"
 
+	ReconcileErrorReason = "ReconcileError"
+
 	CloudResourcesCleanupSkippedReason = "CloudResourcesCleanupSkipped"
+
+	DataPlaneConnectionNoKonnectivityAgentPodsNotFoundReason = "KonnectivityAgentPodsNotFound"
+
+	DataPlaneConnectionLogsAccessFailedReason = "LogsAccessFailed"
+
+	DataPlaneConnectionNoWorkerNodesAvailableReason = "NoWorkerNodesAvailable"
+
+	ControlPlaneConnectionKASAccessFailedReason = "KASAccessFailed"
+
+	ControlPlaneConnectionCheckStaleReason = "ConnectionCheckStale"
+
+	ControlPlaneConnectionConfigMapNotFoundReason = "ConfigMapNotFound"
+
+	ControlPlaneConnectionNoWorkerNodesAvailableReason = "NoWorkerNodesAvailable"
+
+	ControlPlaneComponentsNotAvailable = "ComponentsNotAvailable"
 )
 
 // Messages.

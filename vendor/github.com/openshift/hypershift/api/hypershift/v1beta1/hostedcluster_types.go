@@ -50,6 +50,10 @@ const (
 	// KonnectivityAgentImageAnnotation is a temporary annotation that allows the specification of the konnectivity agent image.
 	// This will be removed when Konnectivity is added to the Openshift release payload
 	KonnectivityAgentImageAnnotation = "hypershift.openshift.io/konnectivity-agent-image"
+	// NodePoolHAProxyImageAnnotation can be set on a NodePool to override the HAProxy image
+	// used for worker node API server proxy. This takes precedence over the environment
+	// variable IMAGE_SHARED_INGRESS_HAPROXY and the default shared ingress image.
+	NodePoolHAProxyImageAnnotation = "hypershift.openshift.io/haproxy-image"
 	// ControlPlaneOperatorImageAnnotation is an annotation that allows the specification of the control plane operator image.
 	// This is used for development and e2e workflows
 	ControlPlaneOperatorImageAnnotation = "hypershift.openshift.io/control-plane-operator-image"
@@ -126,6 +130,10 @@ const (
 	// a HostedControlPlane.
 	ClusterAPIOpenStackProviderImage = "hypershift.openshift.io/capi-provider-openstack-image"
 
+	// ClusterAPIGCPProviderImage overrides the CAPI GCP provider image to use for
+	// a HostedControlPlane.
+	ClusterAPIGCPProviderImage = "hypershift.openshift.io/capi-provider-gcp-image"
+
 	// OpenStackResourceControllerImage overrides the ORC image to use for a HostedControlPlane.
 	OpenStackResourceControllerImage = "hypershift.openshift.io/orc-image"
 
@@ -158,6 +166,10 @@ const (
 	// ServiceAccountSigningKeySecretKey is the name of the secret key that should contain the service account signing
 	// key if specified.
 	ServiceAccountSigningKeySecretKey = "key"
+
+	// ServiceAccountOldPublicKeySecretKey is the name of the secret key that should contain the old service account public
+	// key if specified.
+	ServiceAccountOldPublicKeySecretKey = "old-key.pub"
 
 	// DisableProfilingAnnotation is the annotation that allows disabling profiling for control plane components.
 	// Any components specified in this list will have profiling disabled. Profiling is disabled by default for etcd and konnectivity.
@@ -259,6 +271,10 @@ const (
 	// DisableMonitoringServices introduces an option to disable monitor services IBM Cloud do not use.
 	DisableMonitoringServices = "hypershift.openshift.io/disable-monitoring-services"
 
+	// EnableMetricsForwarding enables metrics forwarding from the management cluster to hosted clusters.
+	// When present, components like the endpoint-resolver and metrics-proxy will be deployed.
+	EnableMetricsForwarding = "hypershift.openshift.io/enable-metrics-forwarding"
+
 	// JSONPatchAnnotation allow modifying the kubevirt VM template using jsonpatch
 	JSONPatchAnnotation = "hypershift.openshift.io/kubevirt-vm-jsonpatch"
 
@@ -289,10 +305,41 @@ const (
 	// control plane load balancers in the AWS platform.
 	AWSLoadBalancerTargetNodesAnnotation = "hypershift.openshift.io/aws-load-balancer-target-node-labels"
 
+	// AWSLoadBalancerHealthProbeModeAnnotation allows overriding the health probe mode for AWS load balancers.
+	// Valid values are "Shared" or "ServiceNodePort".
+	// When set to "Shared", all services on the cluster that use a LoadBalancer share a single health probe (default).
+	// When set to "ServiceNodePort", each service gets its own dedicated health probe.
+	AWSLoadBalancerHealthProbeModeAnnotation = "hypershift.openshift.io/aws-load-balancer-health-probe-mode"
+
+	// SharedLoadBalancerHealthProbePathAnnotation allows overriding the health probe path for shared load balancers.
+	// This annotation applies to both AWS and Azure platforms.
+	// For AWS, this annotation only takes effect when aws-load-balancer-health-probe-mode is set to "Shared".
+	// For Azure, this annotation only takes effect when azure-load-balancer-health-probe-mode is set to "shared".
+	// The default value is "/healthz".
+	SharedLoadBalancerHealthProbePathAnnotation = "hypershift.openshift.io/shared-load-balancer-health-probe-path"
+
+	// SharedLoadBalancerHealthProbePortAnnotation allows overriding the health probe port for shared load balancers.
+	// This annotation applies to both AWS and Azure platforms.
+	// For AWS, this annotation only takes effect when aws-load-balancer-health-probe-mode is set to "Shared".
+	// For Azure, this annotation only takes effect when azure-load-balancer-health-probe-mode is set to "shared".
+	// The value must be a valid port number (1-65535). The default value is 10256.
+	SharedLoadBalancerHealthProbePortAnnotation = "hypershift.openshift.io/shared-load-balancer-health-probe-port"
+
+	// AzureLoadBalancerHealthProbeModeAnnotation allows overriding the health probe mode for Azure load balancers.
+	// Valid values are "shared" or "servicenodeport".
+	// When set to "shared", all services on the cluster that use a LoadBalancer share a single health probe (default).
+	// When set to "servicenodeport", each service gets its own dedicated health probe.
+	AzureLoadBalancerHealthProbeModeAnnotation = "hypershift.openshift.io/azure-load-balancer-health-probe-mode"
+
 	// DisableClusterAutoscalerAnnotation allows disabling the cluster autoscaler for a hosted cluster.
 	// This annotation is only set by the hypershift-operator on HosterControlPlanes.
 	// It is not set by the end-user.
 	DisableClusterAutoscalerAnnotation = "hypershift.openshift.io/disable-cluster-autoscaler"
+
+	// DisableAWSNodeTerminationHandlerAnnotation allows disabling the AWS Node Termination Handler for a hosted cluster.
+	// This annotation is only set by the hypershift-operator on HostedControlPlanes.
+	// It is not set by the end-user.
+	DisableAWSNodeTerminationHandlerAnnotation = "hypershift.openshift.io/disable-aws-node-termination-handler"
 
 	// AroHCP represents the ARO HCP managed service offering
 	AroHCP = "ARO-HCP"
@@ -325,6 +372,14 @@ const (
 	// of workers associated with the HostedCluster. The value should be the desired size label.
 	ClusterSizeOverrideAnnotation = "hypershift.openshift.io/cluster-size-override"
 
+	// ResourceBasedControlPlaneAutoscalingAnnotation, if "true", enables setting the size label of a cluster based on actual Kube API server
+	// resource usage as opposed to node count of the cluster. It only takes effect if size tagging is enabled.
+	ResourceBasedControlPlaneAutoscalingAnnotation = "hypershift.openshift.io/resource-based-cp-auto-scaling"
+
+	// RecommendedClusterSizeAnnotation is the annotation used by the control plane autoscaler to recommend a size
+	// for the hosted cluster.
+	RecommendedClusterSizeAnnotation = "hypershift.openshift.io/recommended-cluster-size"
+
 	// KubeAPIServerVerbosityLevelAnnotation allows specifying the log verbosity of kube-apiserver.
 	KubeAPIServerVerbosityLevelAnnotation = "hypershift.openshift.io/kube-apiserver-verbosity-level"
 
@@ -355,9 +410,22 @@ const (
 	// KubeAPIServerGoAwayChance allows the --goaway-chance parameter of the kube-apiserver to be overridden from its default of 0
 	KubeAPIServerGoAwayChance = "hypershift.openshift.io/kube-apiserver-goaway-chance"
 
+	// KubeAPIServerServiceAccountTokenMaxExpiration allows setting the maximum expiration duration
+	// for service account tokens issued by the kube-apiserver. This is useful during service account
+	// signing key rotation to enforce a limited token lifetime, ensuring tokens are re-issued with
+	// the new signing key. The value must be a valid Go duration string (e.g., "24h", "168h", "720h").
+	// Minimum value is 600s (10 minutes) per Kubernetes requirements.
+	KubeAPIServerServiceAccountTokenMaxExpiration = "hypershift.openshift.io/kube-apiserver-service-account-token-max-expiration"
+
 	// AWSMachinePublicIPs, if set to "true", results in an AWS machine template that creates machines with public IPs
 	// WARNING: This option is for development and testing purposes only
 	AWSMachinePublicIPs = "hypershift.openshift.io/aws-machine-public-ips"
+
+	// AWSKarpenterDefaultInstanceProfile specifies the default IAM instance profile
+	// for EC2 instances created by Karpenter. This will be set directly on the
+	// EC2NodeClass. The instance profile must already exist in AWS.
+	// This is platform-controlled and bypasses OpenshiftEC2NodeClass.
+	AWSKarpenterDefaultInstanceProfile = "hypershift.openshift.io/aws-karpenter-default-instance-profile"
 
 	// HostedClusterRestoredFromBackupAnnotation is set to true when the HostedCluster is restored from a backup using Hypershift
 	// OADP plugin. This annotation is set by the Hypershift OADP plugin during the Backup/Restore process. The annotation will trigger
@@ -381,6 +449,11 @@ const (
 	// SkipKASCertificateConflicSANValidation allows skipping the validation of the KAS certificate SANs so they do not conflict with ServicePublishingStrategy Hostname.
 	// This annotation is useful as a escape hatch, that IBM could use.
 	SkipKASConflicSANValidation = "hypershift.openshift.io/skip-kas-conflict-san-validation"
+
+	// SwiftPodNetworkInstanceAnnotation indicates that Swift networking is enabled for the HostedCluster.
+	// This is used by ARO. The value of this annotation is the name of the Swift pod network instance to be attached to the router pods.
+	// We still support absence of this annotation in ARO to keep CI working until swift is available there.
+	SwiftPodNetworkInstanceAnnotation = "hypershift.openshift.io/swift-pod-network-instance"
 )
 
 // RetentionPolicy defines the policy for handling resources associated with a cluster when the cluster is deleted.
@@ -565,7 +638,9 @@ type HostedClusterSpec struct {
 	// +optional
 	Autoscaling ClusterAutoscaling `json:"autoscaling,omitempty"`
 
-	// autoNode specifies the configuration for the autoNode feature.
+	// autoNode specifies the configuration for automatic node provisioning and lifecycle management.
+	// When set, the provisioner(e.g. Karpenter) will be used to provision nodes for targeted workloads.
+	//
 	// +openshift:enable:FeatureGate=AutoNodeKarpenter
 	// +optional
 	AutoNode *AutoNode `json:"autoNode,omitempty"`
@@ -641,7 +716,10 @@ type HostedClusterSpec struct {
 	// If the reference is set but none of the above requirements are met, the HostedCluster will enter a degraded state.
 	// TODO(alberto): Signal this in a condition.
 	//
-	// +immutable
+	// For key rotation, the secret may optionally contain an "old-key.pub" key whose content is the PEM-encoded
+	// public key of the previous signing key. When present, the kube-apiserver will accept tokens signed by
+	// both the current and previous keys, allowing for graceful key rotation without invalidating existing tokens.
+	//
 	// +optional
 	ServiceAccountSigningKey *corev1.LocalObjectReference `json:"serviceAccountSigningKey,omitempty"`
 
@@ -992,6 +1070,7 @@ type DNSSpec struct {
 // TODO this is available in vanilla kube from 1.31 API servers and in Openshift from 4.16.
 // TODO(alberto): Use CEL cidr library for all these validation when all management clusters are >= 1.31.
 // +kubebuilder:validation:XValidation:rule="(!has(self.machineNetwork) && self.clusterNetwork.all(c, self.serviceNetwork.all(s, c.cidr != s.cidr)) || (has(self.machineNetwork) && (self.machineNetwork.all(m, self.clusterNetwork.all(c, m.cidr != c.cidr)) && self.machineNetwork.all(m, self.serviceNetwork.all(s, m.cidr != s.cidr)) && self.clusterNetwork.all(c, self.serviceNetwork.all(s, c.cidr != s.cidr)))))",message="CIDR ranges in machineNetwork, clusterNetwork, and serviceNetwork must be unique and non-overlapping"
+// +kubebuilder:validation:XValidation:rule="has(self.allocateNodeCIDRs) && self.allocateNodeCIDRs == 'Enabled' ? self.networkType == 'Other' : true",message="allocateNodeCIDRs can only be set to Enabled when networkType is 'Other'"
 type ClusterNetworking struct {
 	// machineNetwork is the list of IP address pools for machines.
 	// This might be used among other things to generate appropriate networking security groups in some clouds providers.
@@ -1042,6 +1121,17 @@ type ClusterNetworking struct {
 	//
 	// +optional
 	APIServer *APIServerNetworking `json:"apiServer,omitempty"`
+
+	// allocateNodeCIDRs controls whether the kube-controller-manager manages node CIDR allocation.
+	// When using networkType=Other, it is recommended to set this field to "Enabled"
+	// if Flannel is used as the CNI, as it relies on this behavior.
+	// Default is "Disabled".
+	// This field can only be set to "Enabled" when NetworkType is "Other". Setting it to "Enabled"
+	// with any other NetworkType will result in a validation error during cluster creation.
+	//
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="allocateNodeCIDRs is immutable and cannot be modified once set."
+	AllocateNodeCIDRs *AllocateNodeCIDRsMode `json:"allocateNodeCIDRs,omitempty"`
 }
 
 // MachineNetworkEntry is a single IP address block for node IP blocks.
@@ -1130,6 +1220,18 @@ const (
 	Other NetworkType = "Other"
 )
 
+// AllocateNodeCIDRsMode specifies whether the KCM manages node CIDR allocation.
+// +kubebuilder:validation:Enum=Enabled;Disabled
+type AllocateNodeCIDRsMode string
+
+const (
+	// AllocateNodeCIDRsEnabled enables node CIDR allocation by the KCM
+	AllocateNodeCIDRsEnabled AllocateNodeCIDRsMode = "Enabled"
+
+	// AllocateNodeCIDRsDisabled disables node CIDR allocation by the KCM
+	AllocateNodeCIDRsDisabled AllocateNodeCIDRsMode = "Disabled"
+)
+
 // PlatformType is a specific supported infrastructure provider.
 // +kubebuilder:validation:MaxLength=100
 type PlatformType string
@@ -1212,7 +1314,7 @@ type PlatformSpec struct {
 	Azure *AzurePlatformSpec `json:"azure,omitempty"`
 
 	// powervs specifies configuration for clusters running on IBMCloud Power VS Service.
-	// This field is immutable. Once set, It can't be changed.
+	// This field is immutable. Once set, it cannot be changed.
 	//
 	// +optional
 	// +immutable
@@ -1255,46 +1357,302 @@ type Release struct {
 	Image string `json:"image"`
 }
 
-// We expose here internal configuration knobs that won't be exposed to the service.
+// AutoNode specifies the configuration for automatic node provisioning and lifecycle management.
 type AutoNode struct {
-	// provisionerConfig is the implementation used for Node auto provisioning.
+	// provisionerConfig specifies the provisioner used for automatic node management.
 	// +required
-	Provisioner *ProvisionerConfig `json:"provisionerConfig"`
+	Provisioner ProvisionerConfig `json:"provisionerConfig,omitzero"`
 }
 
-// ProvisionerConfig is a enum specifying the strategy for auto managing Nodes.
+// ProvisionerConfig specifies the provisioner used for automatic node management
+// and its associated configuration.
+//
+// +kubebuilder:validation:XValidation:rule="self.name == 'Karpenter' ? has(self.karpenter) : !has(self.karpenter)",message="karpenter is required when name is Karpenter, and forbidden otherwise"
+// +union
 type ProvisionerConfig struct {
-	// name specifies the name of the provisioner to use.
+	// name specifies the name of the provisioner to use for automatic node management.
+	//
 	// +required
+	// +unionDiscriminator
 	// +kubebuilder:validation:Enum=Karpenter
-	Name Provisioner `json:"name"`
+	Name Provisioner `json:"name,omitempty"`
+
 	// karpenter specifies the configuration for the Karpenter provisioner.
+	//
 	// +optional
+	// +unionMember
 	Karpenter *KarpenterConfig `json:"karpenter,omitempty"`
 }
 
+// KarpenterConfig specifies the configuration for the Karpenter provisioner
+// including the target platform and platform-specific settings.
+//
+// +kubebuilder:validation:XValidation:rule="self.platform == 'AWS' ? has(self.aws) : !has(self.aws)",message="aws is required when platform is AWS, and forbidden otherwise"
+// +union
 type KarpenterConfig struct {
-	// platform specifies the platform-specific configuration for Karpenter.
+	// platform specifies the infrastructure platform that Karpenter should provision nodes on.
+	//
 	// +required
-	Platform PlatformType `json:"platform"`
+	// +unionDiscriminator
+	// +kubebuilder:validation:Enum=AWS
+	Platform PlatformType `json:"platform,omitempty"`
+
 	// aws specifies the AWS-specific configuration for Karpenter.
+	//
 	// +optional
+	// +unionMember
 	AWS *KarpenterAWSConfig `json:"aws,omitempty"`
 }
 
+// KarpenterAWSConfig specifies AWS-specific configuration for the Karpenter provisioner.
 type KarpenterAWSConfig struct {
-	// roleARN specifies the ARN of the Karpenter provisioner.
+	// roleARN specifies the ARN of the IAM role that Karpenter assumes to provision
+	// and manage EC2 instances in the hosted cluster's AWS account.
+	//
+	// The referenced role must have a trust relationship that allows it to be assumed
+	// by the karpenter service account in the hosted cluster via OIDC.
+	// Example:
+	// {
+	// 	"Version": "2012-10-17",
+	// 	"Statement": [
+	// 		{
+	// 			"Effect": "Allow",
+	// 			"Principal": {
+	// 				"Federated": "<oidc-provider-arn>"
+	// 			},
+	// 			"Action": "sts:AssumeRoleWithWebIdentity",
+	// 			"Condition": {
+	// 				"StringEquals": {
+	// 					"<oidc-provider-name>:sub": "system:serviceaccount:kube-system:karpenter"
+	// 				}
+	// 			}
+	// 		}
+	// 	]
+	// }
+	//
+	// The following is an example of the policy document for this role.
+	//
+	// {
+	// 	"Version": "2012-10-17",
+	// 	"Statement": [
+	// 		{
+	// 			"Sid": "AllowScopedEC2InstanceAccessActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": [
+	// 				"arn:*:ec2:*::image/*",
+	// 				"arn:*:ec2:*::snapshot/*",
+	// 				"arn:*:ec2:*:*:security-group/*",
+	// 				"arn:*:ec2:*:*:subnet/*"
+	// 			],
+	// 			"Action": [
+	// 				"ec2:RunInstances",
+	// 				"ec2:CreateFleet"
+	// 			]
+	// 		},
+	// 		{
+	// 			"Sid": "AllowScopedEC2LaunchTemplateAccessActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": "arn:*:ec2:*:*:launch-template/*",
+	// 			"Action": [
+	// 				"ec2:RunInstances",
+	// 				"ec2:CreateFleet"
+	// 			]
+	// 		},
+	// 		{
+	// 			"Sid": "AllowScopedEC2InstanceActionsWithTags",
+	// 			"Effect": "Allow",
+	// 			"Resource": [
+	// 				"arn:*:ec2:*:*:fleet/*",
+	// 				"arn:*:ec2:*:*:instance/*",
+	// 				"arn:*:ec2:*:*:volume/*",
+	// 				"arn:*:ec2:*:*:network-interface/*",
+	// 				"arn:*:ec2:*:*:launch-template/*",
+	// 				"arn:*:ec2:*:*:spot-instances-request/*"
+	// 			],
+	// 			"Action": [
+	// 				"ec2:RunInstances",
+	// 				"ec2:CreateFleet",
+	// 				"ec2:CreateLaunchTemplate"
+	// 			],
+	// 			"Condition": {
+	// 				"StringLike": {
+	// 					"aws:RequestTag/karpenter.sh/nodepool": "*"
+	// 				}
+	// 			}
+	// 		},
+	// 		{
+	// 			"Sid": "AllowScopedResourceCreationTagging",
+	// 			"Effect": "Allow",
+	// 			"Resource": [
+	// 				"arn:*:ec2:*:*:fleet/*",
+	// 				"arn:*:ec2:*:*:instance/*",
+	// 				"arn:*:ec2:*:*:volume/*",
+	// 				"arn:*:ec2:*:*:network-interface/*",
+	// 				"arn:*:ec2:*:*:launch-template/*",
+	// 				"arn:*:ec2:*:*:spot-instances-request/*"
+	// 			],
+	// 			"Action": "ec2:CreateTags",
+	// 			"Condition": {
+	// 				"StringEquals": {
+	// 					"ec2:CreateAction": [
+	// 						"RunInstances",
+	// 						"CreateFleet",
+	// 						"CreateLaunchTemplate"
+	// 					]
+	// 				},
+	// 				"StringLike": {
+	// 					"aws:RequestTag/karpenter.sh/nodepool": "*"
+	// 				}
+	// 			}
+	// 		},
+	// 		{
+	// 			"Sid": "AllowScopedResourceTagging",
+	// 			"Effect": "Allow",
+	// 			"Resource": "arn:*:ec2:*:*:instance/*",
+	// 			"Action": "ec2:CreateTags",
+	// 			"Condition": {
+	// 				"StringLike": {
+	// 					"aws:ResourceTag/karpenter.sh/nodepool": "*"
+	// 				}
+	// 			}
+	// 		},
+	// 		{
+	// 			"Sid": "AllowScopedDeletion",
+	// 			"Effect": "Allow",
+	// 			"Resource": [
+	// 				"arn:*:ec2:*:*:instance/*",
+	// 				"arn:*:ec2:*:*:launch-template/*"
+	// 			],
+	// 			"Action": [
+	// 				"ec2:TerminateInstances",
+	// 				"ec2:DeleteLaunchTemplate"
+	// 			],
+	// 			"Condition": {
+	// 				"StringLike": {
+	// 					"aws:ResourceTag/karpenter.sh/nodepool": "*"
+	// 				}
+	// 			}
+	// 		},
+	// 		{
+	// 			"Sid": "AllowRegionalReadActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": "*",
+	// 			"Action": [
+	// 				"ec2:DescribeImages",
+	// 				"ec2:DescribeInstances",
+	// 				"ec2:DescribeInstanceTypeOfferings",
+	// 				"ec2:DescribeInstanceTypes",
+	// 				"ec2:DescribeLaunchTemplates",
+	// 				"ec2:DescribeSecurityGroups",
+	// 				"ec2:DescribeSpotPriceHistory",
+	// 				"ec2:DescribeSubnets"
+	// 			]
+	// 		},
+	// 		{
+	// 			"Sid": "AllowSSMReadActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": "arn:*:ssm:*::parameter/aws/service/*",
+	// 			"Action": "ssm:GetParameter"
+	// 		},
+	// 		{
+	// 			"Sid": "AllowPricingReadActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": "*",
+	// 			"Action": "pricing:GetProducts"
+	// 		},
+	// 		{
+	// 			"Sid": "AllowInterruptionQueueActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": "*",
+	// 			"Action": [
+	// 				"sqs:DeleteMessage",
+	// 				"sqs:GetQueueUrl",
+	// 				"sqs:ReceiveMessage"
+	// 			]
+	// 		},
+	// 		{
+	// 			"Sid": "AllowPassingInstanceRole",
+	// 			"Effect": "Allow",
+	// 			"Resource": "arn:*:iam::*:role/*",
+	// 			"Action": "iam:PassRole",
+	// 			"Condition": {
+	// 				"StringEquals": {
+	// 					"iam:PassedToService": [
+	// 						"ec2.amazonaws.com",
+	// 						"ec2.amazonaws.com.cn"
+	// 					]
+	// 				}
+	// 			}
+	// 		},
+	// 		{
+	// 			"Sid": "AllowScopedInstanceProfileCreationActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": "arn:*:iam::*:instance-profile/*",
+	// 			"Action": [
+	// 				"iam:CreateInstanceProfile"
+	// 			],
+	// 			"Condition": {
+	// 				"StringLike": {
+	// 					"aws:RequestTag/karpenter.k8s.aws/ec2nodeclass": "*"
+	// 				}
+	// 			}
+	// 		},
+	// 		{
+	// 			"Sid": "AllowScopedInstanceProfileTagActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": "arn:*:iam::*:instance-profile/*",
+	// 			"Action": [
+	// 				"iam:TagInstanceProfile"
+	// 			],
+	// 			"Condition": {
+	// 				"StringLike": {
+	// 					"aws:ResourceTag/karpenter.k8s.aws/ec2nodeclass": "*",
+	// 					"aws:RequestTag/karpenter.k8s.aws/ec2nodeclass": "*"
+	// 				}
+	// 			}
+	// 		},
+	// 		{
+	// 			"Sid": "AllowScopedInstanceProfileActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": "arn:*:iam::*:instance-profile/*",
+	// 			"Action": [
+	// 				"iam:AddRoleToInstanceProfile",
+	// 				"iam:RemoveRoleFromInstanceProfile",
+	// 				"iam:DeleteInstanceProfile"
+	// 			],
+	// 			"Condition": {
+	// 				"StringLike": {
+	// 					"aws:ResourceTag/karpenter.k8s.aws/ec2nodeclass": "*"
+	// 				}
+	// 			}
+	// 		},
+	// 		{
+	// 			"Sid": "AllowInstanceProfileReadActions",
+	// 			"Effect": "Allow",
+	// 			"Resource": "arn:*:iam::*:instance-profile/*",
+	// 			"Action": "iam:GetInstanceProfile"
+	// 		},
+	// 		{
+	// 			"Sid": "AllowUnscopedInstanceProfileListAction",
+	// 			"Effect": "Allow",
+	// 			"Resource": "*",
+	// 			"Action": "iam:ListInstanceProfiles"
+	// 		}
+	// 	]
+	// }
+	//
 	// +required
-	// +kubebuilder:validation:MaxLength=255
-	RoleARN string `json:"roleARN"`
+	// +kubebuilder:validation:XValidation:rule="self.matches('^arn:(aws|aws-cn|aws-us-gov):iam::[0-9]{12}:role/.+$')",message="roleARN must be a valid AWS IAM role ARN (e.g. arn:aws:iam::123456789012:role/MyRole)"
+	// +kubebuilder:validation:MaxLength=2048
+	RoleARN string `json:"roleARN,omitempty"`
 }
 
 const (
+	// ProvisionerKarpenter indicates that Karpenter is used for automatic node provisioning.
 	ProvisionerKarpenter Provisioner = "Karpenter"
 )
 
-// provisioner is a enum specifying the strategy for auto managing Nodes.
-// +kubebuilder:validation:Enum=Karpenter
+// Provisioner is the name of a supported node provisioner.
 type Provisioner string
 
 // Configures when and how to scale down cluster nodes.
@@ -1942,6 +2300,12 @@ type OperatorConfiguration struct {
 	//
 	// +optional
 	ClusterNetworkOperator *ClusterNetworkOperatorSpec `json:"clusterNetworkOperator,omitempty"`
+
+	// ingressOperator specifies the configuration for the Ingress Operator in the hosted cluster.
+	// This allows configuring how the default ingress controller endpoints are published.
+	//
+	// +optional
+	IngressOperator *IngressOperatorSpec `json:"ingressOperator,omitempty"`
 }
 
 // +genclient
