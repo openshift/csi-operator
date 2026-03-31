@@ -18,7 +18,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
-	"github.com/openshift/library-go/pkg/operator/hypershift/deploymentversion"
+	deploymentversioncontroller "github.com/openshift/library-go/pkg/operator/hypershift/deploymentversion"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
@@ -89,6 +89,8 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 					"--worker-threads=100",
 					"--kube-api-qps=50",
 					"--kube-api-burst=100",
+				).WithAdditionalAssets(
+					"base/rbac/volumeattributesclass_reader_provisioner_binding.yaml",
 				),
 				commongenerator.DefaultAttacher.WithExtraArguments(
 					"--timeout=1200s",
@@ -99,6 +101,8 @@ func GetAzureDiskGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				commongenerator.DefaultResizer.WithExtraArguments(
 					"--timeout=240s",
 					"-handle-volume-inuse-error=false",
+				).WithAdditionalAssets(
+					"base/rbac/volumeattributesclass_reader_resizer_binding.yaml",
 				),
 				commongenerator.DefaultSnapshotter.WithExtraArguments(
 					"--timeout=600s",

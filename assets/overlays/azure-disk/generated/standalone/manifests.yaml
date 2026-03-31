@@ -29,5 +29,7 @@ guestStaticAssetNames:
 - prometheus_role.yaml
 - storageclass.yaml
 - storageclass_reader_resizer_binding.yaml
+- volumeattributesclass_reader_provisioner_binding.yaml
+- volumeattributesclass_reader_resizer_binding.yaml
 - volumesnapshot_reader_provisioner_binding.yaml
 - volumesnapshotclass.yaml
