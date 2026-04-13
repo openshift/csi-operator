@@ -1,0 +1,8 @@
+apiVersion: storage.k8s.io/v1
+kind: VolumeAttributesClass
+metadata:
+  name: ultrassd-azuredisk-vac
+driverName: disk.csi.azure.com
+parameters:
+  diskIOPSReadWrite: "1000"
+  diskMBpsReadWrite: "200"
