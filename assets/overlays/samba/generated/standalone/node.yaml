@@ -74,6 +74,8 @@ spec:
         - mountPath: /var/lib/kubelet/
           mountPropagation: Bidirectional
           name: kubelet-dir
+        - mountPath: /tmp
+          name: tmp-dir
       - args:
         - --csi-address=/csi/csi.sock
         - --kubelet-registration-path=/var/lib/kubelet/plugins/smb.csi.k8s.io/csi.sock
@@ -171,6 +173,8 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: smb-csi-driver-node-metrics-serving-cert
+      - emptyDir: {}
+        name: tmp-dir
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 10%
