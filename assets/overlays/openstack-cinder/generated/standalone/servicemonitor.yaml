@@ -60,3 +60,4 @@ spec:
   selector:
     matchLabels:
       app: openstack-cinder-csi-driver-controller-metrics
+  serviceDiscoveryRole: EndpointSlice

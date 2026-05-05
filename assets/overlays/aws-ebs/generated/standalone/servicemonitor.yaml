@@ -60,3 +60,4 @@ spec:
   selector:
     matchLabels:
       app: aws-ebs-csi-driver-controller-metrics
+  serviceDiscoveryRole: EndpointSlice

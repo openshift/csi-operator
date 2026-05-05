@@ -4,6 +4,7 @@ metadata:
   name: ${ASSET_PREFIX}-controller-monitor
   namespace: ${NAMESPACE}
 spec:
+  serviceDiscoveryRole: EndpointSlice
   # Empty list to make json-patch work
   endpoints: []
   jobLabel: component

@@ -42,3 +42,4 @@ spec:
   selector:
     matchLabels:
       app: manila-csi-driver-controller-metrics
+  serviceDiscoveryRole: EndpointSlice

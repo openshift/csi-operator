@@ -24,3 +24,4 @@ spec:
   selector:
     matchLabels:
       app: aws-efs-csi-driver-controller-metrics
+  serviceDiscoveryRole: EndpointSlice

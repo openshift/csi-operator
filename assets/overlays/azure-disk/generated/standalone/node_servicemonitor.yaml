@@ -24,3 +24,4 @@ spec:
   selector:
     matchLabels:
       app: azure-disk-csi-driver-node-metrics
+  serviceDiscoveryRole: EndpointSlice
