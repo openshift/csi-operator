@@ -23,6 +23,10 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/openshift/origin-csi-livenessprobe:latest
+  - name: csi-external-resizer
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-csi-external-resizer:latest
   - name: kube-rbac-proxy
     from:
       kind: DockerImage
