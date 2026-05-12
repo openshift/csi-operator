@@ -90,6 +90,28 @@ spec:
               cpu: 10m
               memory: 50Mi
           terminationMessagePolicy: FallbackToLogsOnError
+      initContainers:
+        - name: wait-for-nfs-plugin
+          image: ${DRIVER_IMAGE}
+          command:
+            - sh
+            - -c
+            - |
+              until [ -S /var/lib/kubelet/plugins/csi-nfsplugin/csi.sock ]; do
+                echo "Waiting for NFS CSI plugin socket..."
+                sleep 2
+              done
+          securityContext:
+            readOnlyRootFilesystem: true
+            privileged: false
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - name: fwd-plugin-dir
+              mountPath: /var/lib/kubelet/plugins/csi-nfsplugin
       volumes:
         - name: cloud-credentials
           secret:
