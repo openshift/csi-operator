@@ -43,6 +43,8 @@ spec:
             - mountPath: /var/lib/kubelet/
               mountPropagation: Bidirectional
               name: kubelet-dir
+            - mountPath: /tmp
+              name: tmp-dir
           resources:
             limits:
               memory: 200Mi
@@ -50,3 +52,6 @@ spec:
               cpu: 10m
               memory: 20Mi
           terminationMessagePolicy: FallbackToLogsOnError
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}
