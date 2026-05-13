@@ -155,6 +155,28 @@ spec:
           name: registration-dir
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - |
+          until [ -S /var/lib/kubelet/plugins/csi-nfsplugin/csi.sock ]; do
+            echo "Waiting for NFS CSI plugin socket..."
+            sleep 2
+          done
+        image: ${DRIVER_IMAGE}
+        name: wait-for-nfs-plugin
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: false
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/kubelet/plugins/csi-nfsplugin
+          name: fwd-plugin-dir
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
