@@ -57,6 +57,7 @@ func GetSambaGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			),
 			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
 				"controller.yaml", "common/standalone/controller_add_affinity.yaml",
+				"controller.yaml", "overlays/samba/patches/controller_sidecar_resource_limits.yaml",
 			),
 		},
 

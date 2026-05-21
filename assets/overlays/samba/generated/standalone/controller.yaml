@@ -13,6 +13,7 @@
 # pod_network_livenessprobe.yaml: Added arguments [--probe-timeout=3s]
 # Applied strategic merge patch pod_network_livenessprobe.yaml
 # Applied strategic merge patch common/standalone/controller_add_affinity.yaml
+# Applied strategic merge patch overlays/samba/patches/controller_sidecar_resource_limits.yaml
 #
 #
 
@@ -105,6 +106,8 @@ spec:
         imagePullPolicy: IfNotPresent
         name: csi-provisioner
         resources:
+          limits:
+            memory: 400Mi
           requests:
             cpu: 10m
             memory: 50Mi
@@ -182,6 +185,8 @@ spec:
         imagePullPolicy: IfNotPresent
         name: csi-resizer
         resources:
+          limits:
+            memory: 400Mi
           requests:
             cpu: 10m
             memory: 50Mi
@@ -226,6 +231,8 @@ spec:
         imagePullPolicy: IfNotPresent
         name: csi-liveness-probe
         resources:
+          limits:
+            memory: 100Mi
           requests:
             cpu: 10m
             memory: 50Mi
