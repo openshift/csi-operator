@@ -14,6 +14,7 @@
 # Applied strategic merge patch pod_network_livenessprobe.yaml
 # Applied strategic merge patch common/standalone/controller_add_affinity.yaml
 # Applied strategic merge patch overlays/samba/patches/controller_sidecar_resource_limits.yaml
+# Applied strategic merge patch overlays/samba/patches/controller_kube_rbac_proxy_resource_limits.yaml
 #
 #
 
@@ -135,6 +136,8 @@ spec:
           name: driver-m
           protocol: TCP
         resources:
+          limits:
+            memory: 100Mi
           requests:
             cpu: 10m
             memory: 20Mi
@@ -160,6 +163,8 @@ spec:
           name: provisioner-m
           protocol: TCP
         resources:
+          limits:
+            memory: 100Mi
           requests:
             cpu: 10m
             memory: 20Mi
@@ -212,6 +217,8 @@ spec:
           name: resizer-m
           protocol: TCP
         resources:
+          limits:
+            memory: 100Mi
           requests:
             cpu: 10m
             memory: 20Mi

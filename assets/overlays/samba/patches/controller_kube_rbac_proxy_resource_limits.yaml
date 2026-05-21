@@ -1,0 +1,18 @@
+kind: Deployment
+apiVersion: apps/v1
+spec:
+  template:
+    spec:
+      containers:
+        - name: kube-rbac-proxy-8221
+          resources:
+            limits:
+              memory: 100Mi
+        - name: provisioner-kube-rbac-proxy
+          resources:
+            limits:
+              memory: 100Mi
+        - name: resizer-kube-rbac-proxy
+          resources:
+            limits:
+              memory: 100Mi
