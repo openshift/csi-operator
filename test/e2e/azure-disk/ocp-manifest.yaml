@@ -1,4 +1,4 @@
 Driver: disk.csi.azure.com
 LUNStressTest:
-  PodsTotal: 10 # See OCPBUGS-41265, Azure reboots a node under a heavy attach/detach load
+  PodsTotal: 260
   Timeout: "60m" # The test needs ~40 min in ideal conditions.
