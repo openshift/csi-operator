@@ -1,0 +1,18 @@
+kind: Deployment
+apiVersion: apps/v1
+spec:
+  template:
+    spec:
+      containers:
+        - name: csi-provisioner
+          resources:
+            limits:
+              memory: 400Mi
+        - name: csi-resizer
+          resources:
+            limits:
+              memory: 400Mi
+        - name: csi-liveness-probe
+          resources:
+            limits:
+              memory: 100Mi
