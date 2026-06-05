@@ -1,0 +1,4 @@
+Driver: pd.csi.storage.gke.io
+LUNStressTest:
+  PodsTotal: 260
+  Timeout: "30m" # The test needs ~10 min in ideal conditions.
