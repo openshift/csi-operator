@@ -1,0 +1,11 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gcp-pd-csi-driver-controller-pdb
+  namespace: openshift-cluster-csi-drivers
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: gcp-pd-csi-driver-controller
+  unhealthyPodEvictionPolicy: AlwaysAllow
