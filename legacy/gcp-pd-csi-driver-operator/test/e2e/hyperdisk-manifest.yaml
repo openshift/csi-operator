@@ -1,0 +1,39 @@
+StorageClass:
+  FromExistingClassName: hyperdisk-balanced
+SnapshotClass:
+  FromName: true
+VolumeAttributesClass:
+  FromFile: volumeattributesclass.yaml
+DriverInfo:
+  Name: pd.csi.storage.gke.io
+  SupportedFsType:
+    xfs: {}
+    ext4: {}
+  SupportedMountOption:
+    debug:
+    nouid32:
+  SupportedSizeRange:
+    # Smaller volumes cannot pass resize tests due to IOPS. 
+    # For example, 4Gi volume gets 2000 IOPS max and it cannot be resized to 5Gi that needs 2500 as minimum.
+    # 6Gi gets 3000 IOPS, which is the minimum for any bigger volume.
+    Min: 6Gi 
+    Max: 64Ti
+  TopologyKeys:
+    - topology.gke.io/zone
+  Capabilities:
+    persistence: true
+    fsGroup: true
+    block: true
+    exec: true
+    # The driver does support volume limits, however, we disable
+    # the capability to avoid creating 100+ volumes in a single test.
+    volumeLimits: false
+    controllerExpansion: true
+    nodeExpansion: true
+    snapshotDataSource: true
+    pvcDataSource: true
+    topology: true
+    multipods: true
+    multiplePVsSameID: true
+Timeouts:
+  DataSourceProvision: 10m
