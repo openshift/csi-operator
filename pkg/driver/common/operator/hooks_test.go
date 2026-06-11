@@ -219,7 +219,7 @@ func Test_WithHyperShiftControlPlaneImages(t *testing.T) {
 			expectedContainerImages: map[string]string{
 				"csi-driver":                  "control_plane_driver_image:1",
 				"csi-liveness-probe":          "control_plane_livenessprobe_image:1",
-				"kube-rbac-proxy-8201":        "control_plane_kube_rbac_proxy_image:1",
+				"driver-kube-rbac-proxy":      "control_plane_kube_rbac_proxy_image:1",
 				"provisioner-kube-rbac-proxy": "control_plane_kube_rbac_proxy_image:1",
 				"attacher-kube-rbac-proxy":    "control_plane_kube_rbac_proxy_image:1",
 				"resizer-kube-rbac-proxy":     "control_plane_kube_rbac_proxy_image:1",
