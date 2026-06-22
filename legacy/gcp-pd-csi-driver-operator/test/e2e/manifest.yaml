@@ -31,7 +31,7 @@ DriverInfo:
     multipods: true
     multiplePVsSameID: true
   VolumeSnapshotStressTestOptions:
-    NumPods: 2
-    NumSnapshots: 5
+    NumPods: 5
+    NumSnapshots: 2
 Timeouts:
   DataSourceProvision: 10m
