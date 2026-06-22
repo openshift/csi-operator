@@ -355,6 +355,7 @@ spec:
               metadata:
                 annotations:
                   target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+                  openshift.io/required-scc: restricted-v2
                 labels:
                   app: aws-efs-csi-driver-operator
                   openshift.storage.network-policy.all-egress: allow
