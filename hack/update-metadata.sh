@@ -13,6 +13,9 @@ set -o pipefail
 #   using the current package version, or you can for example run
 #   `./hack/update-metadata.sh 4.20` to set the package version to 4.20.
 #   Both PACKAGE_MANIFEST and CSV_MANIFEST will be updated by this script.
+#
+#   MAX_OCP_VERSION defaults to the next minor version after OCP_VERSION, but
+#   can be overwritten by setting the MAX_OCP_VERSION environment variable.
 
 PLATFORMS_NAMES=("aws-efs" "samba")
 PLATFORMS_ACRONYMS=("aws-efs" "smb")
@@ -53,11 +56,12 @@ do
     if [ "${OCP_VERSION}" != "${PACKAGE_VERSION}" ]; then
         PACKAGE_VERSION="${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}"
     fi
+    MAX_OCP_VERSION=${MAX_OCP_VERSION:-"${MAJOR_VERSION}.$((MINOR_VERSION + 1))"}
 
     export NEW_CURRENT_CSV="${PACKAGE_NAME}.v${PACKAGE_VERSION}"
     export NEW_METADATA_NAME="${PACKAGE_NAME}.v${PACKAGE_VERSION}"
     export NEW_SKIP_RANGE=$(echo ${SKIP_RANGE} | sed "s/ <.*$/ <${PACKAGE_VERSION}/")
-    export NEW_OLM_PROPERTIES=$(echo "${OLM_PROPERTIES}" | jq -c 'map(if .type=="olm.maxOpenShiftVersion" then .value="'${MAJOR_VERSION}.$((MINOR_VERSION + 1))'" else . end)')
+    export NEW_OLM_PROPERTIES=$(echo "${OLM_PROPERTIES}" | jq -c 'map(if .type=="olm.maxOpenShiftVersion" then .value="'${MAX_OCP_VERSION}'" else . end)')
     export NEW_SPEC_VERSION="${PACKAGE_VERSION}"
     export NEW_ALM_STATUS_DESC="${PACKAGE_NAME}.v${PACKAGE_VERSION}"
 
