@@ -92,13 +92,14 @@ spec:
           name: etc-selinux
         - mountPath: /sys/fs
           name: sys-fs
-        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
-          name: cacert
         - mountPath: /etc/kubernetes/config
           name: config-cinderplugin
           readOnly: true
-        - mountPath: /etc/kubernetes/secret
-          name: secret-cinderplugin
+        - mountPath: /etc/openstack
+          name: cloud-credentials
+          readOnly: true
+        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+          name: legacy-cacert
           readOnly: true
       - args:
         - --csi-address=/csi/csi.sock
@@ -196,25 +197,33 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: openstack-cinder-csi-driver-node-metrics-serving-cert
-      - configMap:
-          items:
-          - key: ca-bundle.pem
-            path: ca-bundle.pem
-          name: cloud-conf
-          optional: true
-        name: cacert
+      - name: cloud-credentials
+        projected:
+          sources:
+          - secret:
+              items:
+              - key: cacert
+                path: ca.crt
+              name: openstack-cloud-credentials
+              optional: true
+          - secret:
+              items:
+              - key: clouds.yaml
+                path: clouds.yaml
+              name: openstack-cloud-credentials
       - configMap:
           items:
           - key: cloud.conf
             path: cloud.conf
           name: cloud-conf
         name: config-cinderplugin
-      - name: secret-cinderplugin
-        secret:
+      - configMap:
           items:
-          - key: clouds.yaml
-            path: clouds.yaml
-          secretName: openstack-cloud-credentials
+          - key: ca-bundle.pem
+            path: ca-bundle.pem
+          name: cloud-conf
+          optional: true
+        name: legacy-cacert
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 10%
