@@ -3,6 +3,7 @@ BIN_PATH=$(CURPATH)/bin
 YQ = $(BIN_PATH)/yq
 YQ_VERSION = v4.47.1
 export PATH := $(BIN_PATH):$(PATH)
+export MAX_OCP_VERSION := 5.0
 
 all: build
 .PHONY: all

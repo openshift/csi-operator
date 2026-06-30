@@ -13,7 +13,7 @@ metadata:
     repository: https://github.com/openshift/csi-operator
     createdAt: "2021-07-14T00:00:00Z"
     description: Install and configure CIFS/SMB CSI driver.
-    olm.properties: '[{"type":"olm.maxOpenShiftVersion","value":"4.23"}]'
+    olm.properties: '[{"type":"olm.maxOpenShiftVersion","value":"5.0"}]'
     olm.skipRange: ">=4.15.0-0 <4.22.0"
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "false"
