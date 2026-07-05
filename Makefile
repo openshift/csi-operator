@@ -17,6 +17,13 @@ include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	targets/openshift/yq.mk \
 )
 
+# Run unit tests in legacy modules as part of test-unit
+test-unit: test-unit-legacy
+
+test-unit-legacy:
+	$(MAKE) -C legacy/gcp-pd-csi-driver-operator test-unit
+.PHONY: test-unit-legacy
+
 # Bump OCP version in CSV and OLM metadata
 #
 # Example:
