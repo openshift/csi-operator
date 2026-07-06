@@ -154,7 +154,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			"cabundle_cm.yaml",
 			"rbac/main_attacher_binding.yaml",
 			"rbac/privileged_role.yaml",
-			"rbac/controller_privileged_binding.yaml",
+			"rbac/hostnetwork_role.yaml",
+			"rbac/controller_hostnetwork_binding.yaml",
 			"rbac/node_privileged_binding.yaml",
 			"rbac/main_provisioner_binding.yaml",
 			"rbac/volumesnapshot_reader_provisioner_binding.yaml",
@@ -189,6 +190,23 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		// Don't ever remove.
 		func() bool {
 			return false
+		},
+	).WithConditionalStaticResourcesController(
+		"GCPPDDriverOldControllerPrivilegedBindingRemoval",
+		kubeClient,
+		dynamicClient,
+		kubeInformersForNamespaces,
+		assets.ReadFile,
+		[]string{
+			"rbac/old_controller_privileged_binding.yaml",
+		},
+		// Never create.
+		func() bool {
+			return false
+		},
+		// Always delete.
+		func() bool {
+			return true
 		},
 	).WithCSIConfigObserverController(
 		"GCPPDDriverCSIConfigObserverController",
