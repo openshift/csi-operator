@@ -20,7 +20,7 @@ spec:
       labels:
         app: gcp-pd-csi-driver-controller
       annotations:
-        openshift.io/required-scc: privileged
+        openshift.io/required-scc: hostnetwork-v2
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
     spec:
       hostNetwork: true
