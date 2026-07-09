@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	kubeclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -60,6 +61,10 @@ const (
 	ocpDefaultLabelFmt = "kubernetes-io-cluster-%s=owned"
 
 	operatorImageVersionEnvVarName = "OPERATOR_IMAGE_VERSION"
+
+	// gcpDedicatedRegionPrefix is the prefix for GCP Dedicated regions.
+	// GCP Dedicated regions start with "u-" (e.g. "u-germany-northeast1").
+	gcpDedicatedRegionPrefix = "u-"
 )
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
@@ -261,22 +266,22 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		dynamicClient,
 		assets.ReadFile,
 		"servicemonitor.yaml",
-	).WithStorageClassController(
+	)
+
+	storageClassFiles, err := getStorageClassFiles(ctx, configClient)
+	if err != nil {
+		return err
+	}
+
+	csiControllerSet = csiControllerSet.WithStorageClassController(
 		"GCPPDDriverStorageClassController",
 		assets.ReadFile,
-		[]string{
-			"storageclass.yaml",
-			"storageclass_ssd.yaml",
-		},
+		storageClassFiles,
 		kubeClient,
 		kubeInformersForNamespaces.InformersFor(""),
 		operatorInformers,
 		getKMSKeyHook(operatorInformers.Operator().V1().ClusterCSIDrivers().Lister()),
 	)
-
-	if err != nil {
-		return err
-	}
 
 	klog.Info("Starting the informers")
 	go kubeInformersForNamespaces.Start(ctx.Done())
@@ -290,6 +295,49 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	<-ctx.Done()
 
 	return nil
+}
+
+// getStorageClassFiles returns the list of StorageClass asset files to use,
+// based on whether the cluster runs on GCP Dedicated.
+// It retries for up to 1 minute to fetch the Infrastructure CR, because during
+// early cluster installation the CR may not exist yet.
+// On GCP Dedicated, only hyperdisk-balanced is supported.
+// On regular GCP, standard-csi and ssd-csi are used.
+func getStorageClassFiles(ctx context.Context, configClient configclient.Interface) ([]string, error) {
+	regularFiles := []string{
+		"storageclass.yaml",
+		"storageclass_ssd.yaml",
+	}
+	gcpDedicatedFiles := []string{
+		"storageclass_hyperdisk_balanced.yaml",
+	}
+
+	var region string
+	var lastErr error
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+		infra, err := configClient.ConfigV1().Infrastructures().Get(ctx, globalInfrastructureName, metav1.GetOptions{})
+		if err != nil {
+			lastErr = err
+			klog.V(4).Infof("Failed to get Infrastructure CR, will retry: %v", err)
+			return false, nil
+		}
+		if infra.Status.PlatformStatus == nil || infra.Status.PlatformStatus.GCP == nil {
+			klog.V(4).Infof("Infrastructure CR has no GCP PlatformStatus, assuming regular GCP")
+			return true, nil
+		}
+		region = infra.Status.PlatformStatus.GCP.Region
+		return true, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Infrastructure CR: %w", lastErr)
+	}
+
+	if strings.HasPrefix(region, gcpDedicatedRegionPrefix) {
+		klog.Infof("GCP Dedicated detected (region %q), using hyperdisk-balanced StorageClass", region)
+		return gcpDedicatedFiles, nil
+	}
+	klog.Infof("Regular GCP detected (region %q), using standard StorageClasses", region)
+	return regularFiles, nil
 }
 
 // withCustomLabels adds labels from Infrastructure.Status.PlatformStatus.GCP.ResourceLabels to the
