@@ -11,10 +11,13 @@ import (
 	"github.com/openshift/csi-operator/pkg/operator/config"
 
 	opv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"k8s.io/klog/v2"
 )
 
 const (
+	customAssetBase    = "overlays/gcp-pd/custom"
 	generatedAssetBase = "overlays/gcp-pd/generated"
 )
 
@@ -39,6 +42,21 @@ func GetGCPPDOperatorControllerConfig(ctx context.Context, flavour generator.Clu
 	}
 
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "GCPPD")
+
+	oldPrivilegedBindingController := staticresourcecontroller.NewStaticResourceController(
+		cfg.GetControllerName("OldControllerPrivilegedBindingRemoval"),
+		assets.ReadFile,
+		nil,
+		resourceapply.NewKubeClientHolder(c.KubeClient).WithDynamicClient(c.DynamicClient),
+		c.OperatorClient,
+		c.EventRecorder,
+	).WithConditionalResources(
+		assets.ReadFile,
+		[]string{customAssetBase + "/old_controller_privileged_binding.yaml"},
+		func() bool { return false },
+		func() bool { return true },
+	)
+	cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, oldPrivilegedBindingController)
 
 	go c.ConfigInformers.Start(ctx.Done())
 
