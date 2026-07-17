@@ -14,8 +14,11 @@ import (
 
 	opv1 "github.com/openshift/api/operator/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
+	"github.com/openshift/library-go/pkg/controller/factory"
+	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -32,6 +35,10 @@ const (
 	// gcpDedicatedRegionPrefix is the prefix for GCP Dedicated regions.
 	// GCP Dedicated regions start with "u-" (e.g. "u-germany-northeast1").
 	gcpDedicatedRegionPrefix = "u-"
+
+	// ocpDefaultLabelFmt is the format string for the default label
+	// added to the OpenShift created GCP resources.
+	ocpDefaultLabelFmt = "kubernetes-io-cluster-%s=owned"
 )
 
 // GetGCPPDOperatorConfig returns runtime configuration of the CSI driver operator.
@@ -86,6 +93,8 @@ func GetGCPPDOperatorControllerConfig(ctx context.Context, flavour generator.Clu
 
 	go c.ConfigInformers.Start(ctx.Done())
 
+	cfg.AddDeploymentHookBuilders(c, withCustomLabels)
+
 	return cfg, nil
 }
 
@@ -130,4 +139,44 @@ func getStorageClassFiles(ctx context.Context, configClient configclient.Interfa
 	}
 	klog.Infof("Regular GCP detected (region %q), using standard StorageClasses", region)
 	return regularFiles, nil
+}
+
+// withCustomLabels adds labels from Infrastructure.Status.PlatformStatus.GCP.ResourceLabels to the
+// driver command line as --extra-labels=<key1>=<value1>,<key2>=<value2>,...
+func withCustomLabels(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(spec *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		infraLister := c.GetInfraInformer().Lister()
+		infra, err := infraLister.Get(globalInfrastructureName)
+		if err != nil {
+			return err
+		}
+
+		var labels []string
+		if infra.Status.PlatformStatus != nil &&
+			infra.Status.PlatformStatus.GCP != nil &&
+			infra.Status.PlatformStatus.GCP.ResourceLabels != nil {
+			labels = make([]string, len(infra.Status.PlatformStatus.GCP.ResourceLabels))
+			for i, label := range infra.Status.PlatformStatus.GCP.ResourceLabels {
+				labels[i] = fmt.Sprintf("%s=%s", label.Key, label.Value)
+			}
+		}
+
+		labels = append(labels, fmt.Sprintf(ocpDefaultLabelFmt, infra.Status.InfrastructureName))
+		labelsStr := strings.Join(labels, ",")
+		labelsArg := fmt.Sprintf("--extra-labels=%s", labelsStr)
+		klog.V(5).Infof("withCustomLabels: adding extra-labels arg to driver with value %s", labelsStr)
+
+		for i := range deployment.Spec.Template.Spec.Containers {
+			container := &deployment.Spec.Template.Spec.Containers[i]
+			if container.Name != "csi-driver" {
+				continue
+			}
+			container.Args = append(container.Args, labelsArg)
+		}
+		return nil
+	}
+	informers := []factory.Informer{
+		c.GetInfraInformer().Informer(),
+	}
+	return hook, informers
 }
