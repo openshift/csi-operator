@@ -98,7 +98,11 @@ func GetGCPPDOperatorControllerConfig(ctx context.Context, flavour generator.Clu
 
 	go c.ConfigInformers.Start(ctx.Done())
 
-	cfg.AddDeploymentHookBuilders(c, withCustomLabels, withCABundleDeploymentHook)
+	cfg.AddDeploymentHookBuilders(c,
+		withCustomLabels,
+		withCABundleDeploymentHook,
+		withCustomResourceTags,
+	)
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook)
 
 	return cfg, nil
@@ -209,6 +213,50 @@ func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroll
 	)
 	informers := []factory.Informer{
 		c.GetConfigMapInformer(c.GuestNamespace).Informer(),
+	}
+	return hook, informers
+}
+
+// withCustomResourceTags adds resource tags from infrastructure.status.platformStatus.gcp.resourceTags to the
+// driver command line as --resource-tags=<parent_id>/<tagKey_shortname>/<tagValue_shortname>,...
+func withCustomResourceTags(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(spec *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		infraLister := c.GetInfraInformer().Lister()
+		infra, err := infraLister.Get(globalInfrastructureName)
+		if err != nil {
+			return err
+		}
+
+		var tags []string
+		if infra.Status.PlatformStatus != nil &&
+			infra.Status.PlatformStatus.GCP != nil &&
+			infra.Status.PlatformStatus.GCP.ResourceTags != nil {
+			tags = make([]string, len(infra.Status.PlatformStatus.GCP.ResourceTags))
+			for i, tag := range infra.Status.PlatformStatus.GCP.ResourceTags {
+				tags[i] = fmt.Sprintf("%s/%s/%s", tag.ParentID, tag.Key, tag.Value)
+			}
+		}
+
+		if len(tags) <= 0 {
+			klog.V(5).Infof("withCustomResourceTags: user tags not configured, no changes made to driver args")
+			return nil
+		}
+
+		tagsStr := strings.Join(tags, ",")
+		tagsArg := fmt.Sprintf("--extra-tags=%s", tagsStr)
+		klog.V(5).Infof("withCustomResourceTags: adding extra-tags arg to driver with value %s", tagsStr)
+
+		for i := range deployment.Spec.Template.Spec.Containers {
+			container := &deployment.Spec.Template.Spec.Containers[i]
+			if container.Name != "csi-driver" {
+				continue
+			}
+			container.Args = append(container.Args, tagsArg)
+		}
+		return nil
+	}
+	informers := []factory.Informer{
+		c.GetInfraInformer().Informer(),
 	}
 	return hook, informers
 }
