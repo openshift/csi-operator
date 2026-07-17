@@ -15,6 +15,8 @@ import (
 	opv1 "github.com/openshift/api/operator/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
@@ -39,6 +41,9 @@ const (
 	// ocpDefaultLabelFmt is the format string for the default label
 	// added to the OpenShift created GCP resources.
 	ocpDefaultLabelFmt = "kubernetes-io-cluster-%s=owned"
+
+	// The name of ConfigMap object with trusted CA certs.
+	trustedCAConfigMap = "gcp-pd-csi-driver-trusted-ca-bundle"
 )
 
 // GetGCPPDOperatorConfig returns runtime configuration of the CSI driver operator.
@@ -93,7 +98,8 @@ func GetGCPPDOperatorControllerConfig(ctx context.Context, flavour generator.Clu
 
 	go c.ConfigInformers.Start(ctx.Done())
 
-	cfg.AddDeploymentHookBuilders(c, withCustomLabels)
+	cfg.AddDeploymentHookBuilders(c, withCustomLabels, withCABundleDeploymentHook)
+	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook)
 
 	return cfg, nil
 }
@@ -177,6 +183,32 @@ func withCustomLabels(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Info
 	}
 	informers := []factory.Informer{
 		c.GetInfraInformer().Informer(),
+	}
+	return hook, informers
+}
+
+// withCABundleDeploymentHook projects custom CA bundle ConfigMap into the CSI driver container
+func withCABundleDeploymentHook(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := csidrivercontrollerservicecontroller.WithCABundleDeploymentHook(
+		c.ControlPlaneNamespace,
+		trustedCAConfigMap,
+		c.GetControlPlaneConfigMapInformer(c.ControlPlaneNamespace),
+	)
+	informers := []factory.Informer{
+		c.GetControlPlaneConfigMapInformer(c.ControlPlaneNamespace).Informer(),
+	}
+	return hook, informers
+}
+
+// withCABundleDaemonSetHook projects custom CA bundle ConfigMap into the CSI driver container
+func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
+	hook := csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
+		c.GuestNamespace,
+		trustedCAConfigMap,
+		c.GetConfigMapInformer(c.GuestNamespace),
+	)
+	informers := []factory.Informer{
+		c.GetConfigMapInformer(c.GuestNamespace).Informer(),
 	}
 	return hook, informers
 }
