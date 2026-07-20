@@ -232,7 +232,7 @@ func withCABundleDaemonSetHook(c *clients.Clients) (csidrivernodeservicecontroll
 }
 
 // withCustomResourceTags adds resource tags from infrastructure.status.platformStatus.gcp.resourceTags to the
-// driver command line as --resource-tags=<parent_id>/<tagKey_shortname>/<tagValue_shortname>,...
+// driver command line as --extra-tags=<parent_id>/<tagKey_shortname>/<tagValue_shortname>,...
 func withCustomResourceTags(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
 	hook := func(spec *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
 		infraLister := c.GetInfraInformer().Lister()
