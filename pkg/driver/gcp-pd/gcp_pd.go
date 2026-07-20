@@ -111,7 +111,7 @@ func GetGCPPDOperatorControllerConfig(ctx context.Context, flavour generator.Clu
 		withCustomResourceTags,
 	)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
-	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook)
+	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withClusterWideProxyDaemonSetHook)
 
 	return cfg, nil
 }
@@ -267,4 +267,10 @@ func withCustomResourceTags(c *clients.Clients) (dc.DeploymentHookFunc, []factor
 		c.GetInfraInformer().Informer(),
 	}
 	return hook, informers
+}
+
+// withClusterWideProxyHook adds the cluster-wide proxy config to the DaemonSet.
+func withClusterWideProxyDaemonSetHook(_ *clients.Clients) (csidrivernodeservicecontroller.DaemonSetHookFunc, []factory.Informer) {
+	hook := csidrivernodeservicecontroller.WithObservedProxyDaemonSetHook()
+	return hook, nil
 }
