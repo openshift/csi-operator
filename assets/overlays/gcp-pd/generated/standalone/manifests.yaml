@@ -1,0 +1,34 @@
+controllerStaticAssetNames:
+- cabundle_cm.yaml
+- controller.yaml
+- controller_pdb.yaml
+- controller_sa.yaml
+- service.yaml
+- servicemonitor.yaml
+guestStaticAssetNames:
+- csidriver.yaml
+- kube_rbac_proxy_binding.yaml
+- kube_rbac_proxy_role.yaml
+- lease_leader_election_rolebinding.yaml
+- lease_leader_election_role.yaml
+- main_attacher_binding.yaml
+- main_provisioner_binding.yaml
+- main_resizer_binding.yaml
+- main_snapshotter_binding.yaml
+- node.yaml
+- node_privileged_binding.yaml
+- controller_hostnetwork_binding.yaml
+- node_sa.yaml
+- privileged_role.yaml
+- hostnetwork_role.yaml
+- prometheus_rolebinding.yaml
+- prometheus_role.yaml
+- storageclass.yaml
+- storageclass_ssd.yaml
+- storageclass_hyperdisk_balanced.yaml
+- storageclass_reader_resizer_binding.yaml
+- volumeattributesclass_reader_provisioner_binding.yaml
+- volumeattributesclass_reader_resizer_binding.yaml
+- volumesnapshot_reader_provisioner_binding.yaml
+- volumesnapshotclass.yaml
+- volumesnapshotclass_images.yaml

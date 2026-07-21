@@ -70,6 +70,9 @@ type OperatorControllerConfig struct {
 	// No informers here, because StorageClassController does not accept any.
 	StorageClassHooks []csistorageclasscontroller.StorageClassHookFunc
 
+	// StorageClassSelector defines which StorageClass assets to apply. The arg is the name of yaml file.
+	StorageClassSelector func(string) bool
+
 	VolumeSnapshotClassHooks []volume_snapshot_class.VolumeSnapshotClassHookFunc
 
 	// ExtraReplacements defines additional replacements that should be made to assets
