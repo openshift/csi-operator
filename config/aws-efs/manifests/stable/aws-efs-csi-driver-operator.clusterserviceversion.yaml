@@ -343,6 +343,14 @@ spec:
                 - get
                 - list
                 - watch
+            - apiGroups:
+                - networking.k8s.io
+              resources:
+                - networkpolicies
+              verbs:
+                - create
+                - delete
+                - update
           serviceAccountName: aws-efs-csi-driver-operator
       deployments:
         - name: aws-efs-csi-driver-operator
