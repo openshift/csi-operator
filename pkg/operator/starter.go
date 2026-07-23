@@ -82,8 +82,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	a.SetReplacements(defaultReplacements)
 
-	a.StorageClassSelector = csiOperatorControllerConfig.StorageClassSelector
-
 	// Start controllers that manage resources in the MANAGEMENT cluster.
 	controlPlaneControllerInformers := csiOperatorControllerConfig.DeploymentInformers
 	controllerHooks := csiOperatorControllerConfig.DeploymentHooks
