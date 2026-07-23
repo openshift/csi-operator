@@ -1,6 +1,6 @@
 undefine GOFLAGS
 
-GOLANGCI_LINT_VERSION?=v2.5.0
+GOLANGCI_LINT_VERSION?=v2.12.1
 GOTESTSUM_VERSION?=v1.13.0
 GO_TEST?=go run gotest.tools/gotestsum@$(GOTESTSUM_VERSION) --format testname --
 TIMEOUT := "60m"
@@ -43,7 +43,7 @@ coverage:
 	$(GO_TEST) -shuffle on -covermode count -coverprofile cover.out -coverpkg=./... ./...
 .PHONY: coverage
 
-acceptance: acceptance-basic acceptance-baremetal acceptance-blockstorage acceptance-compute acceptance-container acceptance-containerinfra acceptance-db acceptance-dns acceptance-identity acceptance-image acceptance-keymanager acceptance-loadbalancer acceptance-messaging acceptance-networking acceptance-objectstorage acceptance-orchestration acceptance-placement acceptance-sharedfilesystems acceptance-workflow
+acceptance: acceptance-basic acceptance-baremetal acceptance-blockstorage acceptance-compute acceptance-container acceptance-containerinfra acceptance-db acceptance-dns acceptance-identity acceptance-image acceptance-keymanager acceptance-loadbalancer acceptance-messaging acceptance-metric acceptance-networking acceptance-objectstorage acceptance-orchestration acceptance-placement acceptance-sharedfilesystems acceptance-workflow
 .PHONY: acceptance
 
 acceptance-basic:
@@ -101,6 +101,10 @@ acceptance-loadbalancer:
 acceptance-messaging:
 	$(GO_TEST) -timeout $(TIMEOUT) -tags "fixtures acceptance" ./internal/acceptance/openstack/messaging/...
 .PHONY: acceptance-messaging
+
+acceptance-metric:
+	$(GO_TEST) -timeout $(TIMEOUT) -tags "fixtures acceptance" ./internal/acceptance/openstack/metric/...
+.PHONY: acceptance-metric
 
 acceptance-networking:
 	$(GO_TEST) -timeout $(TIMEOUT) -tags "fixtures acceptance" ./internal/acceptance/openstack/networking/...
