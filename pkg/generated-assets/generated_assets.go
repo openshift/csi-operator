@@ -52,9 +52,6 @@ type CSIDriverAssets struct {
 	GuestAssets map[string][]byte
 
 	replacer *strings.Replacer
-
-	// StorageClassSelector defines which StorageClass assets to apply. The arg is the name of yaml file.
-	StorageClassSelector func(string) bool
 }
 
 // GetAsset returns the asset with the given name.
@@ -135,9 +132,7 @@ func (a *CSIDriverAssets) GetStorageClassAssetNames() []string {
 			panic(err)
 		}
 		if kind == storageClassKind {
-			if a.StorageClassSelector == nil || a.StorageClassSelector(name) {
-				names = append(names, name)
-			}
+			names = append(names, name)
 		}
 	}
 	return names
