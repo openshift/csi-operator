@@ -1,0 +1,8 @@
+apiVersion: apps/v1
+kind: DaemonSet
+spec:
+  template:
+    spec:
+      volumes:
+      - $patch: delete
+        name: sys-fs

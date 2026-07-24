@@ -1,0 +1,103 @@
+kind: DaemonSet
+apiVersion: apps/v1
+spec:
+  template:
+    spec:
+      hostNetwork: true
+      containers:
+        - name: csi-driver
+          securityContext:
+            privileged: true
+            readOnlyRootFilesystem: true
+          image: ${DRIVER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --v=${LOG_LEVEL}
+            - --enable-storage-pools=true
+            - --node-name=$(KUBE_NODE_NAME)
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:/csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: kubelet-dir
+              mountPath: /var/lib/kubelet
+              mountPropagation: "Bidirectional"
+            - name: socket-dir
+              mountPath: /csi
+            - name: device-dir
+              mountPath: /dev
+            # The following mounts are required to trigger host udevadm from
+            # container
+            - name: udev-rules-etc
+              mountPath: /etc/udev
+            - name: udev-rules-lib
+              mountPath: /lib/udev
+            - name: udev-socket
+              mountPath: /run/udev
+            - name: sys
+              mountPath: /sys
+            - name: etc-selinux
+              mountPath: /etc/selinux
+          ports:
+            - name: healthz
+              # Due to hostNetwork, this port is open on all nodes!
+              containerPort: 10300
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+          terminationMessagePolicy: FallbackToLogsOnError
+      volumes:
+        - name: kubelet-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/pd.csi.storage.gke.io/
+            type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+        - name: device-dir
+          hostPath:
+            path: /dev
+            type: Directory
+        # The following mounts are required to trigger host udevadm from
+        # container
+        - name: udev-rules-etc
+          hostPath:
+            path: /etc/udev
+            type: Directory
+        - name: udev-rules-lib
+          hostPath:
+            path: /lib/udev
+            type: Directory
+        - name: udev-socket
+          hostPath:
+            path: /run/udev
+            type: Directory
+        - name: sys
+          hostPath:
+            path: /sys
+            type: Directory
+        - name: etc-selinux
+          hostPath:
+            path: /etc/selinux
+            type: DirectoryOrCreate

@@ -14,6 +14,7 @@ import (
 
 	opv1 "github.com/openshift/api/operator/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
+	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
@@ -57,6 +58,83 @@ const (
 	diskEncryptionKMSKey  = "disk-encryption-kms-key"
 	defaultKMSKeyLocation = "global"
 )
+
+// GetGCPPDGeneratorConfig returns configuration for generating assets of GCP PD CSI driver operator.
+func GetGCPPDGeneratorConfig() *generator.CSIDriverGeneratorConfig {
+	return &generator.CSIDriverGeneratorConfig{
+		AssetPrefix:      "gcp-pd-csi-driver",
+		AssetShortPrefix: "gcp-pd",
+		DriverName:       "pd.csi.storage.gke.io",
+		StandaloneOnly:   true,
+		OutputDir:        generatedAssetBase,
+
+		ControllerConfig: &generator.ControlPlaneConfig{
+			DeploymentTemplateAssetName:    "overlays/gcp-pd/patches/controller_add_driver.yaml",
+			LivenessProbePort:              10301,
+			SidecarLocalMetricsPortStart:   commongenerator.GCPPDLoopbackMetricsPortStart,
+			SidecarExposedMetricsPortStart: commongenerator.GCPPDExposedMetricsPortStart,
+			Sidecars: []generator.SidecarConfig{
+				commongenerator.DefaultProvisionerWithSnapshots.WithExtraArguments(
+					"--default-fstype=ext4",
+					"--feature-gates=Topology=true",
+					"--extra-create-metadata=true",
+					"--timeout=250s",
+					"--controller-publish-readonly",
+				).WithAdditionalAssets(
+					"base/rbac/volumeattributesclass_reader_provisioner_binding.yaml",
+				),
+				commongenerator.DefaultAttacher.WithExtraArguments(
+					"--timeout=250s",
+				),
+				commongenerator.DefaultResizer.WithAdditionalAssets(
+					"base/rbac/volumeattributesclass_reader_resizer_binding.yaml",
+				),
+				commongenerator.DefaultSnapshotter.WithExtraArguments(
+					"--timeout=300s",
+				),
+				commongenerator.DefaultPodNetworkLivenessProbe.WithExtraArguments(
+					"--probe-timeout=3s",
+				),
+			},
+			Assets: commongenerator.DefaultControllerAssets.WithAssets(generator.StandaloneOnly,
+				"base/rbac/kube_rbac_proxy_role.yaml",
+				"base/rbac/kube_rbac_proxy_binding.yaml",
+				"base/rbac/prometheus_role.yaml",
+				"base/rbac/prometheus_binding.yaml",
+			),
+			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
+				"controller.yaml", "common/standalone/controller_add_affinity.yaml",
+			),
+		},
+
+		GuestConfig: &generator.GuestConfig{
+			DaemonSetTemplateAssetName:   "overlays/gcp-pd/patches/node_add_driver.yaml",
+			LivenessProbePort:            10300,
+			NodeRegistrarHealthCheckPort: 10303,
+			Sidecars: []generator.SidecarConfig{
+				commongenerator.DefaultNodeDriverRegistrar,
+				commongenerator.DefaultHostNetworkLivenessProbe.WithExtraArguments(
+					"--probe-timeout=3s",
+				),
+			},
+			Assets: commongenerator.DefaultNodeAssets.WithAssets(generator.AllFlavours,
+				"overlays/gcp-pd/base/storageclass.yaml",
+				"overlays/gcp-pd/base/storageclass_ssd.yaml",
+				"overlays/gcp-pd/base/storageclass_hyperdisk_balanced.yaml",
+				"overlays/gcp-pd/base/hostnetwork_role.yaml",
+				"overlays/gcp-pd/base/controller_hostnetwork_binding.yaml",
+				"overlays/gcp-pd/base/csidriver.yaml",
+				"overlays/gcp-pd/base/volumesnapshotclass.yaml",
+				"overlays/gcp-pd/base/volumesnapshotclass_images.yaml",
+			),
+			AssetPatches: commongenerator.DefaultGuestAssetPatches.WithPatches(generator.StandaloneOnly,
+				"node.yaml", "overlays/gcp-pd/patches/node_remove_metrics_serving_cert.yaml",
+				"node.yaml", "overlays/gcp-pd/patches/node_remove_sys_fs.yaml",
+				"privileged_role.yaml", "overlays/gcp-pd/patches/privileged_role_get_nodes.yaml.patch",
+			),
+		},
+	}
+}
 
 // GetGCPPDOperatorConfig returns runtime configuration of the CSI driver operator.
 func GetGCPPDOperatorConfig() *config.OperatorConfig {

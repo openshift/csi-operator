@@ -25,4 +25,7 @@ const (
 
 	OpenStackManilaLoopbackMetricsPortStart = 8202
 	OpenStackManilaExposedMetricsPortStart  = 9202
+
+	GCPPDLoopbackMetricsPortStart = 8202
+	GCPPDExposedMetricsPortStart  = 9202
 )

@@ -10,6 +10,7 @@ import (
 	aws_efs "github.com/openshift/csi-operator/pkg/driver/aws-efs"
 	azure_disk "github.com/openshift/csi-operator/pkg/driver/azure-disk"
 	azure_file "github.com/openshift/csi-operator/pkg/driver/azure-file"
+	gcp_pd "github.com/openshift/csi-operator/pkg/driver/gcp-pd"
 	openstack_cinder "github.com/openshift/csi-operator/pkg/driver/openstack-cinder"
 	openstack_manila "github.com/openshift/csi-operator/pkg/driver/openstack-manila"
 	samba "github.com/openshift/csi-operator/pkg/driver/samba"
@@ -66,5 +67,6 @@ func collectConfigs() []*generator.CSIDriverGeneratorConfig {
 		openstack_cinder.GetOpenStackCinderGeneratorConfig(),
 		openstack_manila.GetOpenStackManilaGeneratorConfig(),
 		samba.GetSambaGeneratorConfig(),
+		gcp_pd.GetGCPPDGeneratorConfig(),
 	}
 }
