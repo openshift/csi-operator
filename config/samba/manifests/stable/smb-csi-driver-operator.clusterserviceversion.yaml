@@ -294,6 +294,14 @@ spec:
                 - get
                 - list
                 - watch
+            - apiGroups:
+                - networking.k8s.io
+              resources:
+                - networkpolicies
+              verbs:
+                - create
+                - delete
+                - update
           serviceAccountName: smb-csi-driver-operator
       deployments:
         - name: smb-csi-driver-operator
