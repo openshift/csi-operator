@@ -67,6 +67,14 @@ func GetGCPPDOperatorConfig() *config.OperatorConfig {
 		AssetDir:                        generatedAssetBase,
 		OperatorControllerConfigBuilder: GetGCPPDOperatorControllerConfig,
 		Removable:                       false,
+		PrerequisiteAssets: []string{
+			"controller_sa.yaml",
+			"node_sa.yaml",
+			"hostnetwork_role.yaml",
+			"controller_hostnetwork_binding.yaml",
+			"privileged_role.yaml",
+			"node_privileged_binding.yaml",
+		},
 	}
 }
 

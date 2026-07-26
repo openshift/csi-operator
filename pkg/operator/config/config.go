@@ -34,6 +34,8 @@ type OperatorConfig struct {
 	CloudConfigNamespace string
 	// Removable should be true if the operator and its operand can be removed
 	Removable bool
+	// Prerequisite (static) assets
+	PrerequisiteAssets []string
 }
 
 // OperatorControllerConfig is configuration of controllers that are used to deploy CSI drivers.

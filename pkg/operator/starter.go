@@ -254,6 +254,11 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	c.WaitForCacheSync(ctx)
 	klog.V(2).Infof("Informers synced")
 
+	// Apply some assets earlier. Some controllers won't be happy until they are applied. See, for example, OCPBUGS-99490.
+	if err = applyPrerequisites(ctx, c.ControlPlaneKubeClient, controllerConfig.EventRecorder, assetDir, opConfig.PrerequisiteAssets); err != nil {
+		return err
+	}
+
 	if csiOperatorControllerConfig.Precondition != nil {
 		starterController := StarterController(
 			c.OperatorClient,
