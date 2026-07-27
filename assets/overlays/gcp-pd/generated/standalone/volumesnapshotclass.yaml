@@ -1,8 +1,14 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/gcp-pd/base/volumesnapshotclass.yaml
+#
+#
+
 apiVersion: snapshot.storage.k8s.io/v1
+deletionPolicy: Delete
+driver: pd.csi.storage.gke.io
 kind: VolumeSnapshotClass
 metadata:
-  name: csi-gce-pd-vsc
   annotations:
     snapshot.storage.kubernetes.io/is-default-class: "true"
-driver: pd.csi.storage.gke.io
-deletionPolicy: Delete
+  name: csi-gce-pd-vsc

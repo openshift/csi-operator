@@ -1,11 +1,17 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/gcp-pd/base/storageclass_ssd.yaml
+#
+#
+
+allowVolumeExpansion: true
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: ssd-csi
-provisioner: pd.csi.storage.gke.io
 parameters:
-  type: pd-ssd
   replication-type: none
-volumeBindingMode: WaitForFirstConsumer
-allowVolumeExpansion: true
+  type: pd-ssd
+provisioner: pd.csi.storage.gke.io
 reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer

@@ -1,12 +1,25 @@
-kind: ClusterRole
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/gcp-pd/base/hostnetwork_role.yaml
+#
+#
+
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
   name: gcp-pd-hostnetwork-role
 rules:
-  - apiGroups: ["security.openshift.io"]
-    resourceNames: ["hostnetwork-v2"]
-    resources: ["securitycontextconstraints"]
-    verbs: ["use"]
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get"]
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - hostnetwork-v2
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get

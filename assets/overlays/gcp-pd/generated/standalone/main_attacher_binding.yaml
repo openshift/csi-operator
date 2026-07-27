@@ -1,12 +1,19 @@
-kind: ClusterRoleBinding
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/rbac/main_attacher_binding.yaml
+#   because it's needed by controller sidecar common/sidecars/attacher.yaml
+#
+#
+
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
 metadata:
   name: gcp-pd-csi-main-attacher-binding
-subjects:
-  - kind: ServiceAccount
-    name: gcp-pd-csi-driver-controller-sa
-    namespace: openshift-cluster-csi-drivers
 roleRef:
+  apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: openshift-csi-main-attacher-role
-  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: gcp-pd-csi-driver-controller-sa
+  namespace: ${NODE_NAMESPACE}
