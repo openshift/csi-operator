@@ -3,9 +3,15 @@ package operator
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/openshift/csi-operator/assets"
+	"github.com/openshift/csi-operator/pkg/driver/common/operator"
+	gcp_pd "github.com/openshift/csi-operator/pkg/driver/gcp-pd"
+	generated_assets "github.com/openshift/csi-operator/pkg/generated-assets"
+	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,11 +22,18 @@ import (
 )
 
 func TestApplyPrerequisites(t *testing.T) {
-	assetDir := "overlays/gcp-pd/generated/standalone"
+	opConfig := gcp_pd.GetGCPPDOperatorConfig()
+	assetDir := filepath.Join(opConfig.AssetDir, string(generator.FlavourStandalone))
+	a, err := generated_assets.NewFromAssets(assets.ReadFile, assetDir)
+	if err != nil {
+		t.Fatalf("Failure when reading assets: %v", err)
+	}
+	controlPlaneNamespace := "openshift-cluster-csi-drivers"
+	defaultReplacements := operator.DefaultReplacements(controlPlaneNamespace, controlPlaneNamespace)
+	a.SetReplacements(defaultReplacements)
 
 	cases := []struct {
 		name         string
-		assetDir     string
 		assetNames   []string
 		setupReactor func(client *fakecore.Clientset)
 		expectErr    bool
@@ -28,19 +41,16 @@ func TestApplyPrerequisites(t *testing.T) {
 	}{
 		{
 			name:       "should apply all prerequisite assets successfully",
-			assetDir:   assetDir,
 			assetNames: []string{"controller_sa.yaml", "node_sa.yaml"},
 			expectErr:  false,
 		},
 		{
 			name:       "should succeed with empty asset list",
-			assetDir:   assetDir,
 			assetNames: []string{},
 			expectErr:  false,
 		},
 		{
-			name:     "should apply all GCP PD prerequisite assets",
-			assetDir: assetDir,
+			name: "should apply all GCP PD prerequisite assets",
 			assetNames: []string{
 				"controller_sa.yaml",
 				"node_sa.yaml",
@@ -53,21 +63,18 @@ func TestApplyPrerequisites(t *testing.T) {
 		},
 		{
 			name:        "should return error for non-existent asset file",
-			assetDir:    assetDir,
 			assetNames:  []string{"nonexistent.yaml"},
 			expectErr:   true,
 			errContains: "nonexistent.yaml",
 		},
 		{
 			name:        "should return error when some assets do not exist",
-			assetDir:    assetDir,
 			assetNames:  []string{"controller_sa.yaml", "nonexistent.yaml"},
 			expectErr:   true,
 			errContains: "nonexistent.yaml",
 		},
 		{
-			name:     "should retry failed assets and eventually succeed",
-			assetDir: assetDir,
+			name: "should retry failed assets and eventually succeed",
 			assetNames: []string{
 				"controller_sa.yaml",
 				"node_sa.yaml",
@@ -87,12 +94,6 @@ func TestApplyPrerequisites(t *testing.T) {
 				})
 			},
 			expectErr: false,
-		},
-		{
-			name:       "should return error for non-existent asset directory",
-			assetDir:   "no/such/dir",
-			assetNames: []string{"controller_sa.yaml"},
-			expectErr:  true,
 		},
 	}
 
@@ -114,7 +115,7 @@ func TestApplyPrerequisites(t *testing.T) {
 			recorder := events.NewInMemoryRecorder("test", &clock.RealClock{})
 			ctx := context.Background()
 
-			err := applyPrerequisites(ctx, kubeClient, recorder, tc.assetDir, tc.assetNames)
+			err := applyPrerequisites(ctx, kubeClient, recorder, tc.assetNames, a.GetAsset)
 			if tc.expectErr && err == nil {
 				t.Fatalf("expected error but got nil")
 			}
@@ -126,13 +127,13 @@ func TestApplyPrerequisites(t *testing.T) {
 			}
 
 			if !tc.expectErr {
-				verifyAppliedAssets(t, ctx, kubeClient, tc.assetDir, tc.assetNames)
+				verifyAppliedAssets(t, ctx, kubeClient, tc.assetNames)
 			}
 		})
 	}
 }
 
-func verifyAppliedAssets(t *testing.T, ctx context.Context, kubeClient *fakecore.Clientset, assetDir string, assetNames []string) {
+func verifyAppliedAssets(t *testing.T, ctx context.Context, kubeClient *fakecore.Clientset, assetNames []string) {
 	t.Helper()
 	for _, name := range assetNames {
 		switch {

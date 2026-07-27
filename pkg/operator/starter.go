@@ -255,7 +255,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	klog.V(2).Infof("Informers synced")
 
 	// Apply some assets earlier. Some controllers won't be happy until they are applied. See, for example, OCPBUGS-99490.
-	if err = applyPrerequisites(ctx, c.ControlPlaneKubeClient, controllerConfig.EventRecorder, assetDir, opConfig.PrerequisiteAssets); err != nil {
+	if err = applyPrerequisites(ctx, c.ControlPlaneKubeClient, controllerConfig.EventRecorder, opConfig.PrerequisiteAssets, a.GetAsset); err != nil {
 		return err
 	}
 
