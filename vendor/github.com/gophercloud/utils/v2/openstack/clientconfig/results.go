@@ -136,6 +136,10 @@ type AuthInfo struct {
 	// false, it will not cache these settings, but re-authentication will not be
 	// possible.  This setting defaults to false.
 	AllowReauth bool `yaml:"allow_reauth,omitempty" json:"allow_reauth,omitempty"`
+
+	// TrustID is used the authenticate using Keystone trusts.
+	// Must also provide trustee Username or UserID with Password and Domain.
+	TrustID string `yaml:"trust_id,omitempty" json:"trust_id,omitempty"`
 }
 
 // Region represents a region included as part of cloud in clouds.yaml
