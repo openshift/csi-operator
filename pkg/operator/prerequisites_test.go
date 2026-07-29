@@ -115,7 +115,10 @@ func TestApplyPrerequisites(t *testing.T) {
 			recorder := events.NewInMemoryRecorder("test", &clock.RealClock{})
 			ctx := context.Background()
 
-			err := applyPrerequisites(ctx, kubeClient, recorder, tc.assetNames, a.GetAsset)
+			// Passing tc.assetNames directly to applyPrerequisites() would rewrite the table input
+			assetNames := append([]string(nil), tc.assetNames...)
+
+			err := applyPrerequisites(ctx, kubeClient, recorder, assetNames, a.GetAsset)
 			if tc.expectErr && err == nil {
 				t.Fatalf("expected error but got nil")
 			}
