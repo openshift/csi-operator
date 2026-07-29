@@ -1,5 +1,9 @@
 kind: DaemonSet
 apiVersion: apps/v1
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
 spec:
   template:
     spec:

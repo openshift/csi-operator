@@ -16,6 +16,9 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
   name: gcp-pd-csi-driver-node
   namespace: ${NODE_NAMESPACE}
 spec:
