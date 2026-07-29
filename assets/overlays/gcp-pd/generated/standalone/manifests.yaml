@@ -5,8 +5,6 @@ controllerStaticAssetNames:
 - controller_sa.yaml
 - kube_rbac_proxy_binding.yaml
 - kube_rbac_proxy_role.yaml
-- prometheus_binding.yaml
-- prometheus_role.yaml
 - service.yaml
 - servicemonitor.yaml
 guestStaticAssetNames:

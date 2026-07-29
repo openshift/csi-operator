@@ -99,8 +99,6 @@ func GetGCPPDGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 			Assets: commongenerator.DefaultControllerAssets.WithAssets(generator.StandaloneOnly,
 				"base/rbac/kube_rbac_proxy_role.yaml",
 				"base/rbac/kube_rbac_proxy_binding.yaml",
-				"base/rbac/prometheus_role.yaml",
-				"base/rbac/prometheus_binding.yaml",
 			),
 			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
 				"controller.yaml", "common/standalone/controller_add_affinity.yaml",
