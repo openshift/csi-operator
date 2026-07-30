@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"os"
+	"time"
 
 	aws_efs "github.com/openshift/csi-operator/pkg/driver/aws-efs"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/cli"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 
 	"github.com/openshift/csi-operator/pkg/operator"
@@ -40,6 +42,34 @@ func NewOperatorCommand() *cobra.Command {
 	).NewCommand()
 
 	guestKubeconfig = ctrlCmd.Flags().String("guest-kubeconfig", "", "Path to the guest kubeconfig file. This flag enables hypershift integration.")
+
+	// Read the cluster TLS profile and write a GenericOperatorConfig file
+	// that controllercmd will use to configure its HTTPS serving endpoint.
+	// This is an OLM-managed operator so it must read the APIServer CR
+	// itself — CVO/CSO do not inject TLS config.
+	originalPreRunE := ctrlCmd.PersistentPreRunE
+	ctrlCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if originalPreRunE != nil {
+			if err := originalPreRunE(cmd, args); err != nil {
+				return err
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+		defer cancel()
+
+		configPath, err := operator.WriteOperatorTLSConfig(ctx, "aws-efs-csi-driver-operator")
+		if err != nil {
+			klog.Warningf("Failed to write TLS config, continuing with defaults: %v", err)
+			return nil
+		}
+		if configPath != "" {
+			if err := cmd.Flags().Set("config", configPath); err != nil {
+				klog.Warningf("Failed to set config flag: %v", err)
+			}
+		}
+		return nil
+	}
 
 	ctrlCmd.Use = "start"
 	ctrlCmd.Short = "Start the AWS EFS CSI Driver Operator"

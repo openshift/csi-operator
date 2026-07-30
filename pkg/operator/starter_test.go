@@ -1,9 +1,11 @@
 package operator
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
+	configv1 "github.com/openshift/api/config/v1"
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
 	azure_disk "github.com/openshift/csi-operator/pkg/driver/azure-disk"
@@ -173,4 +175,114 @@ func getTestDaemonSet(content []byte) *appsv1.DaemonSet {
 
 func getTestDeployment(content []byte) *appsv1.Deployment {
 	return resourceread.ReadDeploymentV1OrDie(content)
+}
+
+func TestAPIServerTLSChangeHandler(t *testing.T) {
+	intermediateProfile := &configv1.TLSSecurityProfile{
+		Type: configv1.TLSProfileIntermediateType,
+	}
+	oldProfile := &configv1.TLSSecurityProfile{
+		Type: configv1.TLSProfileOldType,
+	}
+
+	tests := []struct {
+		name         string
+		oldObj       interface{}
+		newObj       interface{}
+		expectCancel bool
+	}{
+		{
+			name: "TLS profile change triggers cancel",
+			oldObj: &configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: oldProfile,
+				},
+			},
+			newObj: &configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: intermediateProfile,
+				},
+			},
+			expectCancel: true,
+		},
+		{
+			name: "TLS adherence change triggers cancel",
+			oldObj: &configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSAdherence: configv1.TLSAdherencePolicyNoOpinion,
+				},
+			},
+			newObj: &configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSAdherence: configv1.TLSAdherencePolicyStrictAllComponents,
+				},
+			},
+			expectCancel: true,
+		},
+		{
+			name: "no change does not trigger cancel",
+			oldObj: &configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: intermediateProfile,
+					TLSAdherence:       configv1.TLSAdherencePolicyStrictAllComponents,
+				},
+			},
+			newObj: &configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: intermediateProfile,
+					TLSAdherence:       configv1.TLSAdherencePolicyStrictAllComponents,
+				},
+			},
+			expectCancel: false,
+		},
+		{
+			name:         "old object with wrong type does not panic",
+			oldObj:       "not-an-apiserver",
+			newObj:       &configv1.APIServer{},
+			expectCancel: false,
+		},
+		{
+			name:         "new object with wrong type does not panic",
+			oldObj:       &configv1.APIServer{},
+			newObj:       "not-an-apiserver",
+			expectCancel: false,
+		},
+		{
+			name: "both profile and adherence unchanged does not trigger cancel",
+			oldObj: &configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: oldProfile,
+					TLSAdherence:       configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly,
+				},
+			},
+			newObj: &configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: oldProfile,
+					TLSAdherence:       configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly,
+				},
+			},
+			expectCancel: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			handler := newAPIServerTLSChangeHandler(cancel)
+			handler.UpdateFunc(tt.oldObj, tt.newObj)
+
+			select {
+			case <-ctx.Done():
+				if !tt.expectCancel {
+					t.Errorf("expected cancel NOT to be called, but context was cancelled")
+				}
+			default:
+				if tt.expectCancel {
+					t.Errorf("expected cancel to be called, but context was not cancelled")
+				}
+			}
+		})
+	}
 }
