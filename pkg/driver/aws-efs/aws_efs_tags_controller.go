@@ -109,6 +109,7 @@ func (c *EFSAccessPointTagsController) Sync(ctx context.Context, syncCtx factory
 
 // isHypershiftCluster validates whether the cluster is a HyperShift cluster based on the label.
 func isHypershiftCluster(infra *configv1.Infrastructure) bool {
+	klog.Infof("Checking if cluster is hypershift")
 	if infra.Labels != nil {
 		if value, exists := infra.Labels["hypershift.openshift.io/managed"]; exists && value == "true" {
 			return true
