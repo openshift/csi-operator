@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -21,15 +23,15 @@ import (
 // own HTTPS endpoint (metrics, healthz). The returned path is passed to
 // controllercmd via --config.
 //
-// Following the cluster-machine-approver pattern:
+// Behavior by TLS adherence mode:
 //   - StrictAllComponents: use the cluster-configured TLS profile
 //   - Legacy/unset: use the default Intermediate profile
 //
-// In both modes a known profile is applied — the operator never falls back to
-// raw Go crypto/tls defaults.
+// In both modes a known profile is always applied — the operator never falls
+// back to raw Go crypto/tls defaults. If the APIServer CR cannot be read,
+// the function returns an error and the operator must not start.
 //
-// Returns empty string only when running outside a cluster (local development)
-// or when the APIServer CR cannot be read.
+// Returns ("", nil) only when running outside a cluster (local development).
 func WriteOperatorTLSConfig(ctx context.Context, operatorName string) (string, error) {
 	restConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -44,9 +46,7 @@ func WriteOperatorTLSConfig(ctx context.Context, operatorName string) (string, e
 
 	apiServer, err := client.ConfigV1().APIServers().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		klog.Warningf("Failed to read APIServer config, using default Intermediate profile: %v", err)
-		minVersion, ciphers := resolveTLSProfile(nil)
-		return writeConfig(operatorName, minVersion, ciphers)
+		return "", fmt.Errorf("failed to read APIServer config: %w", err)
 	}
 
 	var profile *configv1.TLSSecurityProfile
@@ -118,4 +118,34 @@ servingInfo:
 		}
 	}
 	return b.String()
+}
+
+// WireTLSPreRunHook chains a PersistentPreRunE on the given cobra command that
+// reads the cluster TLS profile and passes the resulting GenericOperatorConfig
+// to controllercmd via --config. If TLS configuration cannot be obtained, the
+// operator fails to start — it must never run with Go's default TLS settings.
+// The pod will be restarted by the container runtime and retry.
+func WireTLSPreRunHook(ctrlCmd *cobra.Command, operatorName string) {
+	originalPreRunE := ctrlCmd.PersistentPreRunE
+	ctrlCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if originalPreRunE != nil {
+			if err := originalPreRunE(cmd, args); err != nil {
+				return err
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+		defer cancel()
+
+		configPath, err := WriteOperatorTLSConfig(ctx, operatorName)
+		if err != nil {
+			return fmt.Errorf("failed to obtain TLS configuration: %w", err)
+		}
+		if configPath != "" {
+			if err := cmd.Flags().Set("config", configPath); err != nil {
+				return fmt.Errorf("failed to set --config flag: %w", err)
+			}
+		}
+		return nil
+	}
 }
