@@ -1,19 +1,13 @@
-# Generated file. Do not edit. Update using "make update".
-#
-# Loaded from overlays/gcp-pd/base/csidriver.yaml
-#
-#
-
 apiVersion: storage.k8s.io/v1
 kind: CSIDriver
 metadata:
   name: pd.csi.storage.gke.io
 spec:
   attachRequired: true
-  fsGroupPolicy: File
   podInfoOnMount: false
+  fsGroupPolicy: File
   requiresRepublish: false
-  seLinuxMount: true
   storageCapacity: false
+  seLinuxMount: true
   volumeLifecycleModes:
-  - Persistent
+    - Persistent

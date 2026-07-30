@@ -1,8 +1,18 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller_metrics_servicemonitor.yaml
+# Applied JSON patch common/metrics/service_monitor_add_port.yaml.patch
+# Applied JSON patch common/metrics/service_monitor_add_port.yaml.patch
+# Applied JSON patch common/metrics/service_monitor_add_port.yaml.patch
+# Applied JSON patch common/metrics/service_monitor_add_port.yaml.patch
+#
+#
+
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: gcp-pd-csi-driver-controller-monitor
-  namespace: openshift-cluster-csi-drivers
+  namespace: ${NAMESPACE}
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
@@ -12,7 +22,7 @@ spec:
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
-      serverName: gcp-pd-csi-driver-controller-metrics.openshift-cluster-csi-drivers.svc
+      serverName: gcp-pd-csi-driver-controller-metrics.${NAMESPACE}.svc
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     interval: 30s
     path: /metrics
@@ -20,7 +30,7 @@ spec:
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
-      serverName: gcp-pd-csi-driver-controller-metrics.openshift-cluster-csi-drivers.svc
+      serverName: gcp-pd-csi-driver-controller-metrics.${NAMESPACE}.svc
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     interval: 30s
     path: /metrics
@@ -28,7 +38,7 @@ spec:
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
-      serverName: gcp-pd-csi-driver-controller-metrics.openshift-cluster-csi-drivers.svc
+      serverName: gcp-pd-csi-driver-controller-metrics.${NAMESPACE}.svc
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     interval: 30s
     path: /metrics
@@ -36,7 +46,7 @@ spec:
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
-      serverName: gcp-pd-csi-driver-controller-metrics.openshift-cluster-csi-drivers.svc
+      serverName: gcp-pd-csi-driver-controller-metrics.${NAMESPACE}.svc
   jobLabel: component
   selector:
     matchLabels:

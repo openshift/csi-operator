@@ -1,12 +1,19 @@
-kind: ClusterRoleBinding
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/rbac/volumeattributesclass_reader_provisioner_binding.yaml
+#   because it's needed by controller sidecar common/sidecars/provisioner.yaml
+#
+#
+
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
 metadata:
   name: gcp-pd-csi-volumeattributesclass-reader-provisioner-binding
-subjects:
-  - kind: ServiceAccount
-    name: gcp-pd-csi-driver-controller-sa
-    namespace: openshift-cluster-csi-drivers
 roleRef:
+  apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: openshift-csi-provisioner-volumeattributesclass-reader-role
-  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: gcp-pd-csi-driver-controller-sa
+  namespace: ${NODE_NAMESPACE}
