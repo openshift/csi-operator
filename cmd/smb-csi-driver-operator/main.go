@@ -37,6 +37,8 @@ func NewOperatorCommand() *cobra.Command {
 		clock.RealClock{},
 	).NewCommand()
 
+	operator.WireTLSPreRunHook(ctrlCmd, "smb-csi-driver-operator")
+
 	ctrlCmd.Use = "start"
 	ctrlCmd.Short = "Start the CIFS/SMB CSI Driver Operator"
 
