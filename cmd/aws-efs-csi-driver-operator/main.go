@@ -41,6 +41,8 @@ func NewOperatorCommand() *cobra.Command {
 
 	guestKubeconfig = ctrlCmd.Flags().String("guest-kubeconfig", "", "Path to the guest kubeconfig file. This flag enables hypershift integration.")
 
+	operator.WireTLSPreRunHook(ctrlCmd, "aws-efs-csi-driver-operator")
+
 	ctrlCmd.Use = "start"
 	ctrlCmd.Short = "Start the AWS EFS CSI Driver Operator"
 
