@@ -265,5 +265,6 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: smb-csi-driver-controller-metrics-serving-cert
-      - emptyDir: {}
+      - emptyDir:
+          medium: Memory
         name: tmp-dir
