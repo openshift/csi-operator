@@ -106,6 +106,7 @@ spec:
         - --v=${LOG_LEVEL}
         - --cloud-config-secret-name=
         - --cloud-config-secret-namespace=
+        - --allow-empty-cloud-config=false
         env:
         - name: AZURE_CREDENTIAL_FILE
           value: /etc/kubernetes/cloud.conf
