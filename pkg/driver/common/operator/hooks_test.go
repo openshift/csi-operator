@@ -328,6 +328,9 @@ func Test_WithHyperShiftProxy(t *testing.T) {
 			hook, _ := withHyperShiftProxy(c)
 			deployment := getTestDeployment()
 
+			t.Setenv("HTTP_PROXY", "")
+			t.Setenv("HTTPS_PROXY", "")
+			t.Setenv("NO_PROXY", "")
 			for key, value := range tt.env {
 				t.Setenv(key, value)
 			}
