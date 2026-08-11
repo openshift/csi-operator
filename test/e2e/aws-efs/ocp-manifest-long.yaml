@@ -2,4 +2,5 @@ Driver: efs.csi.aws.com
 Capabilities:
   podDeleteAfterUmount: true
 LUNStressTest:
-  PodsTotal: 0
+  PodsTotal: 260
+  Timeout: "30m" # The test needs ~10 min in ideal conditions.
