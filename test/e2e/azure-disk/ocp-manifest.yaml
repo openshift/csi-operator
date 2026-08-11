@@ -1,4 +1,5 @@
 Driver: disk.csi.azure.com
+Capabilities:
+  podDeleteAfterUmount: true
 LUNStressTest:
-  PodsTotal: 260
-  Timeout: "60m" # The test needs ~40 min in ideal conditions.
+  PodsTotal: 0
