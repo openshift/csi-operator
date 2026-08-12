@@ -3,6 +3,7 @@ package efscreate
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -24,6 +25,11 @@ const (
 	volumeCreateInitialDelay  = 5 * time.Second
 	volumeCreateBackoffFactor = 1.2
 	volumeCreateBackoffSteps  = 10
+
+	dnsCheckDelay   = 10 * time.Second
+	dnsCheckFactor  = 1.5
+	dnsCheckSteps   = 15
+	efsDNSFormat    = "%s.efs.%s.amazonaws.com"
 
 	operationDelay          = 2 * time.Second
 	operationBackoffFactor  = 1.2
@@ -103,6 +109,13 @@ func (efs *EFS) CreateEFSVolume(ctx context.Context, nodes *corev1.NodeList, sin
 	if err != nil {
 		return fileSystemID, fmt.Errorf("waiting for mount targets to be available failed: %v", err)
 	}
+
+	klog.V(4).Info("Waiting for EFS DNS to propagate")
+	err = efs.waitForDNSPropagation(ctx)
+	if err != nil {
+		return fileSystemID, fmt.Errorf("waiting for EFS DNS propagation failed: %v", err)
+	}
+
 	log("successfully created file system %s", fileSystemID)
 	return fileSystemID, nil
 }
@@ -258,6 +271,27 @@ func (efs *EFS) waitForAvailableMountTarget(ctx context.Context) error {
 		return false, nil
 	})
 	return err
+}
+
+func (efs *EFS) waitForDNSPropagation(ctx context.Context) error {
+	region := efs.infra.Status.PlatformStatus.AWS.Region
+	dnsName := fmt.Sprintf(efsDNSFormat, efs.resources.efsID, region)
+	klog.V(2).Infof("Waiting for DNS resolution of %s", dnsName)
+
+	backoff := wait.Backoff{
+		Duration: dnsCheckDelay,
+		Factor:   dnsCheckFactor,
+		Steps:    dnsCheckSteps,
+	}
+	return wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
+		addrs, err := net.LookupHost(dnsName)
+		if err != nil {
+			klog.V(4).Infof("DNS not yet resolvable for %s: %v", dnsName, err)
+			return false, nil
+		}
+		klog.V(2).Infof("DNS resolved for %s: %v", dnsName, addrs)
+		return true, nil
+	})
 }
 
 func (efs *EFS) waitForEFSToBeAvailable(ctx context.Context, efsID string) error {
