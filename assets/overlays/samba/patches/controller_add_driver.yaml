@@ -80,4 +80,5 @@ spec:
         - name: socket-dir
           emptyDir: {}
         - name: tmp-dir
-          emptyDir: {}
+          emptyDir:
+            medium: Memory
