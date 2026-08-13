@@ -54,4 +54,5 @@ spec:
           terminationMessagePolicy: FallbackToLogsOnError
       volumes:
         - name: tmp-dir
-          emptyDir: {}
+          emptyDir:
+            medium: Memory
