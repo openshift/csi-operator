@@ -173,7 +173,8 @@ spec:
       - name: metrics-serving-cert
         secret:
           secretName: smb-csi-driver-node-metrics-serving-cert
-      - emptyDir: {}
+      - emptyDir:
+          medium: Memory
         name: tmp-dir
   updateStrategy:
     rollingUpdate:
