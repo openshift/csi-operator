@@ -252,7 +252,7 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical
-      serviceAccount: smb-csi-driver-controller-sa
+      serviceAccountName: smb-csi-driver-controller-sa
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists

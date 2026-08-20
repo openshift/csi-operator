@@ -142,7 +142,7 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
-      serviceAccount: aws-ebs-csi-driver-node-sa
+      serviceAccountName: aws-ebs-csi-driver-node-sa
       tolerations:
       - operator: Exists
       volumes:

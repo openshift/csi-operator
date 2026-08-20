@@ -416,7 +416,7 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: hypershift-control-plane
-      serviceAccount: openstack-cinder-csi-driver-controller-sa
+      serviceAccountName: openstack-cinder-csi-driver-controller-sa
       tolerations:
       - effect: NoSchedule
         key: hypershift.openshift.io/control-plane

@@ -142,7 +142,7 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
-      serviceAccount: smb-csi-driver-node-sa
+      serviceAccountName: smb-csi-driver-node-sa
       tolerations:
       - operator: Exists
       volumes:

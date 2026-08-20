@@ -209,7 +209,7 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
-      serviceAccount: azure-disk-csi-driver-node-sa
+      serviceAccountName: azure-disk-csi-driver-node-sa
       tolerations:
       - operator: Exists
       volumes:

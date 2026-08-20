@@ -307,7 +307,7 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical
-      serviceAccount: manila-csi-driver-controller-sa
+      serviceAccountName: manila-csi-driver-controller-sa
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists

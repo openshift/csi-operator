@@ -215,7 +215,7 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical
-      serviceAccount: aws-efs-csi-driver-controller-sa
+      serviceAccountName: aws-efs-csi-driver-controller-sa
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists

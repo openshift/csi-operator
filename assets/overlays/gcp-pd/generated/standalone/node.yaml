@@ -155,7 +155,7 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
-      serviceAccount: gcp-pd-csi-driver-node-sa
+      serviceAccountName: gcp-pd-csi-driver-node-sa
       tolerations:
       - operator: Exists
       volumes:
