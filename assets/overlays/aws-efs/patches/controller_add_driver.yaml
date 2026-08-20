@@ -25,7 +25,7 @@ spec:
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
     spec:
       hostNetwork: true
-      serviceAccount: aws-efs-csi-driver-controller-sa
+      serviceAccountName: aws-efs-csi-driver-controller-sa
       priorityClassName: system-cluster-critical
       nodeSelector:
         node-role.kubernetes.io/master: ""
