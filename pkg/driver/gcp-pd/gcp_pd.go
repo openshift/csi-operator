@@ -65,7 +65,6 @@ func GetGCPPDGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 		AssetPrefix:      "gcp-pd-csi-driver",
 		AssetShortPrefix: "gcp-pd",
 		DriverName:       "pd.csi.storage.gke.io",
-		StandaloneOnly:   true,
 		OutputDir:        generatedAssetBase,
 
 		ControllerConfig: &generator.ControlPlaneConfig{
@@ -100,8 +99,8 @@ func GetGCPPDGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 				"base/rbac/kube_rbac_proxy_role.yaml",
 				"base/rbac/kube_rbac_proxy_binding.yaml",
 			),
-			AssetPatches: generator.NewAssetPatches(generator.StandaloneOnly,
-				"controller.yaml", "common/standalone/controller_add_affinity.yaml",
+			AssetPatches: commongenerator.DefaultAssetPatches.WithPatches(generator.HyperShiftOnly,
+				"controller.yaml", "overlays/gcp-pd/patches/controller_add_hypershift_controller_minter.yaml",
 			),
 		},
 
@@ -157,27 +156,26 @@ func GetGCPPDOperatorConfig() *config.OperatorConfig {
 // GetGCPPDOperatorControllerConfig returns second half of runtime configuration of the CSI driver operator,
 // after a client connection + cluster flavour are established.
 func GetGCPPDOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
-	if flavour != generator.FlavourStandalone {
-		klog.Error(nil, "Flavour HyperShift is not supported")
-		return nil, fmt.Errorf("Flavour HyperShift is not supported")
-	}
-
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "GCPPD")
 
-	oldPrivilegedBindingController := staticresourcecontroller.NewStaticResourceController(
-		cfg.GetControllerName("OldControllerPrivilegedBindingRemoval"),
-		assets.ReadFile,
-		nil,
-		resourceapply.NewKubeClientHolder(c.KubeClient).WithDynamicClient(c.DynamicClient),
-		c.OperatorClient,
-		c.EventRecorder,
-	).WithConditionalResources(
-		assets.ReadFile,
-		[]string{customAssetBase + "/old_controller_privileged_binding.yaml"},
-		func() bool { return false },
-		func() bool { return true },
-	)
-	cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, oldPrivilegedBindingController)
+	if flavour == generator.FlavourStandalone {
+		// One-time cleanup of a ClusterRoleBinding used by an old version of the operator.
+		// Not applicable to HyperShift, which never shipped the old binding.
+		oldPrivilegedBindingController := staticresourcecontroller.NewStaticResourceController(
+			cfg.GetControllerName("OldControllerPrivilegedBindingRemoval"),
+			assets.ReadFile,
+			nil,
+			resourceapply.NewKubeClientHolder(c.KubeClient).WithDynamicClient(c.DynamicClient),
+			c.OperatorClient,
+			c.EventRecorder,
+		).WithConditionalResources(
+			assets.ReadFile,
+			[]string{customAssetBase + "/old_controller_privileged_binding.yaml"},
+			func() bool { return false },
+			func() bool { return true },
+		)
+		cfg.ExtraControlPlaneControllers = append(cfg.ExtraControlPlaneControllers, oldPrivilegedBindingController)
+	}
 
 	storageClassFiles, err := getStorageClassFiles(ctx, c.ConfigClientSet)
 	if err != nil {
@@ -202,6 +200,13 @@ func GetGCPPDOperatorControllerConfig(ctx context.Context, flavour generator.Clu
 	cfg.AddStorageClassHookBuilders(c, getKMSKeyHook)
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, cloudCredSecretName, metricsCertSecretName)
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withClusterWideProxyDaemonSetHook)
+
+	// GCP HCP uses Workload Identity Federation exclusively: on HyperShift, the controller
+	// authenticates using a token minted for a guest-cluster service account (trusted by the WIF
+	// pool) rather than the control-plane pod's own (management-cluster-signed) token. The
+	// token-minter sidecar and its supporting volumes are added statically via
+	// controller_add_hypershift_controller_minter.yaml (see GetGCPPDGeneratorConfig), mirroring the
+	// AWS EBS driver - no runtime hook is needed here.
 
 	return cfg, nil
 }
