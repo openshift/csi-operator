@@ -1,0 +1,143 @@
+spec:
+  template:
+    spec:
+      # hostNetwork is set unconditionally in controller_add_driver.yaml, but the controller only
+      # ever needs it to reach a node-local link-local metadata service (e.g. GCE's instance
+      # metadata server), which HyperShift's controller never does: it authenticates purely via
+      # WIF through the token-minter sidecar above, over normal outbound networking. Disabling it
+      # here (HyperShift-only, standalone is left untouched) mirrors the Azure File driver, whose
+      # controller-side hostNetwork was removed for the same reason (see
+      # 9e370b7f "Change ports and remove hostNetwork from controller pods"), and is required for
+      # the controller to schedule at all on GKE Autopilot management clusters, which reject
+      # hostNetwork pods outright.
+      hostNetwork: false
+      # None of these containers write meaningful amounts of data to their writable layer (the
+      # only on-disk volume is the tiny CSI unix-domain socket in socket-dir); they only need
+      # room for a termination log. Without an explicit request, GKE Autopilot injects a 1Gi
+      # ephemeral-storage request per container, and with 11 containers in this pod that pushes
+      # the total past Autopilot's 10Gi per-workload cap (autogke-pod-limit-constraints),
+      # blocking the Deployment from ever being created on GKE Autopilot management clusters.
+      # Setting small explicit requests here (HyperShift-only; standalone is untouched, since it
+      # doesn't run on GKE Autopilot) avoids the default injection entirely.
+      containers:
+        # HyperShift populates the gcp-pd-cloud-credentials secret with a WIF external_account
+        # config keyed "application_default_credentials.json" (see hypershift-operator's
+        # GCPPDCloudCredentialsSecret/ReconcileCredentials), not "service_account.json" as used
+        # by the standalone CCO-managed secret. Override the env var here so the driver reads
+        # the file that actually exists in HyperShift.
+        - name: csi-driver
+          # The driver's --run-node-service defaults to true, so without this flag the
+          # controller binary also stands up a node service (mount manager, device utils, and a
+          # metadataservice.NewMetadataService() call that queries the "instance/machine-type"
+          # GCE metadata attribute). On a real GCE VM with hostNetwork, that query bypasses GKE's
+          # metadata-server DaemonSet and succeeds; here the pod isn't on hostNetwork (see above)
+          # and GKE's metadata server only exposes a fixed attribute subset that excludes
+          # machine-type, so the driver fails fast with "failed to get machine-type: metadata:
+          # GCE metadata \"instance/machine-type\" not defined". The controller pod never needs a
+          # node service (it's not the thing that mounts volumes), so disable it outright. This is
+          # arguably also correct for standalone, but is scoped to HyperShift here to avoid
+          # touching already-shipped standalone behavior. args replaces the full list (strategic
+          # merge does not merge unkeyed string slices), so repeat the base args here.
+          #
+          # --cloud-config is required for the same reason: with no config file, the driver's
+          # getProjectAndZone() falls back to the GCE metadata server for both project and zone
+          # (pkg/gce-cloud-provider/compute/gce.go). On HyperShift the controller pod runs on a
+          # management-cluster node, so that metadata call resolves to the management cluster's
+          # own GCP project rather than the tenant's, and every subsequent Compute API call is
+          # scoped to the wrong project even though WIF is correctly impersonating a
+          # tenant-project service account. gcp-pd-cloud-config is expected to be created
+          # out-of-band from HostedControlPlane.Spec.Platform.GCP.Project (analogous to Azure's
+          # adaptAzureCSIDiskSecret) - not by csi-operator, which has no HostedControlPlane API
+          # visibility.
+          args:
+          - --endpoint=$(CSI_ENDPOINT)
+          - --logtostderr
+          - --v=${LOG_LEVEL}
+          - --enable-storage-pools=true
+          - --allow-hdha-provisioning=true
+          - --supports-dynamic-throughput-provisioning=hyperdisk-balanced,hyperdisk-throughput,hyperdisk-ml
+          - --supports-dynamic-iops-provisioning=hyperdisk-balanced,hyperdisk-extreme
+          - --run-node-service=false
+          - --cloud-config=/etc/gcp-cloud-config/cloud.conf
+          env:
+          - name: GOOGLE_APPLICATION_CREDENTIALS
+            value: /etc/cloud-sa/application_default_credentials.json
+          resources:
+            requests:
+              ephemeral-storage: 20Mi
+          volumeMounts:
+          - mountPath: /etc/gcp-cloud-config
+            name: gcp-cloud-config
+            readOnly: true
+
+        - name: csi-provisioner
+          resources:
+            requests:
+              ephemeral-storage: 10Mi
+        - name: provisioner-kube-rbac-proxy
+          resources:
+            requests:
+              ephemeral-storage: 10Mi
+        - name: csi-attacher
+          resources:
+            requests:
+              ephemeral-storage: 10Mi
+        - name: attacher-kube-rbac-proxy
+          resources:
+            requests:
+              ephemeral-storage: 10Mi
+        - name: csi-resizer
+          resources:
+            requests:
+              ephemeral-storage: 10Mi
+        - name: resizer-kube-rbac-proxy
+          resources:
+            requests:
+              ephemeral-storage: 10Mi
+        - name: csi-snapshotter
+          resources:
+            requests:
+              ephemeral-storage: 10Mi
+        - name: snapshotter-kube-rbac-proxy
+          resources:
+            requests:
+              ephemeral-storage: 10Mi
+        - name: csi-liveness-probe
+          resources:
+            requests:
+              ephemeral-storage: 10Mi
+
+        - name: token-minter
+          securityContext:
+            readOnlyRootFilesystem: true
+          args:
+          - --service-account-namespace=openshift-cluster-csi-drivers
+          - --service-account-name=gcp-pd-csi-driver-controller-sa
+          - --token-audience=openshift
+          - --token-file=/var/run/secrets/openshift/serviceaccount/token
+          - --kubeconfig=/etc/hosted-kubernetes/kubeconfig
+          command:
+          - /usr/bin/control-plane-operator
+          - token-minter
+          image: ${HYPERSHIFT_IMAGE}
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+              ephemeral-storage: 10Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+          - mountPath: /var/run/secrets/openshift/serviceaccount
+            name: bound-sa-token
+          - mountPath: /etc/hosted-kubernetes
+            name: hosted-kubeconfig
+            readOnly: true
+      volumes:
+      - name: bound-sa-token
+        emptyDir:
+          medium: Memory
+        projected: null # Explicity overwrite existing projected: with null in strategic merge patch
+      - name: gcp-cloud-config
+        configMap:
+          name: gcp-pd-cloud-config

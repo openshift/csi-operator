@@ -1,0 +1,19 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/gcp-pd/base/storageclass.yaml
+#
+#
+
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+  name: standard-csi
+parameters:
+  replication-type: none
+  type: pd-standard
+provisioner: pd.csi.storage.gke.io
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
