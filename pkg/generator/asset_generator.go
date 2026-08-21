@@ -170,6 +170,20 @@ func (gen *AssetGenerator) generateDeployment() error {
 	return nil
 }
 
+// monitorNamespaceVariable returns the runtime namespace variable that the
+// ServiceMonitor's TLS serverName must resolve to for the given servicePrefix.
+//
+// The node metrics Service runs guest-side, so its serving certificate is issued
+// for the guest namespace (${NODE_NAMESPACE}). The controller and its metrics
+// Service run control-plane side, so they use ${NAMESPACE}. On HyperShift these
+// two namespaces differ; on standalone they are identical. See OCPBUGS-112272.
+func monitorNamespaceVariable(servicePrefix string) string {
+	if servicePrefix == "node" {
+		return "${NODE_NAMESPACE}"
+	}
+	return "${NAMESPACE}"
+}
+
 // Add driver's metrics port to the metrics Service and ServiceMonitor.
 func (gen *AssetGenerator) generateDriverMetricsService(serviceYAML, serviceMonitorYAML *YAMLWithHistory, localMetricsPort, exposedMetricsPort uint16, servicePrefix string) error {
 	if localMetricsPort == 0 {
@@ -181,6 +195,7 @@ func (gen *AssetGenerator) generateDriverMetricsService(serviceYAML, serviceMoni
 		"${EXPOSED_METRICS_PORT}", strconv.Itoa(int(exposedMetricsPort)),
 		"${PORT_NAME}", "driver-m",
 		"${SERVICE_PREFIX}", servicePrefix,
+		"${MONITOR_NAMESPACE}", monitorNamespaceVariable(servicePrefix),
 	}
 	var err error
 	err = gen.applyAssetPatch(serviceYAML, "common/metrics/service_add_port.yaml", extraReplacements)
@@ -208,6 +223,7 @@ func (gen *AssetGenerator) generateSidecarMetricsServices(serviceYAML, serviceMo
 			"${EXPOSED_METRICS_PORT}", strconv.Itoa(exposedPortIndex),
 			"${PORT_NAME}", sidecar.MetricPortName,
 			"${SERVICE_PREFIX}", servicePrefix,
+			"${MONITOR_NAMESPACE}", monitorNamespaceVariable(servicePrefix),
 		}
 		localPortIndex++
 		exposedPortIndex++
