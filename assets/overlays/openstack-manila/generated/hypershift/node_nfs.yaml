@@ -57,7 +57,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       priorityClassName: system-node-critical
-      serviceAccount: manila-csi-driver-node-sa
+      serviceAccountName: manila-csi-driver-node-sa
       tolerations:
       - operator: Exists
       volumes:

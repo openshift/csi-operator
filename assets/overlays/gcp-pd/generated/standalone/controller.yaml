@@ -322,7 +322,7 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical
-      serviceAccount: gcp-pd-csi-driver-controller-sa
+      serviceAccountName: gcp-pd-csi-driver-controller-sa
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists

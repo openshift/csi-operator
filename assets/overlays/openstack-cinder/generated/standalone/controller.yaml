@@ -356,7 +356,7 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical
-      serviceAccount: openstack-cinder-csi-driver-controller-sa
+      serviceAccountName: openstack-cinder-csi-driver-controller-sa
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists

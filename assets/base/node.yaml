@@ -28,7 +28,7 @@ spec:
       labels:
         app: ${ASSET_PREFIX}-node
     spec:
-      serviceAccount: ${ASSET_PREFIX}-node-sa
+      serviceAccountName: ${ASSET_PREFIX}-node-sa
       priorityClassName: system-node-critical
       tolerations:
         - operator: Exists

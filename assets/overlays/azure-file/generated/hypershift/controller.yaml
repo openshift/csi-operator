@@ -426,7 +426,7 @@ spec:
         - mountPath: /csi
           name: socket-dir
       priorityClassName: hypershift-control-plane
-      serviceAccount: azure-file-csi-driver-controller-sa
+      serviceAccountName: azure-file-csi-driver-controller-sa
       tolerations:
       - effect: NoSchedule
         key: hypershift.openshift.io/control-plane

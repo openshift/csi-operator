@@ -23,7 +23,7 @@ spec:
         cluster-autoscaler.kubernetes.io/enable-ds-eviction: "false"
     spec:
       hostNetwork: true
-      serviceAccount: aws-efs-csi-driver-node-sa
+      serviceAccountName: aws-efs-csi-driver-node-sa
       priorityClassName: system-node-critical
       dnsPolicy: Default # Don't use in-cluster DNS, one-zone volumes would be resolved by DNS pods in a random zone. We need it resolved on the node where the volume will be mounted.
       tolerations:

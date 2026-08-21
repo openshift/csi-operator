@@ -359,7 +359,7 @@ spec:
           name: hosted-kubeconfig
           readOnly: true
       priorityClassName: hypershift-control-plane
-      serviceAccount: aws-ebs-csi-driver-controller-sa
+      serviceAccountName: aws-ebs-csi-driver-controller-sa
       tolerations:
       - effect: NoSchedule
         key: hypershift.openshift.io/control-plane

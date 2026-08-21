@@ -385,7 +385,7 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical
-      serviceAccount: azure-file-csi-driver-controller-sa
+      serviceAccountName: azure-file-csi-driver-controller-sa
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists

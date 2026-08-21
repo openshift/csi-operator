@@ -27,7 +27,7 @@ spec:
       labels:
         app: ${ASSET_PREFIX}-controller
     spec:
-      serviceAccount: ${ASSET_PREFIX}-controller-sa
+      serviceAccountName: ${ASSET_PREFIX}-controller-sa
       volumes:
         - name: socket-dir
           emptyDir: {}
