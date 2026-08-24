@@ -30,6 +30,7 @@ DriverInfo:
     multipods: true
     multiplePVsSameID: true
     readWriteOncePod: true
+    seLinuxMount: true
 Timeouts:
   PodStart: 15m
   PodDelete: 15m
