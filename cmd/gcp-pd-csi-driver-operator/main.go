@@ -20,6 +20,8 @@ func main() {
 	os.Exit(code)
 }
 
+var guestKubeconfig *string
+
 func NewOperatorCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gcp-pd-csi-driver-operator",
@@ -37,6 +39,8 @@ func NewOperatorCommand() *cobra.Command {
 		clock.RealClock{},
 	).NewCommand()
 
+	guestKubeconfig = ctrlCmd.Flags().String("guest-kubeconfig", "", "Path to the guest kubeconfig file. This flag enables hypershift integration.")
+
 	ctrlCmd.Use = "start"
 	ctrlCmd.Short = "Start the GCP PD CSI Driver Operator"
 
@@ -47,5 +51,5 @@ func NewOperatorCommand() *cobra.Command {
 
 func runCSIDriverOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
 	opConfig := gcp_pd.GetGCPPDOperatorConfig()
-	return operator.RunOperator(ctx, controllerConfig, "", opConfig)
+	return operator.RunOperator(ctx, controllerConfig, *guestKubeconfig, opConfig)
 }
