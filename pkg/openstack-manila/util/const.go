@@ -1,7 +1,6 @@
 package util
 
 const (
-	CloudCredentialSecretName = "manila-cloud-credentials"
 	ManilaSecretName          = "csi-manila-secrets"
 
 	CloudConfigNamespace = "openshift-config"
