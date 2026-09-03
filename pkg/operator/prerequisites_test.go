@@ -22,7 +22,7 @@ import (
 )
 
 func TestApplyPrerequisites(t *testing.T) {
-	opConfig := gcp_pd.GetGCPPDOperatorConfig()
+	opConfig := gcp_pd.GetGCPPDOperatorConfig(false)
 	assetDir := filepath.Join(opConfig.AssetDir, string(generator.FlavourStandalone))
 	a, err := generated_assets.NewFromAssets(assets.ReadFile, assetDir)
 	if err != nil {

@@ -50,6 +50,6 @@ func NewOperatorCommand() *cobra.Command {
 }
 
 func runCSIDriverOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
-	opConfig := gcp_pd.GetGCPPDOperatorConfig()
+	opConfig := gcp_pd.GetGCPPDOperatorConfig(*guestKubeconfig != "")
 	return operator.RunOperator(ctx, controllerConfig, *guestKubeconfig, opConfig)
 }
