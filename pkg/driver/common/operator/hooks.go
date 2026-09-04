@@ -43,7 +43,7 @@ func NewDefaultOperatorControllerConfig(flavour generator.ClusterFlavour, c *cli
 		cfg.AddDeploymentHookBuilders(c, withClusterWideProxy, withStandaloneReplicas)
 	} else {
 		// HyperShift
-		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftLabels, withHyperShiftControlPlaneImages, withHyperShiftCustomTolerations, withHyperShiftRunAsUser)
+		cfg.AddDeploymentHookBuilders(c, withHyperShiftReplicas, withHyperShiftNodeSelector, withHyperShiftLabels, withHyperShiftControlPlaneImages, withHyperShiftCustomTolerations, withHyperShiftRunAsUser, withHyperShiftProxy)
 	}
 
 	return cfg
@@ -258,6 +258,22 @@ func withHyperShiftRunAsUser(c *clients.Clients) (dc.DeploymentHookFunc, []facto
 		}
 		deployment.Spec.Template.Spec.SecurityContext.RunAsUser = &runAsUserValue
 
+		return nil
+	}
+	return hook, nil
+}
+
+// withHyperShiftProxy injects management cluster proxy env vars into all containers.
+func withHyperShiftProxy(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Informer) {
+	hook := func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		for _, envName := range []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"} {
+			if val := os.Getenv(envName); val != "" {
+				for i := range deployment.Spec.Template.Spec.Containers {
+					c := &deployment.Spec.Template.Spec.Containers[i]
+					c.Env = append(c.Env, corev1.EnvVar{Name: envName, Value: val})
+				}
+			}
+		}
 		return nil
 	}
 	return hook, nil

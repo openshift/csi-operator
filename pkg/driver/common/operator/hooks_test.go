@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/csi-operator/pkg/driver/common/operator/test_manifests"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
@@ -258,6 +259,102 @@ func Test_WithHyperShiftControlPlaneImages(t *testing.T) {
 				}
 				if !found {
 					t.Errorf("container %s not found", containerName)
+				}
+			}
+		})
+	}
+}
+
+func findEnvVar(name string, envVars []corev1.EnvVar) *corev1.EnvVar {
+	for i := range envVars {
+		if envVars[i].Name == name {
+			return &envVars[i]
+		}
+	}
+	return nil
+}
+
+func Test_WithHyperShiftProxy(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+		// container name -> env var name -> expected value
+		expectedEnvVars map[string]string
+		absentEnvVars   []string
+	}{
+		{
+			name: "all proxy env vars are set",
+			env: map[string]string{
+				"HTTP_PROXY":  "http://proxy.example.com:8080",
+				"HTTPS_PROXY": "https://proxy.example.com:8443",
+				"NO_PROXY":    "localhost,127.0.0.1",
+			},
+			expectedEnvVars: map[string]string{
+				"HTTP_PROXY":  "http://proxy.example.com:8080",
+				"HTTPS_PROXY": "https://proxy.example.com:8443",
+				"NO_PROXY":    "localhost,127.0.0.1",
+			},
+		},
+		{
+			name: "only HTTP_PROXY is set",
+			env: map[string]string{
+				"HTTP_PROXY": "http://proxy.example.com:8080",
+			},
+			expectedEnvVars: map[string]string{
+				"HTTP_PROXY": "http://proxy.example.com:8080",
+			},
+			absentEnvVars: []string{"HTTPS_PROXY", "NO_PROXY"},
+		},
+		{
+			name: "only HTTPS_PROXY is set",
+			env: map[string]string{
+				"HTTPS_PROXY": "https://proxy.example.com:8443",
+			},
+			expectedEnvVars: map[string]string{
+				"HTTPS_PROXY": "https://proxy.example.com:8443",
+			},
+			absentEnvVars: []string{"HTTP_PROXY", "NO_PROXY"},
+		},
+		{
+			name:          "no proxy env vars are set",
+			env:           nil,
+			absentEnvVars: []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cr := clients.GetFakeOperatorCR()
+			c := clients.NewFakeClients("clusters-test", cr)
+			hook, _ := withHyperShiftProxy(c)
+			deployment := getTestDeployment()
+
+			t.Setenv("HTTP_PROXY", "")
+			t.Setenv("HTTPS_PROXY", "")
+			t.Setenv("NO_PROXY", "")
+			for key, value := range tt.env {
+				t.Setenv(key, value)
+			}
+			clients.SyncFakeInformers(t, c)
+
+			err := hook(&cr.Spec.OperatorSpec, deployment)
+			if err != nil {
+				t.Fatalf("unexpected hook error: %v", err)
+			}
+
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				for envName, expectedValue := range tt.expectedEnvVars {
+					envVar := findEnvVar(envName, container.Env)
+					if envVar == nil {
+						t.Errorf("container %s: expected env var %s to be present", container.Name, envName)
+					} else if envVar.Value != expectedValue {
+						t.Errorf("container %s: expected %s=%s, got %s", container.Name, envName, expectedValue, envVar.Value)
+					}
+				}
+
+				for _, envName := range tt.absentEnvVars {
+					if findEnvVar(envName, container.Env) != nil {
+						t.Errorf("container %s: expected env var %s to be absent", container.Name, envName)
+					}
 				}
 			}
 		})
