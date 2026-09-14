@@ -43,6 +43,22 @@ const (
 	openshiftDefaultCloudConfigNamespace = "openshift-config"
 	metricsCertSecretName                = "manila-csi-driver-controller-metrics-serving-cert"
 	nfsImageEnvName                      = "NFS_DRIVER_IMAGE"
+
+	// caCertMountPath is the path where the cloud provider CA certificate is
+	// mounted in the controller Deployment and node DaemonSet. This must match
+	// the mountPath of the "cacert" volume in the deployment/daemonset
+	// templates.
+	caCertMountPath = "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bundle.pem"
+	// caCertKey is the key in the cloud config ConfigMap that holds the CA
+	// certificate.
+	caCertKey = "ca-bundle.pem"
+
+	// cloudConfigStandalone is the name of the cloud-provider ConfigMap in
+	// standalone deployments.
+	cloudConfigStandalone = "cloud-provider-config"
+	// cloudConfigHyperShift is the name of the cloud-provider ConfigMap in
+	// HyperShift deployments (the HyperShift operator uses a different name).
+	cloudConfigHyperShift = "openstack-cloud-config"
 )
 
 // GetOpenStackManilaGeneratorConfig returns configuration for generating assets of Manila CSI driver operator.
@@ -134,6 +150,14 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook)
 	cfg.AddDaemonSetHookBuilders(c, withCABundleDaemonSetHook, withClusterWideProxyDaemonSetHook)
 
+	// Determine the cloud config ConfigMap name based on the cluster flavour.
+	// This ConfigMap holds the cloud provider CA cert used by the operator
+	// and the CSI driver.
+	cloudConfigName := cloudConfigStandalone
+	if flavour == generator.FlavourHyperShift {
+		cloudConfigName = cloudConfigHyperShift
+	}
+
 	cfg.DeploymentWatchedSecretNames = append(cfg.DeploymentWatchedSecretNames, metricsCertSecretName)
 	cfg.StaleConditionsName = []string{
 		"ManilaDriverConditionalStaticResourcesController",
@@ -208,6 +232,26 @@ func GetOpenStackManilaOperatorControllerConfig(ctx context.Context, flavour gen
 		if nfsImage != "" {
 			pairs = append(pairs, []string{"${NFS_DRIVER_IMAGE}", nfsImage}...)
 		}
+
+		// Set the CA cert path for the Manila CSI driver when the cloud
+		// provider CA certificate is available. The upstream Manila CSI
+		// driver reads os-certAuthorityPath from the CSI secret to find
+		// the CA bundle. We set it to the mounted cacert volume path
+		// when the cloud config ConfigMap has a ca-bundle.pem entry.
+		// When absent (e.g. public CA), we leave it empty so the driver
+		// skips the CA file and uses the system trust store.
+		caCertPath := ""
+		cm, err := c.ControlPlaneKubeClient.CoreV1().ConfigMaps(c.ControlPlaneNamespace).Get(ctx, cloudConfigName, metav1.GetOptions{})
+		if err == nil {
+			if val, ok := cm.Data[caCertKey]; ok && len(val) > 0 {
+				caCertPath = caCertMountPath
+				klog.V(4).Infof("Cloud config ConfigMap %s/%s has %s, setting CA cert path to %s", c.ControlPlaneNamespace, cloudConfigName, caCertKey, caCertPath)
+			}
+		} else {
+			klog.V(4).Infof("Could not read cloud config ConfigMap %s/%s: %v", c.ControlPlaneNamespace, cloudConfigName, err)
+		}
+		pairs = append(pairs, []string{"${MANILA_CA_CERT_PATH}", caCertPath}...)
+
 		return pairs
 	}
 	return cfg, nil
