@@ -63,6 +63,11 @@ Standard Kubernetes CSI sidecars used:
 - livenessprobe - Health checking
 - kube-rbac-proxy - Metrics authentication/authorization
 
+## Deployment of Operators
+
+The CSI driver operators in this project are responsible for deploying and managing CSI drivers, but the [cluster-storage-operator (CSO)](https://github.com/openshift/cluster-storage-operator/) is responsible for deploying the CSI driver operators themselves. CSO's Deployment manifests for each operator live under `assets/csidriveroperators/<driver>/base/` in the CSO repo.
+Code in `cmd` and `pkg` references hardcoded file paths (config files, credentials, etc.) that correspond to volume mounts defined in those CSO Deployment manifests, not to assets in this repository.
+
 ## Common Development Commands
 
 ### Building
