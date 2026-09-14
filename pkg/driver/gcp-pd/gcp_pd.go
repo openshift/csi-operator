@@ -134,7 +134,42 @@ func GetGCPPDGeneratorConfig() *generator.CSIDriverGeneratorConfig {
 }
 
 // GetGCPPDOperatorConfig returns runtime configuration of the CSI driver operator.
-func GetGCPPDOperatorConfig() *config.OperatorConfig {
+func GetGCPPDOperatorConfig(isHypershift bool) *config.OperatorConfig {
+	// PrerequisiteAssets are applied early, before controllers start, via the
+	// control-plane client only (see pkg/operator/starter.go / OCPBUGS-99490):
+	// the Deployment controller can otherwise create the controller pod before
+	// StaticResourcesController applies its ClusterRole/ClusterRoleBinding,
+	// causing SCC admission to deny the pod (see hostnetwork_role.yaml /
+	// controller_hostnetwork_binding.yaml below).
+	//
+	// On standalone, the control-plane client is the only cluster, and the
+	// controller pod runs with hostNetwork: true, so all of these genuinely
+	// need to be applied there before the Deployment controller starts.
+	//
+	// On HyperShift, the control-plane client is the *management* cluster,
+	// which has no cluster-scoped RBAC-create rights there (see
+	// cluster-storage-operator's scoped mgmt Role). The controller pod runs
+	// with hostNetwork: false on HyperShift, so hostnetwork_role.yaml /
+	// controller_hostnetwork_binding.yaml are not needed at all. node_sa.yaml,
+	// privileged_role.yaml and node_privileged_binding.yaml are node/guest-
+	// cluster resources for the node DaemonSet (which does run with
+	// hostNetwork: true, but on the guest cluster) - they are already applied
+	// via the correct (guest) client through GuestConfig.Assets /
+	// commongenerator.DefaultNodeAssets below. So on HyperShift only
+	// controller_sa.yaml belongs in this list.
+	prerequisiteAssets := []string{
+		"controller_sa.yaml",
+	}
+	if !isHypershift {
+		prerequisiteAssets = append(prerequisiteAssets,
+			"node_sa.yaml",
+			"hostnetwork_role.yaml",
+			"controller_hostnetwork_binding.yaml",
+			"privileged_role.yaml",
+			"node_privileged_binding.yaml",
+		)
+	}
+
 	return &config.OperatorConfig{
 		CSIDriverName:                   opv1.GCPPDCSIDriver,
 		UserAgent:                       "gcp-pd-csi-driver-operator",
@@ -142,14 +177,7 @@ func GetGCPPDOperatorConfig() *config.OperatorConfig {
 		AssetDir:                        generatedAssetBase,
 		OperatorControllerConfigBuilder: GetGCPPDOperatorControllerConfig,
 		Removable:                       false,
-		PrerequisiteAssets: []string{
-			"controller_sa.yaml",
-			"node_sa.yaml",
-			"hostnetwork_role.yaml",
-			"controller_hostnetwork_binding.yaml",
-			"privileged_role.yaml",
-			"node_privileged_binding.yaml",
-		},
+		PrerequisiteAssets:              prerequisiteAssets,
 	}
 }
 
