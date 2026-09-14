@@ -13,8 +13,6 @@ import (
 	"github.com/openshift/csi-operator/pkg/version"
 )
 
-const caFile = "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/ca-bundle.pem"
-
 // CloudInfo caches data fetched from the user's openstack cloud
 type CloudInfo struct {
 	ComputeZones []string
@@ -87,10 +85,12 @@ func getCloudInfo() (*CloudInfo, error) {
 	// our assets mount the CA file at a known path and we don't want to rely on other things
 	// setting the 'cafile' value in our clouds.yaml file to the same path, so we explicitly
 	// override this if a CA file is present
+	// NOTE(stephenfin): gophercloud (or rather, the clientconfig package) doesn't currently
+	// provide the way to override configuration other than via environment variables
 	if _, err := os.Stat(caFile); err == nil {
-		// NOTE(stephenfin): gophercloud (or rather, the clientconfig package) doesn't currently
-		// provide the way to override configuration other than via environment variables
 		os.Setenv("OS_CACERT", caFile)
+	} else if _, err := os.Stat(legacyCAFile); err == nil { // legacy path
+		os.Setenv("OS_CACERT", legacyCAFile)
 	}
 
 	ci.clients.computeClient, err = clientconfig.NewServiceClient(context.TODO(), "compute", opts)
