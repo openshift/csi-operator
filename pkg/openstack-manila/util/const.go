@@ -1,17 +1,18 @@
 package util
 
 const (
-	CloudCredentialSecretName = "manila-cloud-credentials"
-	ManilaSecretName          = "csi-manila-secrets"
+	ManilaSecretName = "csi-manila-secrets"
 
 	CloudConfigNamespace = "openshift-config"
 	CloudConfigName      = "cloud-provider-config"
 
 	StorageClassNamePrefix = "csi-manila-"
 
-	// OpenStack config file name (as present in the operator Deployment)
+	// OpenStack config files
+	// Note that these are for the operator, not the driver itself. The paths
+	// are defined in cluster-storage-operator
 	CloudConfigFilename = "/etc/openstack/clouds.yaml"
-	CertFile            = "/etc/openstack-ca/ca-bundle.pem"
+	CertFile            = "/etc/openstack/ca.crt"
 
 	// Name of cloud in secret provided by cloud-credentials-operator
 	CloudName = "openstack"

@@ -22,7 +22,7 @@
 # Applied strategic merge patch common/hypershift/controller_add_hypershift_desired_version_annotation.yaml
 # Applied strategic merge patch common/readOnlyRootFilesystem.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/controller_add_hypershift_volumes.yaml
-# Applied strategic merge patch overlays/openstack-manila/patches/controller_rename_config_map.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/controller_use_hypershift_config_map.yaml
 # Applied strategic merge patch overlays/openstack-manila/patches/modify_anti_affinity_selector.yaml
 #
 #
@@ -146,11 +146,11 @@ spec:
         volumeMounts:
         - mountPath: /plugin
           name: socket-dir
-        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
-          name: cacert
         - mountPath: /etc/openstack
           name: cloud-credentials
           readOnly: true
+        - mountPath: /etc/kubernetes/static-pod-resources/configmaps/cloud-config
+          name: legacy-cacert
       - args:
         - --nodeid=$(NODE_ID)
         - --endpoint=unix://plugin/csi-nfs.sock
@@ -378,18 +378,26 @@ spec:
         secret:
           secretName: manila-csi-driver-controller-metrics-serving-cert
       - name: cloud-credentials
-        secret:
-          items:
-          - key: clouds.yaml
-            path: clouds.yaml
-          secretName: manila-cloud-credentials
+        projected:
+          sources:
+          - secret:
+              items:
+              - key: clouds.yaml
+                path: clouds.yaml
+              name: manila-cloud-credentials
+          - secret:
+              items:
+              - key: cacert
+                path: ca.crt
+              name: manila-cloud-credentials
+              optional: true
       - configMap:
           items:
           - key: ca-bundle.pem
             path: ca-bundle.pem
           name: openstack-cloud-config
           optional: true
-        name: cacert
+        name: legacy-cacert
       - name: hosted-kubeconfig
         secret:
           defaultMode: 420
