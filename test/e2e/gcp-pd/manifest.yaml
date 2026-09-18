@@ -30,6 +30,7 @@ DriverInfo:
     topology: true
     multipods: true
     multiplePVsSameID: true
+    seLinuxMount: true
   VolumeSnapshotStressTestOptions:
     NumPods: 5
     NumSnapshots: 2

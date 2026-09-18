@@ -35,5 +35,6 @@ DriverInfo:
     topology: true
     multipods: true
     multiplePVsSameID: true
+    seLinuxMount: true
 Timeouts:
   DataSourceProvision: 10m
