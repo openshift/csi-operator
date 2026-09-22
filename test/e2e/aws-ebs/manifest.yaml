@@ -30,3 +30,4 @@ DriverInfo:
     multipods: true
     multiplePVsSameID: true
     readWriteOncePod: true
+    seLinuxMount: true
