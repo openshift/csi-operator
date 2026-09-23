@@ -1,0 +1,11 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aws-efs-default-deny-all
+spec:
+  podSelector:
+    matchLabels:
+      openshift.storage.aws-efs.network-policy.deny-all: default
+  policyTypes:
+  - Ingress
+  - Egress

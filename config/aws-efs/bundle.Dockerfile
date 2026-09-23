@@ -5,6 +5,5 @@ LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=aws-efs-csi-driver-operator
 LABEL operators.operatorframework.io.bundle.channels.v1=stable
 LABEL operators.operatorframework.io.bundle.channel.default.v1=stable
-COPY manifests/stable/aws-efs-csi-driver-operator.clusterserviceversion.yaml /manifests/aws-efs-csi-driver-operator.clusterserviceversion.yaml
-COPY manifests/stable/aws-efs-csi-driver-operator-metrics-service.yaml /manifests/aws-efs-csi-driver-operator-metrics-service.yaml
+COPY manifests/stable/*.yaml /manifests/
 COPY metadata/annotations.yaml /metadata/annotations.yaml
