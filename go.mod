@@ -149,4 +149,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
 
-replace golang.org/x/net => github.com/openshift-sustaining/net v0.50.0-sec.3
+replace golang.org/x/net => github.com/openshift-sustaining/net v0.50.0-sec.4

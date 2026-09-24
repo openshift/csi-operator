@@ -692,7 +692,7 @@ golang.org/x/crypto/salsa20/salsa
 # golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
 ## explicit; go 1.24.0
 golang.org/x/exp/slices
-# golang.org/x/net v0.49.0 => github.com/openshift-sustaining/net v0.50.0-sec.3
+# golang.org/x/net v0.49.0 => github.com/openshift-sustaining/net v0.50.0-sec.4
 ## explicit; go 1.24.0
 golang.org/x/net/context
 golang.org/x/net/html
@@ -1690,4 +1690,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 # sigs.k8s.io/yaml v1.6.0
 ## explicit; go 1.22
 sigs.k8s.io/yaml
-# golang.org/x/net => github.com/openshift-sustaining/net v0.50.0-sec.3
+# golang.org/x/net => github.com/openshift-sustaining/net v0.50.0-sec.4
