@@ -124,6 +124,7 @@ func (c *EFSAccessPointTagsController) getEFSClient(ctx context.Context, awsRegi
 		klog.Errorf("error getting secret: %v", err)
 		return nil, fmt.Errorf("error retrieving AWS credentials secret: %v", err)
 	}
+	klog.Infof("Getting efs client")
 
 	credentialsData, credentialsFound := secret.Data["credentials"]
 	if credentialsFound {
