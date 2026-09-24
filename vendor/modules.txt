@@ -635,7 +635,7 @@ golang.org/x/crypto/salsa20/salsa
 ## explicit; go 1.22.0
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
-# golang.org/x/net v0.34.0 => github.com/openshift-sustaining/net v0.35.0-sec.3
+# golang.org/x/net v0.34.0 => github.com/openshift-sustaining/net v0.35.0-sec.4
 ## explicit; go 1.18
 golang.org/x/net/context
 golang.org/x/net/html
@@ -1600,4 +1600,4 @@ sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 sigs.k8s.io/yaml/goyaml.v3
 # google.golang.org/grpc => github.com/openshift-sustaining/grpc-go v1.71.3-sec.1
-# golang.org/x/net => github.com/openshift-sustaining/net v0.35.0-sec.3
+# golang.org/x/net => github.com/openshift-sustaining/net v0.35.0-sec.4
