@@ -1,0 +1,28 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/openstack-manila/base/network-policy-allow-all-egress.yaml
+#
+#
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    capability.openshift.io/name: Storage
+    include.release.openshift.io/hypershift: "true"
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  name: allow-all-egress
+  namespace: ${NAMESPACE}
+spec:
+  egress:
+  - ports:
+    - endPort: 65535
+      port: 1
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      openshift.storage.network-policy.all-egress: allow
+  policyTypes:
+  - Egress
