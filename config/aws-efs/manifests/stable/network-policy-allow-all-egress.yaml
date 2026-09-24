@@ -1,0 +1,12 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aws-efs-allow-all-egress
+spec:
+  podSelector:
+    matchLabels:
+      openshift.storage.aws-efs.network-policy.all-egress: allow
+  egress:
+  - {}
+  policyTypes:
+  - Egress
