@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -58,7 +59,7 @@ func (o *openStackClient) GetShareTypes() ([]sharetypes.ShareType, error) {
 	provider.UserAgent = ua
 
 	cert, err := getCloudProviderCert()
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to get cloud provider CA certificate: %w", err)
 	}
 
