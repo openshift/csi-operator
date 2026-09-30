@@ -40,10 +40,11 @@ spec:
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
       labels:
         app: smb-csi-driver-controller
-        openshift.storage.network-policy.all-egress: allow
-        openshift.storage.network-policy.api-server: allow
-        openshift.storage.network-policy.dns: allow
-        openshift.storage.network-policy.metrics-range: allow
+        openshift.storage.samba.network-policy.all-egress: allow
+        openshift.storage.samba.network-policy.api-server: allow
+        openshift.storage.samba.network-policy.deny-all: default
+        openshift.storage.samba.network-policy.dns: allow
+        openshift.storage.samba.network-policy.operand-metrics: allow
     spec:
       affinity:
         podAntiAffinity:

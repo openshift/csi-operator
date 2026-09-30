@@ -317,9 +317,10 @@ spec:
                   openshift.io/required-scc: restricted-v2
                 labels:
                   app: smb-csi-driver-operator
-                  openshift.storage.network-policy.dns: allow
-                  openshift.storage.network-policy.api-server: allow
-                  openshift.storage.network-policy.operator-metrics-range: allow
+                  openshift.storage.samba.network-policy.deny-all: default
+                  openshift.storage.samba.network-policy.dns: allow
+                  openshift.storage.samba.network-policy.api-server: allow
+                  openshift.storage.samba.network-policy.operator-metrics: allow
               spec:
                 serviceAccountName: smb-csi-driver-operator
                 containers:
