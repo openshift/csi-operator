@@ -16,11 +16,11 @@ require (
 	github.com/gophercloud/utils/v2 v2.0.0-20260626221802-4ae35253ac13
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
 	github.com/onsi/gomega v1.39.0
-	github.com/openshift/api v0.0.0-20260721120239-14262bf791c8
+	github.com/openshift/api v0.0.0-20260923043708-9abfa327cff2
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
-	github.com/openshift/client-go v0.0.0-20260721124015-35d8f3c0e847
+	github.com/openshift/client-go v0.0.0-20260923093432-89e5bba1be29
 	github.com/openshift/hypershift/api v0.0.0-20260721115310-7f0fcf6c686a
-	github.com/openshift/library-go v0.0.0-20260721103755-0c9fbc9f043a
+	github.com/openshift/library-go v0.0.0-20260925111453-f45916bdd6d7
 	github.com/prometheus/client_golang v1.24.0
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/ini.v1 v1.67.3
