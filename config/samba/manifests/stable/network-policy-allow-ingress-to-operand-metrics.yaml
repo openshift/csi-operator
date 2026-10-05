@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: samba-allow-ingress-to-operand-metrics
+spec:
+  podSelector:
+    matchLabels:
+      openshift.storage.samba.network-policy.operand-metrics: allow
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 9221
+      endPort: 9223
+    from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-monitoring
+  policyTypes:
+  - Ingress
