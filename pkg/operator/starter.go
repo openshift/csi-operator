@@ -3,6 +3,7 @@ package operator
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/csi/csicontrollerset"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
@@ -33,6 +35,8 @@ type ConfigProvider func(flavour generator.ClusterFlavour, c *clients.Clients) *
 
 const (
 	resync = 20 * time.Minute
+
+	operatorImageVersionEnvVarName = "OPERATOR_IMAGE_VERSION"
 )
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext, guestKubeConfigString string, opConfig *config.OperatorConfig) error {
@@ -114,6 +118,24 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controlPlaneControllerInformers = append(controlPlaneControllerInformers, controlPlaneSecretInformer.Informer())
 	}
 
+	// Build a FeatureGateAccess so the CSI config observer can honor the
+	// TLSGroupPreferences feature gate when observing TLS group (curve)
+	// preferences. The observer tolerates feature gates not being observed yet
+	// and re-syncs once they are, so we do not block here.
+	version := os.Getenv(operatorImageVersionEnvVarName)
+	if version == "" {
+		version = "0.0.1-snapshot" // OLM: no OPERATOR_IMAGE_VERSION; derive from ClusterVersion
+	}
+
+	featureGateAccessor := featuregates.NewFeatureGateAccess(
+		version,
+		"0.0.1-snapshot",
+		c.ConfigInformers.Config().V1().ClusterVersions(),
+		c.ConfigInformers.Config().V1().FeatureGates(),
+		c.EventRecorder,
+	)
+	go featureGateAccessor.Run(ctx)
+
 	// Only removable operators use conditional static resources.
 	// If the operator is not removable, leave these functions nil
 	// to unconditionally sync static resources.
@@ -143,9 +165,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		a.GetControllerStaticAssetNames(),
 		shouldCreateFn,
 		shouldDeleteFn,
-	).WithCSIConfigObserverController(
+	).WithCSIConfigObserverControllerWithFeatureGates(
 		csiOperatorControllerConfig.GetControllerName("DriverCSIConfigObserverController"),
 		c.ConfigInformers,
+		featureGateAccessor,
 	).WithCSIDriverControllerService(
 		csiOperatorControllerConfig.GetControllerName("DriverControllerServiceController"),
 		a.GetAsset,
