@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-        - name: kube-rbac-proxy-${LOCAL_METRICS_PORT}
+        - name: driver-kube-rbac-proxy
           securityContext:
             readOnlyRootFilesystem: true
           args:
