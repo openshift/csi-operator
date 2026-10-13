@@ -1,0 +1,46 @@
+kind: DaemonSet
+apiVersion: apps/v1
+spec:
+  template:
+    spec:
+      containers:
+        - name: csi-node-driver-registrar
+          securityContext:
+            privileged: true
+            readOnlyRootFilesystem: true
+          image: ${NODE_DRIVER_REGISTRAR_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/${DRIVER_NAME}/csi.sock
+            - --http-endpoint=127.0.0.1:${NODE_DRIVER_REGISTRAR_HEALTH_PORT}
+            - --v=${LOG_LEVEL}
+          # Empty env. instead of nil for json patch to append new env. vars there
+          env: []
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "rm -rf /registration/${DRIVER_NAME}-reg.sock /csi/csi.sock"]
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+          ports:
+            - containerPort: ${NODE_DRIVER_REGISTRAR_HEALTH_PORT}
+              name: rhealthz
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              host: 127.0.0.1
+              path: /healthz
+              port: rhealthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+          terminationMessagePolicy: FallbackToLogsOnError

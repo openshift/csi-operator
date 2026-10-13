@@ -1,0 +1,13 @@
+spec:
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: openstack-manila-csi
+                  component: controllerplugin
+              topologyKey: kubernetes.io/hostname
+            weight: 100

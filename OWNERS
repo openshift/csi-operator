@@ -1,0 +1,4 @@
+approvers:
+- openshift-storage-maintainers
+- openstack-approvers
+component: "Storage / Operators"

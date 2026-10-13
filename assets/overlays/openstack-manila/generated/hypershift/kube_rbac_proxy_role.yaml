@@ -1,0 +1,18 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/rbac/kube_rbac_proxy_role.yaml
+#
+#
+# Allow kube-rbac-proxies to create tokenreviews to check Prometheus identity when scraping metrics.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: openstack-manila-kube-rbac-proxy-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create

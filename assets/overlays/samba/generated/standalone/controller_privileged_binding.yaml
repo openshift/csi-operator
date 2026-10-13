@@ -1,0 +1,20 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/samba/base/controller_privileged_binding.yaml
+# Applied strategic merge patch overlays/samba/patches/binding_with_namespace_placeholder_controller.yaml
+#
+#
+# Allow the controller to run privileged pods
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: csi-smb-controller-privileged-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: smb-privileged-role
+subjects:
+- kind: ServiceAccount
+  name: smb-csi-driver-controller-sa
+  namespace: ${NAMESPACE}

@@ -1,0 +1,7 @@
+metadata:
+  name: openstack-manila-csi-controllerplugin-pdb
+spec:
+  selector:
+    matchLabels:
+      app: openstack-manila-csi
+      component: controllerplugin

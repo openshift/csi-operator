@@ -1,0 +1,10 @@
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: csi-manila-standard
+driver: manila.csi.openstack.org
+deletionPolicy: Delete
+parameters:
+  force-create: "false"
+  csi.storage.k8s.io/snapshotter-secret-name: csi-manila-secrets
+  csi.storage.k8s.io/snapshotter-secret-namespace: ${NODE_NAMESPACE}

@@ -1,0 +1,55 @@
+kind: Deployment
+apiVersion: apps/v1
+spec:
+  template:
+    spec:
+      containers:
+        - name: csi-snapshotter
+          securityContext:
+            readOnlyRootFilesystem: true
+          image: ${SNAPSHOTTER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+            - --metrics-address=localhost:${LOCAL_METRICS_PORT}
+            - --leader-election
+            - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+            - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+            - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+            - --leader-election-namespace=${NODE_NAMESPACE}
+            - --v=${LOG_LEVEL}
+          # Empty env. instead of nil for json patch to append new env. vars there
+          env: []
+          volumeMounts:
+          - mountPath: /var/lib/csi/sockets/pluginproxy/
+            name: socket-dir
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+          terminationMessagePolicy: FallbackToLogsOnError
+        - name: snapshotter-kube-rbac-proxy
+          securityContext:
+            readOnlyRootFilesystem: true
+          args:
+          - --secure-listen-address=0.0.0.0:${EXPOSED_METRICS_PORT}
+          - --upstream=http://127.0.0.1:${LOCAL_METRICS_PORT}/
+          - --tls-cert-file=/etc/tls/private/tls.crt
+          - --tls-private-key-file=/etc/tls/private/tls.key
+          - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+          - --tls-min-version=${TLS_MIN_VERSION}
+          - --logtostderr=true
+          image: ${KUBE_RBAC_PROXY_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: ${EXPOSED_METRICS_PORT}
+            name: snapshotter-m
+            protocol: TCP
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 10m
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+          - mountPath: /etc/tls/private
+            name: metrics-serving-cert

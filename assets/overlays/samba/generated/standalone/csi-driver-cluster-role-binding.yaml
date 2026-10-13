@@ -1,0 +1,18 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from overlays/samba/base/csi-driver-cluster-role-binding.yaml
+#
+#
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: smb-csi-driver-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: smb-csi-driver-role
+subjects:
+- kind: ServiceAccount
+  name: smb-csi-driver-node-sa
+  namespace: ${NODE_NAMESPACE}

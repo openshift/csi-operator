@@ -1,0 +1,438 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller.yaml
+# Applied strategic merge patch overlays/aws-ebs/patches/controller_add_driver.yaml
+# Applied strategic merge patch common/sidecars/controller_driver_kube_rbac_proxy.yaml
+# provisioner.yaml: Loaded from common/sidecars/provisioner.yaml
+# provisioner.yaml: Added arguments [--default-fstype=ext4 --feature-gates=Topology=true --extra-create-metadata=true --timeout=60s --kube-api-qps=20 --kube-api-burst=100 --worker-threads=100]
+# Applied strategic merge patch provisioner.yaml
+# attacher.yaml: Loaded from common/sidecars/attacher.yaml
+# attacher.yaml: Added arguments [--timeout=60s --kube-api-qps=20 --kube-api-burst=100 --worker-threads=100]
+# Applied strategic merge patch attacher.yaml
+# resizer.yaml: Loaded from common/sidecars/resizer.yaml
+# resizer.yaml: Added arguments [--timeout=60s --kube-api-qps=20 --kube-api-burst=100 --workers=100]
+# Applied strategic merge patch resizer.yaml
+# snapshotter.yaml: Loaded from common/sidecars/snapshotter.yaml
+# snapshotter.yaml: Added arguments [--extra-create-metadata --kube-api-qps=20 --kube-api-burst=100 --worker-threads=100]
+# Applied strategic merge patch snapshotter.yaml
+# pod_network_livenessprobe.yaml: Loaded from common/sidecars/pod_network_livenessprobe.yaml
+# pod_network_livenessprobe.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch pod_network_livenessprobe.yaml
+# Applied strategic merge patch common/standalone/controller_add_affinity.yaml
+# Applied strategic merge patch common/readOnlyRootFilesystem.yaml
+#
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+  name: aws-ebs-csi-driver-controller
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: aws-ebs-csi-driver-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: aws-auth,aws-keys,bound-sa-token,socket-dir
+        openshift.io/required-scc: restricted-v2
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        app: aws-ebs-csi-driver-controller
+        openshift.storage.network-policy.all-egress: allow
+        openshift.storage.network-policy.api-server: allow
+        openshift.storage.network-policy.dns: allow
+        openshift.storage.network-policy.metrics-range: allow
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: aws-ebs-csi-driver-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - controller
+        - --endpoint=$(CSI_ENDPOINT)
+        - --k8s-tag-cluster-id=${CLUSTER_ID}
+        - --logtostderr
+        - --http-endpoint=localhost:8201
+        - --v=${LOG_LEVEL}
+        - --batching=true
+        env:
+        - name: CSI_ENDPOINT
+          value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+        - name: AWS_SDK_LOAD_CONFIG
+          value: "1"
+        - name: AWS_CONFIG_FILE
+          value: /var/run/aws/auth/credentials
+        image: ${DRIVER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+        name: csi-driver
+        ports:
+        - containerPort: 10301
+          name: healthz
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/run/aws/keys
+          name: aws-keys
+          readOnly: true
+        - mountPath: /var/run/aws/auth
+          name: aws-auth
+          readOnly: true
+        - mountPath: /var/run/secrets/openshift/serviceaccount
+          name: bound-sa-token
+          readOnly: true
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9201
+        - --upstream=http://127.0.0.1:8201/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: kube-rbac-proxy-8201
+        ports:
+        - containerPort: 9201
+          name: driver-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8202
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=${NODE_NAMESPACE}
+        - --v=${LOG_LEVEL}
+        - --default-fstype=ext4
+        - --feature-gates=Topology=true
+        - --extra-create-metadata=true
+        - --timeout=60s
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --worker-threads=100
+        env: []
+        image: ${PROVISIONER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-provisioner
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9202
+        - --upstream=http://127.0.0.1:8202/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: provisioner-kube-rbac-proxy
+        ports:
+        - containerPort: 9202
+          name: provisioner-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8203
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=${NODE_NAMESPACE}
+        - --v=${LOG_LEVEL}
+        - --timeout=60s
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --worker-threads=100
+        env: []
+        image: ${ATTACHER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-attacher
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9203
+        - --upstream=http://127.0.0.1:8203/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: attacher-kube-rbac-proxy
+        ports:
+        - containerPort: 9203
+          name: attacher-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --http-endpoint=localhost:8204
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=${NODE_NAMESPACE}
+        - --v=${LOG_LEVEL}
+        - --timeout=60s
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --workers=100
+        env: []
+        image: ${RESIZER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-resizer
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9204
+        - --upstream=http://127.0.0.1:8204/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: resizer-kube-rbac-proxy
+        ports:
+        - containerPort: 9204
+          name: resizer-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+        - --metrics-address=localhost:8205
+        - --leader-election
+        - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+        - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+        - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+        - --leader-election-namespace=${NODE_NAMESPACE}
+        - --v=${LOG_LEVEL}
+        - --extra-create-metadata
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --worker-threads=100
+        env: []
+        image: ${SNAPSHOTTER_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-snapshotter
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/csi/sockets/pluginproxy/
+          name: socket-dir
+      - args:
+        - --secure-listen-address=0.0.0.0:9205
+        - --upstream=http://127.0.0.1:8205/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+        - --tls-min-version=${TLS_MIN_VERSION}
+        - --logtostderr=true
+        image: ${KUBE_RBAC_PROXY_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: snapshotter-kube-rbac-proxy
+        ports:
+        - containerPort: 9205
+          name: snapshotter-m
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: metrics-serving-cert
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --health-port=10301
+        - --v=${LOG_LEVEL}
+        - --probe-timeout=3s
+        env: []
+        image: ${LIVENESS_PROBE_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-liveness-probe
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - |
+          # Define file path variables
+          CREDENTIALS_FILE=/var/run/aws/keys/credentials
+          AUTH_CREDENTIALS_FILE=/var/run/aws/auth/credentials
+          AWS_ACCESS_KEY_ID_FILE=/var/run/aws/keys/aws_access_key_id
+          AWS_SECRET_ACCESS_KEY_FILE=/var/run/aws/keys/aws_secret_access_key
+
+          # If credentials key exists in ebs-cloud-credentials secret, then use it as the auth file
+          if [ -e "$CREDENTIALS_FILE" ]; then
+              cp "$CREDENTIALS_FILE" "$AUTH_CREDENTIALS_FILE"
+              echo "Kubernetes Secret already contains credentials file, copied to the right place: $AUTH_CREDENTIALS_FILE"
+              exit 0
+          fi
+
+          # Otherwise, make sure the access keys are mounted in the pod...
+          if [ ! -e "$AWS_ACCESS_KEY_ID_FILE" ] || [ ! -e "$AWS_SECRET_ACCESS_KEY_FILE" ]; then
+              echo "AWS keys not found"
+              exit 1
+          fi
+
+          # And create an auth file based on those keys
+          cat <<-EOF > "$AUTH_CREDENTIALS_FILE"
+          [default]
+          aws_access_key_id=$(cat "$AWS_ACCESS_KEY_ID_FILE")
+          aws_secret_access_key=$(cat "$AWS_SECRET_ACCESS_KEY_FILE")
+          EOF
+          echo "Kubernetes Secret does not have credentials file, created a fresh one at $AUTH_CREDENTIALS_FILE"
+        image: ${TOOLS_IMAGE}
+        name: init-aws-credentials-file
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/run/aws/keys
+          name: aws-keys
+          readOnly: true
+        - mountPath: /var/run/aws/auth
+          name: aws-auth
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      priorityClassName: system-cluster-critical
+      serviceAccount: aws-ebs-csi-driver-controller-sa
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      volumes:
+      - emptyDir: {}
+        name: socket-dir
+      - name: metrics-serving-cert
+        secret:
+          secretName: aws-ebs-csi-driver-controller-metrics-serving-cert
+      - name: aws-keys
+        secret:
+          secretName: ebs-cloud-credentials
+      - emptyDir: {}
+        name: aws-auth
+      - name: bound-sa-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: openshift
+              path: token

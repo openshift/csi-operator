@@ -1,0 +1,9 @@
+apiVersion: hypershift.openshift.io/v1beta1
+kind: HostedControlPlane
+metadata:
+  name: test
+  namespace: clusters-test
+spec:
+  labels:
+    foo: bar
+    baz: ""

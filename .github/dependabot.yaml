@@ -1,0 +1,31 @@
+version: 2
+updates:
+- package-ecosystem: gomod
+  directory: "/"
+  allow:
+  - dependency-type: "all"
+  schedule:
+    interval: daily
+  groups:
+    golang-dependencies:
+      patterns:
+        - "github.com/golang*"
+        - "golang.org/*"
+    k8s-dependencies:
+      patterns:
+        - "k8s.io*"
+        - "sigs.k8s.io*"
+        - "github.com/kubernetes-csi*"
+    opentelemetry-dependencies:
+      patterns:
+        - "go.opentelemetry.io*"
+  labels:
+    - "ok-to-test"
+    - "px-approved"
+    - "docs-approved"
+    - "qe-approved"
+    - "jira/valid-reference"
+  # 0 means that only security updates are allowed.
+  # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#open-pull-requests-limit
+  # https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates#overriding-the-default-behavior-with-a-configuration-file
+  open-pull-requests-limit: 0

@@ -1,0 +1,4 @@
+spec:
+  selector:
+    app: openstack-manila-csi
+    component: controllerplugin

@@ -1,0 +1,21 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/rbac/lease_leader_election_binding.yaml
+# Applied strategic merge patch overlays/samba/patches/binding_with_namespace_placeholder_controller.yaml
+#
+#
+# Grant controller access to leases
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: smb-csi-driver-lease-leader-election
+  namespace: ${NODE_NAMESPACE}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: smb-csi-driver-lease-leader-election
+subjects:
+- kind: ServiceAccount
+  name: smb-csi-driver-controller-sa
+  namespace: ${NAMESPACE}

@@ -1,0 +1,4 @@
+Driver: ebs.csi.aws.com
+LUNStressTest:
+  PodsTotal: 260
+  Timeout: "40m" # The test needs ~20 min in ideal conditions.

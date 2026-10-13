@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: smb-csi-driver-operator-metrics-serving-cert
+  labels:
+    app: smb-csi-driver-operator-metrics
+  name: smb-csi-driver-operator-metrics
+spec:
+  ports:
+    # This is a fake port, the operator does not expose any ports currently.
+    # The service is used only to generate smb-csi-driver-operator-metrics-serving-cert by service-ca-operator.
+    # TODO: expose the operator metrics port + create a ServiceMonitor for it.
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 8443
+  selector:
+    app: smb-csi-driver-operator
+  sessionAffinity: None
+  type: ClusterIP

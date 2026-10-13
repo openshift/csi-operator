@@ -1,0 +1,84 @@
+kind: Deployment
+apiVersion: apps/v1
+spec:
+  template:
+    metadata:
+      annotations:
+        openshift.io/required-scc: privileged
+        cluster-autoscaler.kubernetes.io/safe-to-evict-local-volumes: tmp-dir,socket-dir
+      labels:
+        openshift.storage.network-policy.dns: allow
+        openshift.storage.network-policy.api-server: allow
+        openshift.storage.network-policy.metrics-range: allow
+        openshift.storage.network-policy.all-egress: allow
+    spec:
+      containers:
+        - name: csi-driver
+          image: ${DRIVER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --metrics-address=localhost:${DRIVER_METRICS_PORT}
+            - --v=${LOG_LEVEL}
+          ports:
+            - containerPort: 10307
+              name: healthz
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+          securityContext:
+            readOnlyRootFilesystem: true
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /tmp
+              name: tmp-dir
+          resources:
+            limits:
+              memory: 200Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+        - name: csi-provisioner
+          args:
+          - --csi-address=/var/lib/csi/sockets/pluginproxy/csi.sock
+          - --http-endpoint=localhost:8222
+          - --leader-election
+          - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+          - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+          - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+          - --leader-election-namespace=${NODE_NAMESPACE}
+          - --v=${LOG_LEVEL}
+          - --extra-create-metadata=true
+          env: []
+          image: ${PROVISIONER_IMAGE}
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+          securityContext:
+            readOnlyRootFilesystem: true
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - mountPath: /var/lib/csi/sockets/pluginproxy/
+              name: socket-dir
+            - mountPath: /tmp
+              name: tmp-dir
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
+        - name: tmp-dir
+          emptyDir:
+            medium: Memory

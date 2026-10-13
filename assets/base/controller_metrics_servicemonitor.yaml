@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ${ASSET_PREFIX}-controller-monitor
+  namespace: ${NAMESPACE}
+spec:
+  # Empty list to make json-patch work
+  endpoints: []
+  jobLabel: component
+  selector:
+    matchLabels:
+      app: ${ASSET_PREFIX}-controller-metrics

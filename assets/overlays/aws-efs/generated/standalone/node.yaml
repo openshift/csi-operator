@@ -1,0 +1,265 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/node.yaml
+# Applied strategic merge patch overlays/aws-efs/patches/node_add_driver.yaml
+# node_driver_registrar.yaml: Loaded from common/sidecars/node_driver_registrar.yaml
+# Applied strategic merge patch node_driver_registrar.yaml
+# host_network_livenessprobe.yaml: Loaded from common/sidecars/host_network_livenessprobe.yaml
+# host_network_livenessprobe.yaml: Added arguments [--probe-timeout=3s]
+# Applied strategic merge patch host_network_livenessprobe.yaml
+# Applied strategic merge patch common/readOnlyRootFilesystem.yaml
+#
+#
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+  name: aws-efs-csi-driver-node
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: aws-efs-csi-driver-node
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/enable-ds-eviction: "false"
+        openshift.io/required-scc: privileged
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        app: aws-efs-csi-driver-node
+    spec:
+      containers:
+      - args:
+        - --endpoint=$(CSI_ENDPOINT)
+        - --logtostderr
+        - --v=${LOG_LEVEL}
+        env:
+        - name: CSI_ENDPOINT
+          value: unix:/csi/csi.sock
+        - name: AWS_SDK_LOAD_CONFIG
+          value: "1"
+        - name: AWS_CONFIG_FILE
+          value: /var/run/aws/auth/credentials
+        image: ${DRIVER_IMAGE}
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            host: 127.0.0.1
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+        name: csi-driver
+        ports:
+        - containerPort: 10303
+          name: healthz
+          protocol: TCP
+        resources:
+          limits:
+            memory: 1Gi
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/lib/kubelet
+          mountPropagation: Bidirectional
+          name: kubelet-dir
+        - mountPath: /csi
+          name: socket-dir
+        - mountPath: /var/run/efs
+          name: efs-state-dir
+        - mountPath: /var/amazon/efs
+          name: efs-utils-config
+        - mountPath: /etc/amazon/efs-legacy
+          name: efs-utils-config-legacy
+        - mountPath: /etc/amazon
+          name: etc-amazon
+        - mountPath: /etc/selinux
+          name: etc-selinux
+        - mountPath: /sys/fs
+          name: sys-fs
+        - mountPath: /var/run/aws/auth
+          name: aws-auth
+          readOnly: true
+        - mountPath: /var/run/secrets/openshift/serviceaccount
+          name: bound-sa-token
+          readOnly: true
+        - mountPath: /var/log/amazon/efs
+          name: log-dir
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --kubelet-registration-path=/var/lib/kubelet/plugins/efs.csi.aws.com/csi.sock
+        - --http-endpoint=127.0.0.1:10305
+        - --v=${LOG_LEVEL}
+        env: []
+        image: ${NODE_DRIVER_REGISTRAR_IMAGE}
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - rm -rf /registration/efs.csi.aws.com-reg.sock /csi/csi.sock
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            host: 127.0.0.1
+            path: /healthz
+            port: rhealthz
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+        name: csi-node-driver-registrar
+        ports:
+        - containerPort: 10305
+          name: rhealthz
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          privileged: true
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+        - mountPath: /registration
+          name: registration-dir
+      - args:
+        - --csi-address=/csi/csi.sock
+        - --http-endpoint=127.0.0.1:10303
+        - --v=${LOG_LEVEL}
+        - --probe-timeout=3s
+        env: []
+        image: ${LIVENESS_PROBE_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: csi-liveness-probe
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /csi
+          name: socket-dir
+      dnsPolicy: Default
+      hostNetwork: true
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - |
+          # Define file path variables
+          CREDENTIALS_FILE=/var/run/aws/keys/credentials
+          AUTH_CREDENTIALS_FILE=/var/run/aws/auth/credentials
+          AWS_ACCESS_KEY_ID_FILE=/var/run/aws/keys/aws_access_key_id
+          AWS_SECRET_ACCESS_KEY_FILE=/var/run/aws/keys/aws_secret_access_key
+
+          # If credentials key exists in ebs-cloud-credentials secret, then use it as the auth file
+          if [ -e "$CREDENTIALS_FILE" ]; then
+              cp "$CREDENTIALS_FILE" "$AUTH_CREDENTIALS_FILE"
+              echo "Kubernetes Secret already contains credentials file, copied to the right place: $AUTH_CREDENTIALS_FILE"
+              exit 0
+          fi
+
+          # Otherwise, make sure the access keys are mounted in the pod...
+          if [ ! -e "$AWS_ACCESS_KEY_ID_FILE" ] || [ ! -e "$AWS_SECRET_ACCESS_KEY_FILE" ]; then
+              echo "Node AWS keys not found, zonal volumes will not work"
+              exit 0
+          fi
+
+          # And create an auth file based on those keys
+          cat <<-EOF > "$AUTH_CREDENTIALS_FILE"
+          [default]
+          aws_access_key_id=$(cat "$AWS_ACCESS_KEY_ID_FILE")
+          aws_secret_access_key=$(cat "$AWS_SECRET_ACCESS_KEY_FILE")
+          EOF
+          echo "Kubernetes Secret does not have credentials file, created a fresh one at $AUTH_CREDENTIALS_FILE"
+        image: ${TOOLS_IMAGE}
+        name: init-aws-credentials-file
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/run/aws/keys
+          name: aws-keys
+          readOnly: true
+        - mountPath: /var/run/aws/auth
+          name: aws-auth
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      serviceAccount: aws-efs-csi-driver-node-sa
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/lib/kubelet
+          type: Directory
+        name: kubelet-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins/efs.csi.aws.com/
+          type: DirectoryOrCreate
+        name: socket-dir
+      - hostPath:
+          path: /var/lib/kubelet/plugins_registry/
+          type: Directory
+        name: registration-dir
+      - hostPath:
+          path: /dev
+          type: Directory
+        name: device-dir
+      - hostPath:
+          path: /etc/selinux
+          type: DirectoryOrCreate
+        name: etc-selinux
+      - hostPath:
+          path: /sys/fs
+          type: Directory
+        name: sys-fs
+      - name: metrics-serving-cert
+        secret:
+          secretName: aws-efs-csi-driver-node-metrics-serving-cert
+      - hostPath:
+          path: /var/run/efs
+          type: DirectoryOrCreate
+        name: efs-state-dir
+      - hostPath:
+          path: /var/amazon/efs
+          type: DirectoryOrCreate
+        name: efs-utils-config
+      - hostPath:
+          path: /etc/amazon/efs
+          type: DirectoryOrCreate
+        name: efs-utils-config-legacy
+      - name: aws-keys
+        secret:
+          optional: true
+          secretName: node-aws-efs-cloud-credentials
+      - emptyDir: {}
+        name: aws-auth
+      - emptyDir: {}
+        name: log-dir
+      - emptyDir: {}
+        name: etc-amazon
+      - name: bound-sa-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: openshift
+              path: token
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate

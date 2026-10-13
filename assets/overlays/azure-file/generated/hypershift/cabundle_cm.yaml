@@ -1,0 +1,13 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/cabundle_cm.yaml
+#
+#
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+  name: azure-file-csi-driver-trusted-ca-bundle
+  namespace: ${NAMESPACE}

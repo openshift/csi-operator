@@ -1,0 +1,19 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller_pdb.yaml
+# Applied strategic merge patch overlays/openstack-manila/patches/modify_pdb.yaml
+#
+#
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: openstack-manila-csi-controllerplugin-pdb
+  namespace: ${NAMESPACE}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: openstack-manila-csi
+      component: controllerplugin
+  unhealthyPodEvictionPolicy: AlwaysAllow

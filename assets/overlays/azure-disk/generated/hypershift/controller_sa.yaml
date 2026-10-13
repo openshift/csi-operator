@@ -1,0 +1,14 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller_sa.yaml
+# Applied strategic merge patch common/hypershift/controller_sa_pull_secret.yaml
+#
+#
+
+apiVersion: v1
+imagePullSecrets:
+- name: pull-secret
+kind: ServiceAccount
+metadata:
+  name: azure-disk-csi-driver-controller-sa
+  namespace: ${NAMESPACE}

@@ -1,0 +1,46 @@
+# Generated file. Do not edit. Update using "make update".
+#
+# Loaded from base/controller_metrics_service.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+# Applied strategic merge patch common/metrics/service_add_port.yaml
+#
+#
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: aws-ebs-csi-driver-controller-metrics-serving-cert
+  labels:
+    app: aws-ebs-csi-driver-controller-metrics
+  name: aws-ebs-csi-driver-controller-metrics
+  namespace: ${NAMESPACE}
+spec:
+  ports:
+  - name: provisioner-m
+    port: 9202
+    protocol: TCP
+    targetPort: provisioner-m
+  - name: attacher-m
+    port: 9203
+    protocol: TCP
+    targetPort: attacher-m
+  - name: resizer-m
+    port: 9204
+    protocol: TCP
+    targetPort: resizer-m
+  - name: snapshotter-m
+    port: 9205
+    protocol: TCP
+    targetPort: snapshotter-m
+  - name: driver-m
+    port: 9201
+    protocol: TCP
+    targetPort: driver-m
+  selector:
+    app: aws-ebs-csi-driver-controller
+  sessionAffinity: None
+  type: ClusterIP

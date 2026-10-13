@@ -1,0 +1,5 @@
+# Add cmdline arg to the first container in a Deployment / DaemonSet
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value:
+    ${EXTRA_ARGUMENTS}

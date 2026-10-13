@@ -1,0 +1,11 @@
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: manila.csi.openstack.org
+  annotations:
+      # This CSIDriver is managed by an OCP CSI operator
+      csi.openshift.io/managed: "true"
+spec:
+  attachRequired: false
+  podInfoOnMount: false
+  fsGroupPolicy: None

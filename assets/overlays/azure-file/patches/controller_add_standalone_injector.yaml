@@ -1,0 +1,50 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  annotations:
+    config.openshift.io/inject-proxy: csi-driver
+    config.openshift.io/inject-proxy-cabundle: csi-driver
+spec:
+  template:
+    spec:
+      initContainers:
+        # Merge /etc/kubernetes/cloud.conf (on the host) with secret "azure-file-credentials" into "merged-cloud-config" emptydir.
+        - name: azure-inject-credentials
+          securityContext:
+            readOnlyRootFilesystem: true
+          image: ${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}
+          command:
+            - /azure-config-credentials-injector
+          args:
+            - --cloud-config-file-path=/etc/cloud-config/config
+            - --output-file-path=/etc/kubernetes/cloud.conf
+            # Force disable node's managed identity, azure-file-credentials Secret should be used.
+            - --disable-identity-extension-auth
+            - --enable-azure-workload-identity=${ENABLE_AZURE_WORKLOAD_IDENTITY}
+            - --creds-path=/etc/azure/credentials
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - name: src-cloud-config
+              mountPath: /etc/cloud-config
+              readOnly: true
+            - name: cloud-config
+              mountPath: /etc/kubernetes
+            - name: cloud-sa-volume
+              readOnly: true
+              mountPath: /etc/azure/credentials
+      volumes:
+        - name: src-cloud-config
+          configMap:
+            name: azure-cloud-config
+        - name: cloud-sa-volume
+          secret:
+            secretName: azure-file-credentials
+        - emptyDir: {}
+          name: cloud-config
+        - name: bound-sa-token
+          projected:
+            sources:
+            - serviceAccountToken:
+                path: token
+                audience: openshift
+
