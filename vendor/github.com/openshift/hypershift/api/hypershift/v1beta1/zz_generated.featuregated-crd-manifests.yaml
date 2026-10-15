@@ -208,15 +208,20 @@ hostedclusters.hypershift.openshift.io:
   - ClusterVersionOperatorConfiguration
   - EtcdSharding
   - ExternalOIDC
+  - ExternalOIDCExternalClaimsSourcing
   - ExternalOIDCWithUIDAndExtraClaimMappings
   - ExternalOIDCWithUpstreamParity
   - GCPPlatform
   - HCPEtcdBackup
+  - HCPUserFacingOperatorLogs
   - HyperShiftOnlyDynamicResourceAllocation
   - ImageStreamImportMode
-  - KMSEncryptionProvider
+  - IngressComponentRouteLabels
+  - KMSEncryption
+  - NetworkObservabilityInstall
   - OpenStack
   - TLSAdherence
+  - TLSGroupPreferences
   FilenameOperatorName: ""
   FilenameOperatorOrdering: ""
   FilenameRunLevel: ""
@@ -282,15 +287,20 @@ hostedcontrolplanes.hypershift.openshift.io:
   - ClusterVersionOperatorConfiguration
   - EtcdSharding
   - ExternalOIDC
+  - ExternalOIDCExternalClaimsSourcing
   - ExternalOIDCWithUIDAndExtraClaimMappings
   - ExternalOIDCWithUpstreamParity
   - GCPPlatform
   - HCPEtcdBackup
+  - HCPUserFacingOperatorLogs
   - HyperShiftOnlyDynamicResourceAllocation
   - ImageStreamImportMode
-  - KMSEncryptionProvider
+  - IngressComponentRouteLabels
+  - KMSEncryption
+  - NetworkObservabilityInstall
   - OpenStack
   - TLSAdherence
+  - TLSGroupPreferences
   FilenameOperatorName: ""
   FilenameOperatorOrdering: ""
   FilenameRunLevel: ""
