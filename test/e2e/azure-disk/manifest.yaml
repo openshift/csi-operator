@@ -23,7 +23,6 @@ DriverInfo:
     volumeLimits: false
     controllerExpansion: true
     nodeExpansion: true
-    onlineExpansion: false
     snapshotDataSource: true
     pvcDataSource: true
     topology: true
