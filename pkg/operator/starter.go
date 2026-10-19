@@ -123,13 +123,14 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	// preferences. The observer tolerates feature gates not being observed yet
 	// and re-syncs once they are, so we do not block here.
 	version := os.Getenv(operatorImageVersionEnvVarName)
+	missingVersion := "0.0.1-snapshot"
 	if version == "" {
-		version = "0.0.1-snapshot" // OLM: no OPERATOR_IMAGE_VERSION; derive from ClusterVersion
+		version = missingVersion // OLM: no OPERATOR_IMAGE_VERSION; derive from ClusterVersion
 	}
 
 	featureGateAccessor := featuregates.NewFeatureGateAccess(
 		version,
-		"0.0.1-snapshot",
+		missingVersion,
 		c.ConfigInformers.Config().V1().ClusterVersions(),
 		c.ConfigInformers.Config().V1().FeatureGates(),
 		c.EventRecorder,
