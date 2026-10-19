@@ -325,6 +325,8 @@ spec:
                 - infrastructures
                 - proxies
                 - apiservers
+                - clusterversions
+                - featuregates
               verbs:
                 - get
                 - list
