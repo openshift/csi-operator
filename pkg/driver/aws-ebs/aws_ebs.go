@@ -3,9 +3,7 @@ package aws_ebs
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/csi-operator/assets"
@@ -15,7 +13,6 @@ import (
 	"github.com/openshift/csi-operator/pkg/generator"
 	"github.com/openshift/csi-operator/pkg/operator/config"
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
@@ -40,8 +37,6 @@ const (
 	caBundleKey           = "ca-bundle.pem"
 	trustedCAConfigMap    = "aws-ebs-csi-driver-trusted-ca-bundle"
 	kmsKeyID              = "kmsKeyId"
-
-	operatorImageVersionEnvVarName = "OPERATOR_IMAGE_VERSION"
 
 	generatedAssetBase = "overlays/aws-ebs/generated"
 )
@@ -142,30 +137,7 @@ func GetAWSEBSOperatorConfig() *config.OperatorConfig {
 func GetAWSEBSOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AWSEBS")
 
-	// We need featuregate accessor made available to the operator pods
-	desiredVersion := os.Getenv(operatorImageVersionEnvVarName)
-	missingVersion := "0.0.1-snapshot"
-
-	featureGateAccessor := featuregates.NewFeatureGateAccess(
-		desiredVersion,
-		missingVersion,
-		c.ConfigInformers.Config().V1().ClusterVersions(),
-		c.ConfigInformers.Config().V1().FeatureGates(),
-		c.EventRecorder,
-	)
-	go featureGateAccessor.Run(ctx)
 	go c.ConfigInformers.Start(ctx.Done())
-
-	var featureGates featuregates.FeatureGate
-
-	select {
-	case <-featureGateAccessor.InitialFeatureGatesObserved():
-		featureGates, _ = featureGateAccessor.CurrentFeatureGates()
-		klog.Info("FeatureGates initialized", "knownFeatures", featureGates.KnownFeatures())
-	case <-time.After(1 * time.Minute):
-		klog.Error(nil, "timed out waiting for FeatureGate detection")
-		return nil, fmt.Errorf("timed out waiting for FeatureGate detection")
-	}
 
 	// Hooks to run on all clusters
 	cfg.AddDeploymentHookBuilders(c,
