@@ -1,0 +1,34 @@
+StorageClass:
+  FromExistingClassName: hyperdisk-throughput
+SnapshotClass:
+  FromName: true
+DriverInfo:
+  Name: pd.csi.storage.gke.io
+  SupportedFsType:
+    xfs: {}
+    ext4: {}
+  SupportedMountOption:
+    debug:
+    nouid32:
+  SupportedSizeRange:
+    # Hyperdisk Throughput minimum size is 2Ti and the smallest resize is +2Ti.
+    Min: 2Ti
+    Max: 4Ti
+    Step: 2Ti
+  TopologyKeys:
+    - topology.gke.io/zone
+  Capabilities:
+    persistence: true
+    fsGroup: true
+    block: true
+    exec: true
+    volumeLimits: false
+    controllerExpansion: true
+    nodeExpansion: true
+    snapshotDataSource: true
+    pvcDataSource: true
+    topology: true
+    multipods: true
+    multiplePVsSameID: true
+Timeouts:
+  DataSourceProvision: 15m
