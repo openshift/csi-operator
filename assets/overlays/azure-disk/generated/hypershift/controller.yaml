@@ -149,6 +149,7 @@ spec:
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
+        - --tls-curve-preferences=${TLS_CURVE_PREFERENCES}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
         imagePullPolicy: IfNotPresent
@@ -211,6 +212,7 @@ spec:
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
+        - --tls-curve-preferences=${TLS_CURVE_PREFERENCES}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
         imagePullPolicy: IfNotPresent
@@ -269,6 +271,7 @@ spec:
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
+        - --tls-curve-preferences=${TLS_CURVE_PREFERENCES}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
         imagePullPolicy: IfNotPresent
@@ -325,6 +328,7 @@ spec:
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
+        - --tls-curve-preferences=${TLS_CURVE_PREFERENCES}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
         imagePullPolicy: IfNotPresent
@@ -380,6 +384,7 @@ spec:
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --tls-cipher-suites=${TLS_CIPHER_SUITES}
         - --tls-min-version=${TLS_MIN_VERSION}
+        - --tls-curve-preferences=${TLS_CURVE_PREFERENCES}
         - --logtostderr=true
         image: ${KUBE_RBAC_PROXY_IMAGE}
         imagePullPolicy: IfNotPresent
