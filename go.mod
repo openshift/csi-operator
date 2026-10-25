@@ -135,4 +135,4 @@ require (
 
 replace google.golang.org/grpc => github.com/openshift-sustaining/grpc-go v1.71.3-sec.1
 
-replace golang.org/x/net => github.com/openshift-sustaining/net v0.35.0-sec.3
+replace golang.org/x/net => github.com/openshift-sustaining/net v0.35.0-sec.4
