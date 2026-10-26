@@ -111,8 +111,11 @@ func resolveTLSProfile(profile *configv1.TLSSecurityProfile, useGroups bool) (st
 
 	var groups []int32
 	if useGroups {
-		var unknownGroups []configv1.TLSGroup
-		groups, unknownGroups = crypto.TLSGroupsToCurvePreferences(spec.Groups)
+		// Filter out non-FIPS-approved groups
+		groupStrings := crypto.GetSecurityProfileGroups(spec)
+		// Convert to []int32
+		var unknownGroups []string
+		groups, unknownGroups = crypto.TLSGroupsToCurvePreferences(groupStrings)
 		if len(unknownGroups) > 0 {
 			klog.Warningf("Unknown TLS groups: %v", unknownGroups)
 		}
