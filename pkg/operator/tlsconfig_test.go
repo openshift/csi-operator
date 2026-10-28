@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -21,12 +22,23 @@ func TestResolveTLSProfile(t *testing.T) {
 	expectedModernVersion := string(modernSpec.MinTLSVersion)
 	expectedModernCiphers := crypto.OpenSSLToIANACipherSuites(modernSpec.Ciphers)
 
+	expectedIntermediateGroups, _ := crypto.TLSGroupsToCurvePreferences(intermediateSpec.Groups)
+
+	customGroups := []configv1.TLSGroup{configv1.TLSGroupX25519, configv1.TLSGroupSecP256r1}
+	expectedCustomGroups, _ := crypto.TLSGroupsToCurvePreferences(customGroups)
+	// crypto.TLSGroupsToCurvePreferences([]) returns a non-nil, empty slice when there are no
+	// groups to translate, so compute the "no custom groups" expectation the same way instead
+	// of hardcoding nil/empty.
+	expectedNoCustomGroups, _ := crypto.TLSGroupsToCurvePreferences([]configv1.TLSGroup(nil))
+
 	tests := []struct {
 		name              string
 		profile           *configv1.TLSSecurityProfile
+		useGroups         bool
 		expectedVersion   string
 		expectedCipherLen int
 		expectedCiphers   []string
+		expectedGroups    []int32
 		checkExactVersion bool
 		exactVersion      string
 	}{
@@ -99,11 +111,113 @@ func TestResolveTLSProfile(t *testing.T) {
 			expectedCipherLen: len(expectedIntermediateCiphers),
 			expectedCiphers:   expectedIntermediateCiphers,
 		},
+		{
+			name: "Intermediate profile with useGroups returns curve preferences",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileIntermediateType,
+			},
+			useGroups:         true,
+			expectedVersion:   expectedIntermediateVersion,
+			expectedCipherLen: len(expectedIntermediateCiphers),
+			expectedCiphers:   expectedIntermediateCiphers,
+			expectedGroups:    expectedIntermediateGroups,
+		},
+		{
+			name: "Intermediate profile without useGroups returns no curve preferences",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileIntermediateType,
+			},
+			useGroups:         false,
+			expectedVersion:   expectedIntermediateVersion,
+			expectedCipherLen: len(expectedIntermediateCiphers),
+			expectedCiphers:   expectedIntermediateCiphers,
+			expectedGroups:    nil,
+		},
+		{
+			name: "Custom profile with custom groups and feature gate on returns curve preferences",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						MinTLSVersion: configv1.VersionTLS12,
+						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Groups:        []configv1.TLSGroup{configv1.TLSGroupX25519, configv1.TLSGroupSecP256r1},
+					},
+				},
+			},
+			useGroups:         true,
+			checkExactVersion: true,
+			exactVersion:      string(configv1.VersionTLS12),
+			expectedCipherLen: 1,
+			expectedCiphers:   crypto.OpenSSLToIANACipherSuites([]string{"ECDHE-RSA-AES128-GCM-SHA256"}),
+			expectedGroups:    expectedCustomGroups,
+		},
+		{
+			name: "Custom profile with custom groups and feature gate off returns no curve preferences",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						MinTLSVersion: configv1.VersionTLS12,
+						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Groups:        []configv1.TLSGroup{configv1.TLSGroupX25519, configv1.TLSGroupSecP256r1},
+					},
+				},
+			},
+			useGroups:         false,
+			checkExactVersion: true,
+			exactVersion:      string(configv1.VersionTLS12),
+			expectedCipherLen: 1,
+			expectedCiphers:   crypto.OpenSSLToIANACipherSuites([]string{"ECDHE-RSA-AES128-GCM-SHA256"}),
+			expectedGroups:    nil,
+		},
+		{
+			name: "Custom profile without custom groups and feature gate on returns no curve preferences",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						MinTLSVersion: configv1.VersionTLS12,
+						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Groups:        nil,
+					},
+				},
+			},
+			useGroups:         true,
+			checkExactVersion: true,
+			exactVersion:      string(configv1.VersionTLS12),
+			expectedCipherLen: 1,
+			expectedCiphers:   crypto.OpenSSLToIANACipherSuites([]string{"ECDHE-RSA-AES128-GCM-SHA256"}),
+			expectedGroups:    expectedNoCustomGroups,
+		},
+		{
+			name: "Custom profile without custom groups and feature gate off returns no curve preferences",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						MinTLSVersion: configv1.VersionTLS12,
+						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Groups:        nil,
+					},
+				},
+			},
+			useGroups:         false,
+			checkExactVersion: true,
+			exactVersion:      string(configv1.VersionTLS12),
+			expectedCipherLen: 1,
+			expectedCiphers:   crypto.OpenSSLToIANACipherSuites([]string{"ECDHE-RSA-AES128-GCM-SHA256"}),
+			expectedGroups:    nil,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			version, ciphers := resolveTLSProfile(tt.profile)
+			version, ciphers, groups := resolveTLSProfile(tt.profile, tt.useGroups)
+
+			if !reflect.DeepEqual(groups, tt.expectedGroups) {
+				t.Errorf("expected groups %v, got %v", tt.expectedGroups, groups)
+			}
 
 			if tt.checkExactVersion {
 				if version != tt.exactVersion {
@@ -136,6 +250,7 @@ func TestBuildOperatorConfig(t *testing.T) {
 		name           string
 		minTLSVersion  string
 		cipherSuites   []string
+		groups         []int32
 		expectContains []string
 		expectMissing  []string
 	}{
@@ -151,6 +266,9 @@ func TestBuildOperatorConfig(t *testing.T) {
 				"- TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 				"- TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
 			},
+			expectMissing: []string{
+				"curvePreferences:",
+			},
 		},
 		{
 			name:          "without cipher suites",
@@ -161,6 +279,7 @@ func TestBuildOperatorConfig(t *testing.T) {
 			},
 			expectMissing: []string{
 				"cipherSuites:",
+				"curvePreferences:",
 			},
 		},
 		{
@@ -172,13 +291,34 @@ func TestBuildOperatorConfig(t *testing.T) {
 			},
 			expectMissing: []string{
 				"cipherSuites:",
+				"curvePreferences:",
+			},
+		},
+		{
+			name:          "with curve preferences",
+			minTLSVersion: "VersionTLS12",
+			cipherSuites:  nil,
+			groups:        []int32{29, 23},
+			expectContains: []string{
+				"minTLSVersion: VersionTLS12",
+				"curvePreferences:",
+				"- 29",
+				"- 23",
+			},
+		},
+		{
+			name:          "empty groups slice produces no curve preferences",
+			minTLSVersion: "VersionTLS13",
+			groups:        []int32{},
+			expectMissing: []string{
+				"curvePreferences:",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildOperatorConfig(tt.minTLSVersion, tt.cipherSuites)
+			result := buildOperatorConfig(tt.minTLSVersion, tt.cipherSuites, tt.groups)
 
 			for _, expected := range tt.expectContains {
 				if !strings.Contains(result, expected) {

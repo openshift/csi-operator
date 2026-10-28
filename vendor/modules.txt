@@ -355,7 +355,7 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/openshift/api v0.0.0-20261013084449-5a61bfba6d60
+# github.com/openshift/api v0.0.0-20261017003925-24b2699a9b32
 ## explicit; go 1.26.0
 github.com/openshift/api
 github.com/openshift/api/annotations
@@ -493,7 +493,7 @@ github.com/openshift/client-go/operator/listers/operator/v1alpha1
 github.com/openshift/hypershift/api/hypershift/v1beta1
 github.com/openshift/hypershift/api/ibmcapi
 github.com/openshift/hypershift/api/util/ipnet
-# github.com/openshift/library-go v0.0.0-20261012140303-721d3db0b301
+# github.com/openshift/library-go v0.0.0-20261023170121-9a2bc12675c2
 ## explicit; go 1.26.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
