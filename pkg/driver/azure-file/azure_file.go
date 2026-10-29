@@ -2,10 +2,8 @@ package azure_file
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/openshift/csi-operator/assets"
 	"github.com/openshift/csi-operator/pkg/clients"
@@ -22,10 +20,8 @@ import (
 
 	opv1 "github.com/openshift/api/operator/v1"
 	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 )
 
@@ -42,8 +38,7 @@ const (
 
 	generatedAssetBase = "overlays/azure-file/generated"
 
-	operatorImageVersionEnvVarName = "OPERATOR_IMAGE_VERSION"
-	ccmOperatorImageEnvName        = "CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE"
+	ccmOperatorImageEnvName = "CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE"
 
 	// name of local cloud-config copied to openshift-cluster-csi-driver namespace.
 	localCloudConfigName = "azure-cloud-config"
@@ -136,28 +131,7 @@ func GetAzureFileOperatorConfig() *config.OperatorConfig {
 func GetAzureFileOperatorControllerConfig(ctx context.Context, flavour generator.ClusterFlavour, c *clients.Clients) (*config.OperatorControllerConfig, error) {
 	cfg := operator.NewDefaultOperatorControllerConfig(flavour, c, "AzureFile")
 
-	// We need featuregate accessor made available to the operator pods
-	desiredVersion := os.Getenv(operatorImageVersionEnvVarName)
-	missingVersion := "0.0.1-snapshot"
-
-	featureGateAccessor := featuregates.NewFeatureGateAccess(
-		desiredVersion,
-		missingVersion,
-		c.ConfigInformers.Config().V1().ClusterVersions(),
-		c.ConfigInformers.Config().V1().FeatureGates(),
-		c.EventRecorder,
-	)
-	go featureGateAccessor.Run(ctx)
 	go c.ConfigInformers.Start(ctx.Done())
-
-	select {
-	case <-featureGateAccessor.InitialFeatureGatesObserved():
-		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
-		klog.Info("FeatureGates initialized", "knownFeatures", featureGates.KnownFeatures())
-	case <-time.After(1 * time.Minute):
-		klog.Error(nil, "timed out waiting for FeatureGate detection")
-		return nil, fmt.Errorf("timed out waiting for FeatureGate detection")
-	}
 
 	// Hooks for control plane start
 	cfg.AddDeploymentHookBuilders(c, withCABundleDeploymentHook)
