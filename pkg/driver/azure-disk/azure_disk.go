@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	snapshotapi "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"github.com/openshift/csi-operator/assets"
@@ -26,7 +25,6 @@ import (
 	opCfgV1 "github.com/openshift/api/config/v1"
 	opv1 "github.com/openshift/api/operator/v1"
 	commongenerator "github.com/openshift/csi-operator/pkg/driver/common/generator"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -48,8 +46,7 @@ const (
 
 	generatedAssetBase = "overlays/azure-disk/generated"
 
-	operatorImageVersionEnvVarName = "OPERATOR_IMAGE_VERSION"
-	ccmOperatorImageEnvName        = "CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE"
+	ccmOperatorImageEnvName = "CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE"
 
 	// for azure stack hub
 	configEnvName         = "AZURE_ENVIRONMENT_FILEPATH"
@@ -170,28 +167,7 @@ func GetAzureDiskOperatorControllerConfig(ctx context.Context, flavour generator
 
 	insideStackHub := runningInAzureStackHub(infra)
 
-	// We need featuregate accessor made available to the operator pods
-	desiredVersion := os.Getenv(operatorImageVersionEnvVarName)
-	missingVersion := "0.0.1-snapshot"
-
-	featureGateAccessor := featuregates.NewFeatureGateAccess(
-		desiredVersion,
-		missingVersion,
-		c.ConfigInformers.Config().V1().ClusterVersions(),
-		c.ConfigInformers.Config().V1().FeatureGates(),
-		c.EventRecorder,
-	)
-	go featureGateAccessor.Run(ctx)
 	go c.ConfigInformers.Start(ctx.Done())
-
-	select {
-	case <-featureGateAccessor.InitialFeatureGatesObserved():
-		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
-		klog.Info("FeatureGates initialized", "knownFeatures", featureGates.KnownFeatures())
-	case <-time.After(1 * time.Minute):
-		klog.Error(nil, "timed out waiting for FeatureGate detection")
-		return nil, fmt.Errorf("timed out waiting for FeatureGate detection")
-	}
 
 	// Hooks for control plane start
 	cfg.AddDeploymentHookBuilders(c,
