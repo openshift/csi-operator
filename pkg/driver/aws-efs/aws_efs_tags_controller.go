@@ -146,6 +146,8 @@ func (c *EFSAccessPointTagsController) createClientWithCredentials(ctx context.C
 		return nil, fmt.Errorf("error parsing credentials data: %v", err)
 	}
 
+	klog.Infof("tes change")
+
 	section := cfg.Section("default")
 	roleARN := section.Key("role_arn").String()
 	tokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
