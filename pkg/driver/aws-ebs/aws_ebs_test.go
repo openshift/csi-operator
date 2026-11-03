@@ -181,7 +181,7 @@ func Test_WithCustomTags(t *testing.T) {
 		{
 			name:              "tags set",
 			infrastructure:    infraWithTags,
-			expectedExtraTags: "--extra-tags=foo=bar,baz=",
+			expectedExtraTags: "--extra-tags=baz=,foo=bar",
 		},
 		{
 			name:              "empty tags",
