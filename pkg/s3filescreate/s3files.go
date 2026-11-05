@@ -51,10 +51,12 @@ const (
 )
 
 var managedPolicies = map[string][]string{
-	// The worker mounts S3 Files, while the controller creates access points.
-	// The node user receives the same mount and CSI permissions because the
-	// EFS driver can use distinct controller and node credentials.
-	"worker": {
+	// Every node instance role mounts S3 Files: workers for pod volumes and
+	// control-plane nodes for the controller's access point root directory
+	// cleanup. The controller user creates access points. The node user receives
+	// the same mount and CSI permissions because the EFS driver can use distinct
+	// controller and node credentials.
+	"instance": {
 		"arn:aws:iam::aws:policy/AmazonS3FilesClientFullAccess",
 		"arn:aws:iam::aws:policy/service-role/AmazonS3FilesCSIDriverPolicy",
 	},
@@ -179,7 +181,7 @@ func (c *creator) create(singleZone string) error {
 	if err != nil {
 		return fmt.Errorf("list cluster nodes: %w", err)
 	}
-	vpc, cidr, subnets, workerRole, err := c.network(nodes, singleZone)
+	vpc, cidr, subnets, instanceRoles, err := c.network(nodes, singleZone)
 	if err != nil {
 		return err
 	}
@@ -215,7 +217,7 @@ func (c *creator) create(singleZone string) error {
 	if err != nil {
 		return err
 	}
-	if err := c.grantPermissions(workerRole, controllerUser, nodeUser); err != nil {
+	if err := c.grantPermissions(instanceRoles, controllerUser, nodeUser); err != nil {
 		return err
 	}
 	if err := c.writeTestInputs(fsID); err != nil {
@@ -399,25 +401,29 @@ func (c *creator) accountID() (string, error) {
 	return aws.ToString(result.Account), nil
 }
 
-func (c *creator) network(nodes *corev1.NodeList, singleZone string) (string, string, []string, string, error) {
+// network returns the cluster VPC, its CIDR, the node subnets that need mount
+// targets and the distinct IAM roles of all node instances. Control-plane and
+// worker nodes use different instance profiles, and both mount S3 Files.
+func (c *creator) network(nodes *corev1.NodeList, singleZone string) (string, string, []string, []string, error) {
 	instances := make([]string, 0, len(nodes.Items))
 	for _, node := range nodes.Items {
 		parts := strings.Split(node.Spec.ProviderID, "/")
 		if len(parts) == 0 || parts[len(parts)-1] == "" {
-			return "", "", nil, "", fmt.Errorf("node %q has no AWS provider ID", node.Name)
+			return "", "", nil, nil, fmt.Errorf("node %q has no AWS provider ID", node.Name)
 		}
 		instances = append(instances, parts[len(parts)-1])
 	}
 	result, err := c.ec2.DescribeInstances(c.ctx, &ec2.DescribeInstancesInput{InstanceIds: instances})
 	if err != nil {
-		return "", "", nil, "", fmt.Errorf("describe worker instances: %w", err)
+		return "", "", nil, nil, fmt.Errorf("describe node instances: %w", err)
 	}
 	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
-		return "", "", nil, "", fmt.Errorf("no instances found for cluster nodes")
+		return "", "", nil, nil, fmt.Errorf("no instances found for cluster nodes")
 	}
 	first := result.Reservations[0].Instances[0]
-	if first.IamInstanceProfile == nil {
-		return "", "", nil, "", fmt.Errorf("instance %s has no IAM instance profile", aws.ToString(first.InstanceId))
+	profileNames, err := instanceProfileNames(result.Reservations)
+	if err != nil {
+		return "", "", nil, nil, err
 	}
 	subnetSet := map[string]struct{}{}
 	for _, reservation := range result.Reservations {
@@ -428,29 +434,52 @@ func (c *creator) network(nodes *corev1.NodeList, singleZone string) (string, st
 		}
 	}
 	if len(subnetSet) == 0 {
-		return "", "", nil, "", fmt.Errorf("no worker subnets found in requested zone %q", singleZone)
+		return "", "", nil, nil, fmt.Errorf("no node subnets found in requested zone %q", singleZone)
 	}
 	vpcs, err := c.ec2.DescribeVpcs(c.ctx, &ec2.DescribeVpcsInput{VpcIds: []string{aws.ToString(first.VpcId)}})
 	if err != nil {
-		return "", "", nil, "", fmt.Errorf("describe VPC %s: %w", aws.ToString(first.VpcId), err)
+		return "", "", nil, nil, fmt.Errorf("describe VPC %s: %w", aws.ToString(first.VpcId), err)
 	}
 	if len(vpcs.Vpcs) != 1 {
-		return "", "", nil, "", fmt.Errorf("VPC %s not found", aws.ToString(first.VpcId))
+		return "", "", nil, nil, fmt.Errorf("VPC %s not found", aws.ToString(first.VpcId))
 	}
-	profileName := lastPathElement(aws.ToString(first.IamInstanceProfile.Arn))
-	profile, err := c.iam.GetInstanceProfile(c.ctx, &iam.GetInstanceProfileInput{InstanceProfileName: aws.String(profileName)})
-	if err != nil {
-		return "", "", nil, "", fmt.Errorf("get instance profile %s: %w", profileName, err)
+	roleSet := map[string]struct{}{}
+	for _, profileName := range profileNames {
+		profile, err := c.iam.GetInstanceProfile(c.ctx, &iam.GetInstanceProfileInput{InstanceProfileName: aws.String(profileName)})
+		if err != nil {
+			return "", "", nil, nil, fmt.Errorf("get instance profile %s: %w", profileName, err)
+		}
+		if len(profile.InstanceProfile.Roles) != 1 {
+			return "", "", nil, nil, fmt.Errorf("instance profile %s has no role", profileName)
+		}
+		roleSet[aws.ToString(profile.InstanceProfile.Roles[0].RoleName)] = struct{}{}
 	}
-	if len(profile.InstanceProfile.Roles) != 1 {
-		return "", "", nil, "", fmt.Errorf("instance profile %s has no role", profileName)
+	return aws.ToString(first.VpcId), aws.ToString(vpcs.Vpcs[0].CidrBlock), sortedKeys(subnetSet), sortedKeys(roleSet), nil
+}
+
+// instanceProfileNames returns the sorted, distinct instance profile names of
+// the given instances. Every instance must have an instance profile so that
+// its role can be granted S3 Files mount permissions.
+func instanceProfileNames(reservations []ec2types.Reservation) ([]string, error) {
+	profiles := map[string]struct{}{}
+	for _, reservation := range reservations {
+		for _, instance := range reservation.Instances {
+			if instance.IamInstanceProfile == nil {
+				return nil, fmt.Errorf("instance %s has no IAM instance profile", aws.ToString(instance.InstanceId))
+			}
+			profiles[lastPathElement(aws.ToString(instance.IamInstanceProfile.Arn))] = struct{}{}
+		}
 	}
-	subnets := make([]string, 0, len(subnetSet))
-	for subnet := range subnetSet {
-		subnets = append(subnets, subnet)
+	return sortedKeys(profiles), nil
+}
+
+func sortedKeys(set map[string]struct{}) []string {
+	keys := make([]string, 0, len(set))
+	for key := range set {
+		keys = append(keys, key)
 	}
-	sort.Strings(subnets)
-	return aws.ToString(first.VpcId), aws.ToString(vpcs.Vpcs[0].CidrBlock), subnets, aws.ToString(profile.InstanceProfile.Roles[0].RoleName), nil
+	sort.Strings(keys)
+	return keys
 }
 
 func (c *creator) createBucket() error {
@@ -734,8 +763,7 @@ func (c *creator) userForSecret(name string) (string, error) {
 	return aws.ToString(result.UserName), nil
 }
 
-func (c *creator) grantPermissions(worker, controller, node string) error {
-	identities := map[string]string{"worker": worker, "controller": controller, "node": node}
+func (c *creator) grantPermissions(instanceRoles []string, controller, node string) error {
 	// The managed S3 Files policies authorize the mount protocol and CSI access
 	// point operations. Direct S3 reads are a separate AWS requirement for
 	// efficient large-object reads, so scope an inline policy to this test bucket.
@@ -743,24 +771,24 @@ func (c *creator) grantPermissions(worker, controller, node string) error {
 	if err != nil {
 		return err
 	}
-	for kind, name := range identities {
+	for _, role := range instanceRoles {
+		for _, arn := range managedPolicies["instance"] {
+			if _, err := c.iam.AttachRolePolicy(c.ctx, &iam.AttachRolePolicyInput{RoleName: aws.String(role), PolicyArn: aws.String(arn)}); err != nil {
+				return fmt.Errorf("attach %s to role %s: %w", arn, role, err)
+			}
+		}
+		if _, err := c.iam.PutRolePolicy(c.ctx, &iam.PutRolePolicyInput{RoleName: aws.String(role), PolicyName: aws.String(c.policy), PolicyDocument: aws.String(string(policy))}); err != nil {
+			return fmt.Errorf("put policy %s on role %s: %w", c.policy, role, err)
+		}
+	}
+	for kind, user := range map[string]string{"controller": controller, "node": node} {
 		for _, arn := range managedPolicies[kind] {
-			if kind == "worker" {
-				_, err = c.iam.AttachRolePolicy(c.ctx, &iam.AttachRolePolicyInput{RoleName: aws.String(name), PolicyArn: aws.String(arn)})
-			} else {
-				_, err = c.iam.AttachUserPolicy(c.ctx, &iam.AttachUserPolicyInput{UserName: aws.String(name), PolicyArn: aws.String(arn)})
-			}
-			if err != nil {
-				return err
+			if _, err := c.iam.AttachUserPolicy(c.ctx, &iam.AttachUserPolicyInput{UserName: aws.String(user), PolicyArn: aws.String(arn)}); err != nil {
+				return fmt.Errorf("attach %s to user %s: %w", arn, user, err)
 			}
 		}
-		if kind == "worker" {
-			_, err = c.iam.PutRolePolicy(c.ctx, &iam.PutRolePolicyInput{RoleName: aws.String(name), PolicyName: aws.String(c.policy), PolicyDocument: aws.String(string(policy))})
-		} else {
-			_, err = c.iam.PutUserPolicy(c.ctx, &iam.PutUserPolicyInput{UserName: aws.String(name), PolicyName: aws.String(c.policy), PolicyDocument: aws.String(string(policy))})
-		}
-		if err != nil {
-			return err
+		if _, err := c.iam.PutUserPolicy(c.ctx, &iam.PutUserPolicyInput{UserName: aws.String(user), PolicyName: aws.String(c.policy), PolicyDocument: aws.String(string(policy))}); err != nil {
+			return fmt.Errorf("put policy %s on user %s: %w", c.policy, user, err)
 		}
 	}
 	return nil
@@ -846,7 +874,7 @@ func (c *creator) revokePermissions() error {
 	if err != nil {
 		return err
 	}
-	_, _, _, worker, err := c.network(nodes, "")
+	_, _, _, instanceRoles, err := c.network(nodes, "")
 	if err != nil {
 		return err
 	}
@@ -858,24 +886,26 @@ func (c *creator) revokePermissions() error {
 	if err != nil {
 		return err
 	}
-	for kind, name := range map[string]string{"worker": worker, "controller": controller, "node": node} {
+	// Cleanup must be idempotent: a role or user may never have received a
+	// policy, for example when a previous create run failed part way through.
+	for _, role := range instanceRoles {
+		for _, arn := range managedPolicies["instance"] {
+			if _, err := c.iam.DetachRolePolicy(c.ctx, &iam.DetachRolePolicyInput{RoleName: aws.String(role), PolicyArn: aws.String(arn)}); err != nil && !isNotFound(err) {
+				return fmt.Errorf("detach %s from role %s: %w", arn, role, err)
+			}
+		}
+		if _, err := c.iam.DeleteRolePolicy(c.ctx, &iam.DeleteRolePolicyInput{RoleName: aws.String(role), PolicyName: aws.String(c.policy)}); err != nil && !isNotFound(err) {
+			return fmt.Errorf("delete policy %s from role %s: %w", c.policy, role, err)
+		}
+	}
+	for kind, user := range map[string]string{"controller": controller, "node": node} {
 		for _, arn := range managedPolicies[kind] {
-			if kind == "worker" {
-				_, err = c.iam.DetachRolePolicy(c.ctx, &iam.DetachRolePolicyInput{RoleName: aws.String(name), PolicyArn: aws.String(arn)})
-			} else {
-				_, err = c.iam.DetachUserPolicy(c.ctx, &iam.DetachUserPolicyInput{UserName: aws.String(name), PolicyArn: aws.String(arn)})
-			}
-			if err != nil {
-				return err
+			if _, err := c.iam.DetachUserPolicy(c.ctx, &iam.DetachUserPolicyInput{UserName: aws.String(user), PolicyArn: aws.String(arn)}); err != nil && !isNotFound(err) {
+				return fmt.Errorf("detach %s from user %s: %w", arn, user, err)
 			}
 		}
-		if kind == "worker" {
-			_, err = c.iam.DeleteRolePolicy(c.ctx, &iam.DeleteRolePolicyInput{RoleName: aws.String(name), PolicyName: aws.String(c.policy)})
-		} else {
-			_, err = c.iam.DeleteUserPolicy(c.ctx, &iam.DeleteUserPolicyInput{UserName: aws.String(name), PolicyName: aws.String(c.policy)})
-		}
-		if err != nil && !isNotFound(err) {
-			return err
+		if _, err := c.iam.DeleteUserPolicy(c.ctx, &iam.DeleteUserPolicyInput{UserName: aws.String(user), PolicyName: aws.String(c.policy)}); err != nil && !isNotFound(err) {
+			return fmt.Errorf("delete policy %s from user %s: %w", c.policy, user, err)
 		}
 	}
 	return nil

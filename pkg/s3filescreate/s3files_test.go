@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	s3filestypes "github.com/aws/aws-sdk-go-v2/service/s3files/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,6 +45,32 @@ func TestHasTag(t *testing.T) {
 	}
 	if hasTag(tags, "kubernetes.io/cluster/test", "shared") {
 		t.Fatal("unexpected ownership tag match")
+	}
+}
+
+func TestInstanceProfileNamesIncludesEveryNodeRole(t *testing.T) {
+	instance := func(id, profile string) ec2types.Instance {
+		return ec2types.Instance{InstanceId: aws.String(id), IamInstanceProfile: &ec2types.IamInstanceProfile{Arn: aws.String("arn:aws:iam::123456789012:instance-profile/" + profile)}}
+	}
+	// Control-plane and worker nodes use different instance profiles. Both must
+	// be returned regardless of the order in which EC2 lists the instances.
+	reservations := []ec2types.Reservation{
+		{Instances: []ec2types.Instance{instance("i-master-0", "infra-master-profile"), instance("i-master-1", "infra-master-profile")}},
+		{Instances: []ec2types.Instance{instance("i-worker-0", "infra-worker-profile")}},
+		{Instances: []ec2types.Instance{instance("i-master-2", "infra-master-profile"), instance("i-worker-1", "infra-worker-profile")}},
+	}
+	got, err := instanceProfileNames(reservations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"infra-master-profile", "infra-worker-profile"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("instanceProfileNames() = %v, want %v", got, want)
+	}
+
+	reservations = append(reservations, ec2types.Reservation{Instances: []ec2types.Instance{{InstanceId: aws.String("i-no-profile")}}})
+	if _, err := instanceProfileNames(reservations); err == nil || !contains(err.Error(), "i-no-profile") {
+		t.Fatalf("expected an error naming the instance without a profile, got %v", err)
 	}
 }
 
