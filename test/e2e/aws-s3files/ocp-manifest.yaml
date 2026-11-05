@@ -1,0 +1,5 @@
+Driver: efs.csi.aws.com
+Capabilities:
+  podDeleteAfterUmount: true
+LUNStressTest:
+  PodsTotal: 0
