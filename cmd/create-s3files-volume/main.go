@@ -17,6 +17,7 @@ func main() {
 	os.Exit(cli.Run(newCommand()))
 }
 
+// newCommand builds the root command and its infrastructure operations.
 func newCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create-s3files-volume",
@@ -34,6 +35,7 @@ func newCommand() *cobra.Command {
 	return cmd
 }
 
+// newOperationCommand configures controller execution and flags for one operation.
 func newOperationCommand(operation, description string) *cobra.Command {
 	var useLocalAWSCredentials, force bool
 	var singleZone string

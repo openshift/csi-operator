@@ -172,6 +172,7 @@ func ValidateOperation(operation, singleZone string, force bool) error {
 	return nil
 }
 
+// create creates or reuses the test infrastructure before writing the CSI test inputs.
 func (c *creator) create(singleZone string) error {
 	account, err := c.accountID()
 	if err != nil {
@@ -227,6 +228,7 @@ func (c *creator) create(singleZone string) error {
 	return nil
 }
 
+// cleanup removes the test infrastructure after checking for workloads unless forced.
 func (c *creator) cleanup(force bool) error {
 	fsIDs, err := c.fileSystems()
 	if err != nil {
@@ -290,6 +292,7 @@ func (c *creator) status() error {
 	return c.statusWorkloads(fsIDs)
 }
 
+// statusBucket reports bucket presence and versioning without modifying it.
 func (c *creator) statusBucket() error {
 	if _, err := c.s3.HeadBucket(c.ctx, &s3.HeadBucketInput{Bucket: aws.String(c.bucket)}); err != nil {
 		if isNotFound(err) {
@@ -310,6 +313,7 @@ func (c *creator) statusBucket() error {
 	return nil
 }
 
+// statusRole reports the helper role and its inline bucket policy.
 func (c *creator) statusRole() error {
 	role, err := c.iam.GetRole(c.ctx, &iam.GetRoleInput{RoleName: aws.String(c.role)})
 	if isNotFound(err) {
@@ -331,6 +335,7 @@ func (c *creator) statusRole() error {
 	return nil
 }
 
+// statusFileSystemEndpoints reports mount targets and access points for a file system.
 func (c *creator) statusFileSystemEndpoints(fsID string) error {
 	targets, err := c.mountTargets(fsID)
 	if err != nil {
@@ -355,6 +360,7 @@ func (c *creator) statusFileSystemEndpoints(fsID string) error {
 	return nil
 }
 
+// statusSecurityGroups reports security groups carrying this cluster's ownership tag.
 func (c *creator) statusSecurityGroups() error {
 	clusterTag := fmt.Sprintf(clusterTagFormat, c.infraName)
 	groups, err := c.ec2.DescribeSecurityGroups(c.ctx, &ec2.DescribeSecurityGroupsInput{Filters: []ec2types.Filter{
@@ -373,6 +379,7 @@ func (c *creator) statusSecurityGroups() error {
 	return nil
 }
 
+// statusWorkloads reports PVs and PVCs that would prevent cleanup.
 func (c *creator) statusWorkloads(fsIDs []string) error {
 	pvs, err := c.kube.CoreV1().PersistentVolumes().List(c.ctx, metav1.ListOptions{})
 	if err != nil {
@@ -393,6 +400,7 @@ func (c *creator) statusWorkloads(fsIDs []string) error {
 	return nil
 }
 
+// accountID returns the account of the configured AWS credentials.
 func (c *creator) accountID() (string, error) {
 	result, err := c.sts.GetCallerIdentity(c.ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
@@ -473,6 +481,7 @@ func instanceProfileNames(reservations []ec2types.Reservation) ([]string, error)
 	return sortedKeys(profiles), nil
 }
 
+// sortedKeys returns the keys of a string set in deterministic order.
 func sortedKeys(set map[string]struct{}) []string {
 	keys := make([]string, 0, len(set))
 	for key := range set {
@@ -482,6 +491,7 @@ func sortedKeys(set map[string]struct{}) []string {
 	return keys
 }
 
+// createBucket ensures the test bucket exists with versioning enabled.
 func (c *creator) createBucket() error {
 	// Versioning is a mandatory S3 Files prerequisite, including when a prior
 	// interrupted run left the deterministic test bucket behind.
@@ -498,6 +508,7 @@ func (c *creator) createBucket() error {
 	return err
 }
 
+// createRole ensures the service role and its bucket policy exist, returning its ARN.
 func (c *creator) createRole(account string) (string, error) {
 	trust, err := json.Marshal(serviceTrustPolicy(account, c.region))
 	if err != nil {
@@ -505,12 +516,14 @@ func (c *creator) createRole(account string) (string, error) {
 	}
 	roleResult, err := c.iam.GetRole(c.ctx, &iam.GetRoleInput{RoleName: aws.String(c.role)})
 	var roleARN string
-	if err != nil {
+	if isNotFound(err) {
 		createdRole, err := c.iam.CreateRole(c.ctx, &iam.CreateRoleInput{RoleName: aws.String(c.role), AssumeRolePolicyDocument: aws.String(string(trust))})
 		if err != nil {
 			return "", fmt.Errorf("create role %s: %w", c.role, err)
 		}
 		roleARN = aws.ToString(createdRole.Role.Arn)
+	} else if err != nil {
+		return "", fmt.Errorf("get role %s: %w", c.role, err)
 	} else {
 		roleARN = aws.ToString(roleResult.Role.Arn)
 	}
@@ -524,6 +537,7 @@ func (c *creator) createRole(account string) (string, error) {
 	return roleARN, nil
 }
 
+// createFileSystem reuses an owned file system or creates one with bounded IAM propagation retries.
 func (c *creator) createFileSystem(roleARN string) (string, error) {
 	ids, err := c.fileSystems()
 	if err != nil {
@@ -534,16 +548,28 @@ func (c *creator) createFileSystem(roleARN string) (string, error) {
 	}
 	// The bucket is unique to this helper invocation. Reusing an existing file
 	// system makes retries safe while preserving cleanup's scoped lookup.
-	result, err := c.s3files.CreateFileSystem(c.ctx, &s3files.CreateFileSystemInput{
+	input := &s3files.CreateFileSystemInput{
 		Bucket: aws.String("arn:aws:s3:::" + c.bucket), RoleArn: aws.String(roleARN), ClientToken: aws.String(c.infraName + "-s3files"), AcceptBucketWarning: aws.Bool(true),
 		Tags: []s3filestypes.Tag{{Key: aws.String("Name"), Value: aws.String(boundedName(c.infraName+"-s3files", 256))}, {Key: aws.String(fmt.Sprintf(clusterTagFormat, c.infraName)), Value: aws.String("owned")}},
-	})
-	if err != nil {
-		return "", fmt.Errorf("create S3 Files file system: %w", err)
+	}
+	var result *s3files.CreateFileSystemOutput
+	for attempt, delay := 0, 2*time.Second; ; attempt++ {
+		result, err = c.s3files.CreateFileSystem(c.ctx, input)
+		if err == nil {
+			break
+		}
+		if attempt == 5 || !isIAMPropagationError(err) {
+			return "", fmt.Errorf("create S3 Files file system: %w", err)
+		}
+		if err := c.wait(delay); err != nil {
+			return "", err
+		}
+		delay = min(delay*2, 30*time.Second)
 	}
 	return aws.ToString(result.FileSystemId), c.waitForFileSystem(aws.ToString(result.FileSystemId), s3filestypes.LifeCycleStateAvailable)
 }
 
+// fileSystems returns the IDs of file systems owned by this cluster.
 func (c *creator) fileSystems() ([]string, error) {
 	fileSystems, err := c.ownedFileSystems()
 	if err != nil {
@@ -556,6 +582,7 @@ func (c *creator) fileSystems() ([]string, error) {
 	return ids, nil
 }
 
+// ownedFileSystems lists all file systems in the test bucket carrying this cluster's ownership tag.
 func (c *creator) ownedFileSystems() ([]s3filestypes.ListFileSystemsDescription, error) {
 	var fileSystems []s3filestypes.ListFileSystemsDescription
 	var nextToken *string
@@ -580,6 +607,7 @@ func (c *creator) ownedFileSystems() ([]s3filestypes.ListFileSystemsDescription,
 	}
 }
 
+// isOwnedFileSystem checks all tag pages for this cluster's ownership tag.
 func (c *creator) isOwnedFileSystem(arn string) (bool, error) {
 	var nextToken *string
 	var tags []s3filestypes.Tag
@@ -596,6 +624,7 @@ func (c *creator) isOwnedFileSystem(arn string) (bool, error) {
 	}
 }
 
+// ensureNoWorkloads refuses cleanup while matching PVs or PVCs exist.
 func (c *creator) ensureNoWorkloads(fsIDs []string) error {
 	pvs, err := c.kube.CoreV1().PersistentVolumes().List(c.ctx, metav1.ListOptions{})
 	if err != nil {
@@ -612,6 +641,7 @@ func (c *creator) ensureNoWorkloads(fsIDs []string) error {
 	return fmt.Errorf("refusing cleanup while S3 Files workloads exist: %s; delete them first or pass --force", strings.Join(workloads, ", "))
 }
 
+// hasTag reports whether a tag list contains the exact key and value.
 func hasTag(tags []s3filestypes.Tag, key, value string) bool {
 	for _, tag := range tags {
 		if aws.ToString(tag.Key) == key && aws.ToString(tag.Value) == value {
@@ -621,6 +651,7 @@ func hasTag(tags []s3filestypes.Tag, key, value string) bool {
 	return false
 }
 
+// cleanupWorkloads returns sorted references to PVs and PVCs using the test infrastructure.
 func cleanupWorkloads(pvs []corev1.PersistentVolume, pvcs []corev1.PersistentVolumeClaim, fsIDs []string) []string {
 	fsIDSet := make(map[string]struct{}, len(fsIDs))
 	for _, fsID := range fsIDs {
@@ -641,6 +672,7 @@ func cleanupWorkloads(pvs []corev1.PersistentVolume, pvcs []corev1.PersistentVol
 	return workloads
 }
 
+// persistentVolumeUsesFileSystem matches EFS CSI volume handles against the owned file systems.
 func persistentVolumeUsesFileSystem(pv *corev1.PersistentVolume, fsIDs map[string]struct{}) bool {
 	if pv.Spec.CSI == nil || pv.Spec.CSI.Driver != efsCSIDriverName {
 		return false
@@ -653,6 +685,7 @@ func persistentVolumeUsesFileSystem(pv *corev1.PersistentVolume, fsIDs map[strin
 	return false
 }
 
+// waitForFileSystem waits for the requested state, stopping on failure, cancellation or timeout.
 func (c *creator) waitForFileSystem(id string, want s3filestypes.LifeCycleState) error {
 	deadline := time.Now().Add(resourceWaitTimeout)
 	for time.Now().Before(deadline) {
@@ -666,32 +699,44 @@ func (c *creator) waitForFileSystem(id string, want s3filestypes.LifeCycleState)
 		if result.Status == s3filestypes.LifeCycleStateError {
 			return fmt.Errorf("S3 Files file system %s failed: %s", id, aws.ToString(result.StatusMessage))
 		}
-		time.Sleep(resourceWaitInterval)
+		if err := c.wait(resourceWaitInterval); err != nil {
+			return err
+		}
 	}
 	return fmt.Errorf("timed out waiting for S3 Files file system %s to become %s", id, want)
 }
 
+// createSecurityGroup ensures a tagged security group exists and repairs missing NFS ingress.
 func (c *creator) createSecurityGroup(vpc, cidr string) (string, error) {
 	groups, err := c.ec2.DescribeSecurityGroups(c.ctx, &ec2.DescribeSecurityGroupsInput{Filters: []ec2types.Filter{{Name: aws.String("group-name"), Values: []string{c.group}}, {Name: aws.String("vpc-id"), Values: []string{vpc}}}})
 	if err != nil {
 		return "", err
 	}
+	var groupID string
 	if len(groups.SecurityGroups) > 0 {
-		return aws.ToString(groups.SecurityGroups[0].GroupId), nil
+		groupID = aws.ToString(groups.SecurityGroups[0].GroupId)
+	} else {
+		result, err := c.ec2.CreateSecurityGroup(c.ctx, &ec2.CreateSecurityGroupInput{
+			GroupName: aws.String(c.group), Description: aws.String("S3 Files NFS access for " + c.infraName), VpcId: aws.String(vpc),
+			TagSpecifications: []ec2types.TagSpecification{{ResourceType: ec2types.ResourceTypeSecurityGroup, Tags: []ec2types.Tag{
+				{Key: aws.String("Name"), Value: aws.String(c.group)},
+				{Key: aws.String(fmt.Sprintf(clusterTagFormat, c.infraName)), Value: aws.String("owned")},
+			}}},
+		})
+		if err != nil {
+			return "", err
+		}
+		groupID = aws.ToString(result.GroupId)
 	}
-	result, err := c.ec2.CreateSecurityGroup(c.ctx, &ec2.CreateSecurityGroupInput{GroupName: aws.String(c.group), Description: aws.String("S3 Files NFS access for " + c.infraName), VpcId: aws.String(vpc)})
-	if err != nil {
+	_, err = c.ec2.AuthorizeSecurityGroupIngress(c.ctx, &ec2.AuthorizeSecurityGroupIngressInput{GroupId: aws.String(groupID), IpPermissions: []ec2types.IpPermission{{IpProtocol: aws.String("tcp"), FromPort: aws.Int32(2049), ToPort: aws.Int32(2049), IpRanges: []ec2types.IpRange{{CidrIp: aws.String(cidr)}}}}})
+	var apiErr smithy.APIError
+	if err != nil && !(errors.As(err, &apiErr) && apiErr.ErrorCode() == "InvalidPermission.Duplicate") {
 		return "", err
 	}
-	if _, err := c.ec2.CreateTags(c.ctx, &ec2.CreateTagsInput{Resources: []string{aws.ToString(result.GroupId)}, Tags: []ec2types.Tag{{Key: aws.String("Name"), Value: aws.String(c.group)}, {Key: aws.String(fmt.Sprintf(clusterTagFormat, c.infraName)), Value: aws.String("owned")}}}); err != nil {
-		return "", err
-	}
-	if _, err := c.ec2.AuthorizeSecurityGroupIngress(c.ctx, &ec2.AuthorizeSecurityGroupIngressInput{GroupId: result.GroupId, IpPermissions: []ec2types.IpPermission{{IpProtocol: aws.String("tcp"), FromPort: aws.Int32(2049), ToPort: aws.Int32(2049), IpRanges: []ec2types.IpRange{{CidrIp: aws.String(cidr)}}}}}); err != nil {
-		return "", err
-	}
-	return aws.ToString(result.GroupId), nil
+	return groupID, nil
 }
 
+// createMountTargets creates missing subnet endpoints and waits until all targets are available.
 func (c *creator) createMountTargets(fsID, groupID string, subnets []string) error {
 	existing, err := c.mountTargets(fsID)
 	if err != nil {
@@ -714,6 +759,7 @@ func (c *creator) createMountTargets(fsID, groupID string, subnets []string) err
 	return c.waitForMountTargets(fsID, len(subnets))
 }
 
+// waitForMountTargets waits for the expected number of available endpoints.
 func (c *creator) waitForMountTargets(fsID string, count int) error {
 	deadline := time.Now().Add(resourceWaitTimeout)
 	for time.Now().Before(deadline) {
@@ -722,7 +768,9 @@ func (c *creator) waitForMountTargets(fsID string, count int) error {
 			return err
 		}
 		if len(result) < count {
-			time.Sleep(resourceWaitInterval)
+			if err := c.wait(resourceWaitInterval); err != nil {
+				return err
+			}
 			continue
 		}
 		available := true
@@ -737,11 +785,14 @@ func (c *creator) waitForMountTargets(fsID string, count int) error {
 		if available {
 			return nil
 		}
-		time.Sleep(resourceWaitInterval)
+		if err := c.wait(resourceWaitInterval); err != nil {
+			return err
+		}
 	}
 	return fmt.Errorf("timed out waiting for mount targets of S3 Files file system %s", fsID)
 }
 
+// userForSecret resolves the IAM user owning the access key in a driver credential secret.
 func (c *creator) userForSecret(name string) (string, error) {
 	secret, err := c.kube.CoreV1().Secrets(operatorNamespace).Get(c.ctx, name, metav1.GetOptions{})
 	if err != nil {
@@ -763,6 +814,7 @@ func (c *creator) userForSecret(name string) (string, error) {
 	return aws.ToString(result.UserName), nil
 }
 
+// grantPermissions grants the node roles and driver users the required mount and bucket permissions.
 func (c *creator) grantPermissions(instanceRoles []string, controller, node string) error {
 	// The managed S3 Files policies authorize the mount protocol and CSI access
 	// point operations. Direct S3 reads are a separate AWS requirement for
@@ -794,6 +846,7 @@ func (c *creator) grantPermissions(instanceRoles []string, controller, node stri
 	return nil
 }
 
+// writeTestInputs writes the generated StorageClass and CSI test manifest.
 func (c *creator) writeTestInputs(fsID string) error {
 	if err := writeAsset("overlays/aws-s3files/testing/sc.yaml", storageClassLocation, map[string]string{"${storageclassname}": storageClassName, "${filesystemid}": fsID}); err != nil {
 		return err
@@ -801,6 +854,7 @@ func (c *creator) writeTestInputs(fsID string) error {
 	return writeAsset("overlays/aws-s3files/testing/manifest.yaml", manifestLocation, map[string]string{"${storageclassname}": storageClassName})
 }
 
+// deleteFileSystem removes access points and endpoints before deleting and waiting for the file system.
 func (c *creator) deleteFileSystem(fsID string) error {
 	accessPoints, err := c.accessPoints(fsID)
 	if err != nil {
@@ -834,11 +888,17 @@ func (c *creator) deleteFileSystem(fsID string) error {
 		if isNotFound(err) || result != nil && result.Status == s3filestypes.LifeCycleStateDeleted {
 			return nil
 		}
-		time.Sleep(resourceWaitInterval)
+		if err != nil {
+			return fmt.Errorf("get S3 Files file system %s during deletion: %w", fsID, err)
+		}
+		if err := c.wait(resourceWaitInterval); err != nil {
+			return err
+		}
 	}
 	return fmt.Errorf("timed out waiting for S3 Files file system %s to be deleted", fsID)
 }
 
+// waitForMountTargetsDeleted waits until no endpoints remain for the file system.
 func (c *creator) waitForMountTargetsDeleted(fsID string) error {
 	deadline := time.Now().Add(resourceWaitTimeout)
 	for time.Now().Before(deadline) {
@@ -849,11 +909,14 @@ func (c *creator) waitForMountTargetsDeleted(fsID string) error {
 		if len(targets) == 0 {
 			return nil
 		}
-		time.Sleep(resourceWaitInterval)
+		if err := c.wait(resourceWaitInterval); err != nil {
+			return err
+		}
 	}
 	return fmt.Errorf("timed out waiting for mount targets of S3 Files file system %s to be deleted", fsID)
 }
 
+// deleteSecurityGroup removes the helper security group if it exists.
 func (c *creator) deleteSecurityGroup() error {
 	groups, err := c.ec2.DescribeSecurityGroups(c.ctx, &ec2.DescribeSecurityGroupsInput{Filters: []ec2types.Filter{{Name: aws.String("group-name"), Values: []string{c.group}}}})
 	if err != nil {
@@ -869,6 +932,7 @@ func (c *creator) deleteSecurityGroup() error {
 	return err
 }
 
+// revokePermissions removes the helper's managed and inline policy grants from node roles and driver users.
 func (c *creator) revokePermissions() error {
 	nodes, err := c.kube.CoreV1().Nodes().List(c.ctx, metav1.ListOptions{})
 	if err != nil {
@@ -911,6 +975,7 @@ func (c *creator) revokePermissions() error {
 	return nil
 }
 
+// deleteRole removes the service role and its inline policy if the role exists.
 func (c *creator) deleteRole() error {
 	if _, err := c.iam.GetRole(c.ctx, &iam.GetRoleInput{RoleName: aws.String(c.role)}); isNotFound(err) {
 		return nil
@@ -922,6 +987,7 @@ func (c *creator) deleteRole() error {
 	return err
 }
 
+// deleteBucket removes all object versions and delete markers before deleting the test bucket.
 func (c *creator) deleteBucket() error {
 	// A versioned bucket cannot be removed until both object versions and delete
 	// markers are removed. S3 limits DeleteObjects requests to 1,000 entries.
@@ -951,8 +1017,13 @@ func (c *creator) deleteBucket() error {
 		if count > 1000 {
 			count = 1000
 		}
-		if _, err := c.s3.DeleteObjects(c.ctx, &s3.DeleteObjectsInput{Bucket: aws.String(c.bucket), Delete: &s3types.Delete{Objects: objects[:count], Quiet: aws.Bool(true)}}); err != nil {
-			return err
+		out, err := c.s3.DeleteObjects(c.ctx, &s3.DeleteObjectsInput{Bucket: aws.String(c.bucket), Delete: &s3types.Delete{Objects: objects[:count], Quiet: aws.Bool(true)}})
+		if err != nil {
+			return fmt.Errorf("delete objects in bucket %s: %w", c.bucket, err)
+		}
+		if len(out.Errors) > 0 {
+			failure := out.Errors[0]
+			return fmt.Errorf("delete %d objects in bucket %s failed; first failure: key=%q version=%q code=%s message=%s", len(out.Errors), c.bucket, aws.ToString(failure.Key), aws.ToString(failure.VersionId), aws.ToString(failure.Code), aws.ToString(failure.Message))
 		}
 		objects = objects[count:]
 	}
@@ -960,6 +1031,7 @@ func (c *creator) deleteBucket() error {
 	return err
 }
 
+// mountTargets lists every page of mount targets for a file system.
 func (c *creator) mountTargets(fsID string) ([]s3filestypes.ListMountTargetsDescription, error) {
 	var targets []s3filestypes.ListMountTargetsDescription
 	var nextToken *string
@@ -976,6 +1048,7 @@ func (c *creator) mountTargets(fsID string) ([]s3filestypes.ListMountTargetsDesc
 	}
 }
 
+// accessPoints lists every page of access points for a file system.
 func (c *creator) accessPoints(fsID string) ([]s3filestypes.ListAccessPointsDescription, error) {
 	var points []s3filestypes.ListAccessPointsDescription
 	var nextToken *string
@@ -992,6 +1065,7 @@ func (c *creator) accessPoints(fsID string) ([]s3filestypes.ListAccessPointsDesc
 	}
 }
 
+// writeAsset substitutes template values and writes to the configured path, or logs the result.
 func writeAsset(asset, location string, replacements map[string]string) error {
 	contents, err := assets.ReadFile(asset)
 	if err != nil {
@@ -1008,6 +1082,7 @@ func writeAsset(asset, location string, replacements map[string]string) error {
 	return nil
 }
 
+// boundedName truncates an AWS resource name to the specified length limit.
 func boundedName(name string, limit int) string {
 	if len(name) > limit {
 		return name[:limit]
@@ -1015,13 +1090,39 @@ func boundedName(name string, limit int) string {
 	return name
 }
 
+// wait preserves the polling interval while allowing cancellation to stop it immediately.
+func (c *creator) wait(delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-c.ctx.Done():
+		return c.ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+// isIAMPropagationError retries only explicit role visibility or propagation failures.
+// Generic authorization, trust policy and validation failures may be permanent.
+func isIAMPropagationError(err error) bool {
+	var apiErr smithy.APIError
+	if !errors.As(err, &apiErr) || (apiErr.ErrorCode() != "ValidationException" && apiErr.ErrorCode() != "ResourceNotFoundException") {
+		return false
+	}
+	message := strings.ToLower(apiErr.ErrorMessage())
+	return strings.Contains(message, "role") && (strings.Contains(message, "propagat") || strings.Contains(message, "not yet") || strings.Contains(message, "role does not exist") || strings.Contains(message, "role not found"))
+}
+
+// isNotFound recognizes the AWS absence errors used by the helper's services.
 func isNotFound(err error) bool {
 	var apiErr smithy.APIError
 	return errors.As(err, &apiErr) && (apiErr.ErrorCode() == "NoSuchBucket" || apiErr.ErrorCode() == "NoSuchEntity" || apiErr.ErrorCode() == "NotFound" || apiErr.ErrorCode() == "ResourceNotFoundException" || apiErr.ErrorCode() == "InvalidGroup.NotFound")
 }
 
+// lastPathElement returns the resource name after the final slash in an ARN.
 func lastPathElement(arn string) string { parts := strings.Split(arn, "/"); return parts[len(parts)-1] }
 
+// serviceTrustPolicy allows S3 Files to assume the role only for file systems in this account and region.
 func serviceTrustPolicy(account, region string) map[string]any {
 	return map[string]any{"Version": "2012-10-17", "Statement": []any{map[string]any{
 		"Sid": "AllowS3FilesAssumeRole", "Effect": "Allow", "Principal": map[string]string{"Service": "elasticfilesystem.amazonaws.com"}, "Action": "sts:AssumeRole",
@@ -1029,6 +1130,7 @@ func serviceTrustPolicy(account, region string) map[string]any {
 	}}}
 }
 
+// serviceBucketPolicy grants the service access to the test bucket and required KMS and EventBridge operations.
 func serviceBucketPolicy(bucket, account, region string) map[string]any {
 	return map[string]any{"Version": "2012-10-17", "Statement": []any{
 		map[string]any{"Sid": "S3BucketPermissions", "Effect": "Allow", "Action": []string{"s3:ListBucket", "s3:ListBucketVersions"}, "Resource": "arn:aws:s3:::" + bucket, "Condition": map[string]any{"StringEquals": map[string]string{"aws:ResourceAccount": account}}},
@@ -1039,6 +1141,7 @@ func serviceBucketPolicy(bucket, account, region string) map[string]any {
 	}}
 }
 
+// directReadPolicy grants bucket listing and object reads scoped to the test bucket.
 func directReadPolicy(bucket string) map[string]any {
 	return map[string]any{"Version": "2012-10-17", "Statement": []any{
 		map[string]any{"Sid": "S3ObjectReadAccess", "Effect": "Allow", "Action": []string{"s3:GetObject", "s3:GetObjectVersion"}, "Resource": "arn:aws:s3:::" + bucket + "/*"},
