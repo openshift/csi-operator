@@ -1,4 +1,4 @@
-package s3filescreate
+package volumecreate
 
 import (
 	"context"
@@ -315,9 +315,8 @@ func TestDeleteBucketObjectErrors(t *testing.T) {
 // TestWaitCancellation ensures cancellation interrupts even a long polling delay.
 func TestWaitCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	c := &creator{ctx: ctx}
 	done := make(chan error, 1)
-	go func() { done <- c.wait(time.Hour) }()
+	go func() { done <- waitForContext(ctx, time.Hour) }()
 	cancel()
 	select {
 	case err := <-done:

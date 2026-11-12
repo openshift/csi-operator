@@ -1,19 +1,16 @@
-// Package s3filescreate creates AWS S3 Files resources used by CSI tests.
-package s3filescreate
+// Package volumecreate creates AWS CSI test volumes and infrastructure.
+package volumecreate
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -23,10 +20,6 @@ import (
 	s3filestypes "github.com/aws/aws-sdk-go-v2/service/s3files/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
-	configv1 "github.com/openshift/api/config/v1"
-	configclient "github.com/openshift/client-go/config/clientset/versioned"
-	"github.com/openshift/csi-operator/assets"
-	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeclient "k8s.io/client-go/kubernetes"
@@ -35,9 +28,7 @@ import (
 )
 
 const (
-	operatorName            = "create-s3files-volume"
-	credentialsNamespace    = "kube-system"
-	credentialsName         = "aws-creds"
+	operatorName            = "volume-create"
 	operatorNamespace       = "openshift-cluster-csi-drivers"
 	storageClassName        = "s3files-sc"
 	storageClassLocation    = "STORAGECLASS_LOCATION"
@@ -51,13 +42,12 @@ const (
 )
 
 var managedPolicies = map[string][]string{
-	// Every node instance role mounts S3 Files: workers for pod volumes and
-	// control-plane nodes for the controller's access point root directory
-	// cleanup. The controller user creates access points. The node user receives
-	// the same mount and CSI permissions because the EFS driver can use distinct
-	// controller and node credentials.
+	// mount.s3files must read /var/run/aws/auth/credentials so pod mounts and
+	// controller cleanup mounts use the respective CSI identity, not the EC2
+	// instance role. Client permissions therefore belong on the CSI users only.
+	// Retain the other instance-role permissions until separately validated;
+	// this change only removes the client-policy attachment tested on-cluster.
 	"instance": {
-		"arn:aws:iam::aws:policy/AmazonS3FilesClientFullAccess",
 		"arn:aws:iam::aws:policy/service-role/AmazonS3FilesCSIDriverPolicy",
 	},
 	"controller": {
@@ -74,7 +64,6 @@ var managedPolicies = map[string][]string{
 type creator struct {
 	ctx       context.Context
 	kube      *kubeclient.Clientset
-	infra     *configv1.Infrastructure
 	region    string
 	ec2       *ec2.Client
 	iam       *iam.Client
@@ -89,63 +78,30 @@ type creator struct {
 }
 
 // Run performs the requested operation on the S3 Files test infrastructure.
-func Run(ctx context.Context, controllerConfig *controllercmd.ControllerContext, localCredentials bool, singleZone string, force bool, operation string) error {
+func Run(ctx context.Context, kubeConfig *rest.Config, localCredentials bool, singleZone string, force bool, operation string) error {
 	if err := ValidateOperation(operation, singleZone, force); err != nil {
 		return err
 	}
-	kube := kubeclient.NewForConfigOrDie(rest.AddUserAgent(controllerConfig.KubeConfig, operatorName))
-	configClient := configclient.NewForConfigOrDie(rest.AddUserAgent(controllerConfig.KubeConfig, operatorName))
-	infra, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("get cluster infrastructure: %w", err)
-	}
-	if infra.Status.PlatformStatus == nil || infra.Status.PlatformStatus.AWS == nil {
-		return fmt.Errorf("cluster is not running on AWS")
-	}
-
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(infra.Status.PlatformStatus.AWS.Region))
-	if err != nil {
-		return fmt.Errorf("load AWS configuration: %w", err)
-	}
-	if !localCredentials {
-		// CI credentials are stored in the cluster and used by every AWS client.
-		secret, err := kube.CoreV1().Secrets(credentialsNamespace).Get(ctx, credentialsName, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("get cluster AWS credentials: %w", err)
+	return withAWSBootstrap(ctx, kubeConfig, localCredentials, func(base bootstrap) error {
+		name := strings.ToLower(base.infra.Status.InfrastructureName)
+		// Names are derived from the infrastructure ID so cleanup can identify
+		// only resources belonging to this cluster's S3 Files test environment.
+		c := &creator{
+			ctx: ctx, kube: base.kube, region: base.infra.Status.PlatformStatus.AWS.Region,
+			ec2: ec2.NewFromConfig(base.aws), iam: iam.NewFromConfig(base.aws), s3: s3.NewFromConfig(base.aws), s3files: s3files.NewFromConfig(base.aws), sts: sts.NewFromConfig(base.aws),
+			infraName: name, bucket: boundedName(name+"-s3files", 63), role: boundedName(name+"-s3files-role", 64),
+			group: boundedName(name+"-s3files-sg", 255), policy: boundedName(name+directReadPolicySuffix, 128),
 		}
-		id, ok := secret.Data["aws_access_key_id"]
-		if !ok {
-			return fmt.Errorf("cluster AWS credential does not contain aws_access_key_id")
+		switch operation {
+		case "delete":
+			return c.cleanup(force)
+		case "status":
+			return c.status()
+		case "create":
+			return c.create(singleZone)
 		}
-		key, ok := secret.Data["aws_secret_access_key"]
-		if !ok {
-			return fmt.Errorf("cluster AWS credential does not contain aws_secret_access_key")
-		}
-		cfg.Credentials = aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(string(id), string(key), ""))
-	}
-	if _, err := cfg.Credentials.Retrieve(ctx); err != nil {
-		return fmt.Errorf("retrieve AWS credentials: %w", err)
-	}
-
-	name := strings.ToLower(infra.Status.InfrastructureName)
-	// Names are derived from the infrastructure ID so cleanup can identify
-	// only resources belonging to this cluster's S3 Files test environment.
-	c := &creator{
-		ctx: ctx, kube: kube, infra: infra, region: infra.Status.PlatformStatus.AWS.Region,
-		ec2: ec2.NewFromConfig(cfg), iam: iam.NewFromConfig(cfg), s3: s3.NewFromConfig(cfg), s3files: s3files.NewFromConfig(cfg), sts: sts.NewFromConfig(cfg),
-		infraName: name, bucket: boundedName(name+"-s3files", 63), role: boundedName(name+"-s3files-role", 64),
-		group: boundedName(name+"-s3files-sg", 255), policy: boundedName(name+directReadPolicySuffix, 128),
-	}
-	switch operation {
-	case "delete":
-		return c.cleanup(force)
-	case "status":
-		return c.status()
-	case "create":
-		return c.create(singleZone)
-	}
-
-	return fmt.Errorf("unsupported operation %q", operation)
+		return fmt.Errorf("unsupported operation %q", operation)
+	})
 }
 
 // ValidateOperation validates the requested operation and its operation-specific flags.
@@ -413,43 +369,13 @@ func (c *creator) accountID() (string, error) {
 // targets and the distinct IAM roles of all node instances. Control-plane and
 // worker nodes use different instance profiles, and both mount S3 Files.
 func (c *creator) network(nodes *corev1.NodeList, singleZone string) (string, string, []string, []string, error) {
-	instances := make([]string, 0, len(nodes.Items))
-	for _, node := range nodes.Items {
-		parts := strings.Split(node.Spec.ProviderID, "/")
-		if len(parts) == 0 || parts[len(parts)-1] == "" {
-			return "", "", nil, nil, fmt.Errorf("node %q has no AWS provider ID", node.Name)
-		}
-		instances = append(instances, parts[len(parts)-1])
-	}
-	result, err := c.ec2.DescribeInstances(c.ctx, &ec2.DescribeInstancesInput{InstanceIds: instances})
-	if err != nil {
-		return "", "", nil, nil, fmt.Errorf("describe node instances: %w", err)
-	}
-	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
-		return "", "", nil, nil, fmt.Errorf("no instances found for cluster nodes")
-	}
-	first := result.Reservations[0].Instances[0]
-	profileNames, err := instanceProfileNames(result.Reservations)
+	network, err := discoverNetwork(c.ctx, c.ec2, nodes, singleZone)
 	if err != nil {
 		return "", "", nil, nil, err
 	}
-	subnetSet := map[string]struct{}{}
-	for _, reservation := range result.Reservations {
-		for _, instance := range reservation.Instances {
-			if singleZone == "" || aws.ToString(instance.Placement.AvailabilityZone) == singleZone {
-				subnetSet[aws.ToString(instance.SubnetId)] = struct{}{}
-			}
-		}
-	}
-	if len(subnetSet) == 0 {
-		return "", "", nil, nil, fmt.Errorf("no node subnets found in requested zone %q", singleZone)
-	}
-	vpcs, err := c.ec2.DescribeVpcs(c.ctx, &ec2.DescribeVpcsInput{VpcIds: []string{aws.ToString(first.VpcId)}})
+	profileNames, err := instanceProfileNames(network.reservations)
 	if err != nil {
-		return "", "", nil, nil, fmt.Errorf("describe VPC %s: %w", aws.ToString(first.VpcId), err)
-	}
-	if len(vpcs.Vpcs) != 1 {
-		return "", "", nil, nil, fmt.Errorf("VPC %s not found", aws.ToString(first.VpcId))
+		return "", "", nil, nil, err
 	}
 	roleSet := map[string]struct{}{}
 	for _, profileName := range profileNames {
@@ -462,7 +388,7 @@ func (c *creator) network(nodes *corev1.NodeList, singleZone string) (string, st
 		}
 		roleSet[aws.ToString(profile.InstanceProfile.Roles[0].RoleName)] = struct{}{}
 	}
-	return aws.ToString(first.VpcId), aws.ToString(vpcs.Vpcs[0].CidrBlock), sortedKeys(subnetSet), sortedKeys(roleSet), nil
+	return network.vpcID, network.cidrBlock, network.subnetIDs, sortedKeys(roleSet), nil
 }
 
 // instanceProfileNames returns the sorted, distinct instance profile names of
@@ -479,16 +405,6 @@ func instanceProfileNames(reservations []ec2types.Reservation) ([]string, error)
 		}
 	}
 	return sortedKeys(profiles), nil
-}
-
-// sortedKeys returns the keys of a string set in deterministic order.
-func sortedKeys(set map[string]struct{}) []string {
-	keys := make([]string, 0, len(set))
-	for key := range set {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // createBucket ensures the test bucket exists with versioning enabled.
@@ -561,7 +477,7 @@ func (c *creator) createFileSystem(roleARN string) (string, error) {
 		if attempt == 5 || !isIAMPropagationError(err) {
 			return "", fmt.Errorf("create S3 Files file system: %w", err)
 		}
-		if err := c.wait(delay); err != nil {
+		if err := waitForContext(c.ctx, delay); err != nil {
 			return "", err
 		}
 		delay = min(delay*2, 30*time.Second)
@@ -699,7 +615,7 @@ func (c *creator) waitForFileSystem(id string, want s3filestypes.LifeCycleState)
 		if result.Status == s3filestypes.LifeCycleStateError {
 			return fmt.Errorf("S3 Files file system %s failed: %s", id, aws.ToString(result.StatusMessage))
 		}
-		if err := c.wait(resourceWaitInterval); err != nil {
+		if err := waitForContext(c.ctx, resourceWaitInterval); err != nil {
 			return err
 		}
 	}
@@ -716,17 +632,11 @@ func (c *creator) createSecurityGroup(vpc, cidr string) (string, error) {
 	if len(groups.SecurityGroups) > 0 {
 		groupID = aws.ToString(groups.SecurityGroups[0].GroupId)
 	} else {
-		result, err := c.ec2.CreateSecurityGroup(c.ctx, &ec2.CreateSecurityGroupInput{
-			GroupName: aws.String(c.group), Description: aws.String("S3 Files NFS access for " + c.infraName), VpcId: aws.String(vpc),
-			TagSpecifications: []ec2types.TagSpecification{{ResourceType: ec2types.ResourceTypeSecurityGroup, Tags: []ec2types.Tag{
-				{Key: aws.String("Name"), Value: aws.String(c.group)},
-				{Key: aws.String(fmt.Sprintf(clusterTagFormat, c.infraName)), Value: aws.String("owned")},
-			}}},
-		})
+		result, err := createTaggedSecurityGroup(c.ctx, c.ec2, c.group, "S3 Files NFS access for "+c.infraName, vpc, clusterTag(c.infraName))
 		if err != nil {
 			return "", err
 		}
-		groupID = aws.ToString(result.GroupId)
+		groupID = result
 	}
 	_, err = c.ec2.AuthorizeSecurityGroupIngress(c.ctx, &ec2.AuthorizeSecurityGroupIngressInput{GroupId: aws.String(groupID), IpPermissions: []ec2types.IpPermission{{IpProtocol: aws.String("tcp"), FromPort: aws.Int32(2049), ToPort: aws.Int32(2049), IpRanges: []ec2types.IpRange{{CidrIp: aws.String(cidr)}}}}})
 	var apiErr smithy.APIError
@@ -768,7 +678,7 @@ func (c *creator) waitForMountTargets(fsID string, count int) error {
 			return err
 		}
 		if len(result) < count {
-			if err := c.wait(resourceWaitInterval); err != nil {
+			if err := waitForContext(c.ctx, resourceWaitInterval); err != nil {
 				return err
 			}
 			continue
@@ -785,7 +695,7 @@ func (c *creator) waitForMountTargets(fsID string, count int) error {
 		if available {
 			return nil
 		}
-		if err := c.wait(resourceWaitInterval); err != nil {
+		if err := waitForContext(c.ctx, resourceWaitInterval); err != nil {
 			return err
 		}
 	}
@@ -891,7 +801,7 @@ func (c *creator) deleteFileSystem(fsID string) error {
 		if err != nil {
 			return fmt.Errorf("get S3 Files file system %s during deletion: %w", fsID, err)
 		}
-		if err := c.wait(resourceWaitInterval); err != nil {
+		if err := waitForContext(c.ctx, resourceWaitInterval); err != nil {
 			return err
 		}
 	}
@@ -909,7 +819,7 @@ func (c *creator) waitForMountTargetsDeleted(fsID string) error {
 		if len(targets) == 0 {
 			return nil
 		}
-		if err := c.wait(resourceWaitInterval); err != nil {
+		if err := waitForContext(c.ctx, resourceWaitInterval); err != nil {
 			return err
 		}
 	}
@@ -1063,60 +973,6 @@ func (c *creator) accessPoints(fsID string) ([]s3filestypes.ListAccessPointsDesc
 		}
 		nextToken = result.NextToken
 	}
-}
-
-// writeAsset substitutes template values and writes to the configured path, or logs the result.
-func writeAsset(asset, location string, replacements map[string]string) error {
-	contents, err := assets.ReadFile(asset)
-	if err != nil {
-		return err
-	}
-	value := string(contents)
-	for from, to := range replacements {
-		value = strings.ReplaceAll(value, from, to)
-	}
-	if path := os.Getenv(location); path != "" {
-		return os.WriteFile(path, []byte(value), 0640)
-	}
-	klog.Infof("No %s specified, generated:\n%s", location, value)
-	return nil
-}
-
-// boundedName truncates an AWS resource name to the specified length limit.
-func boundedName(name string, limit int) string {
-	if len(name) > limit {
-		return name[:limit]
-	}
-	return name
-}
-
-// wait preserves the polling interval while allowing cancellation to stop it immediately.
-func (c *creator) wait(delay time.Duration) error {
-	timer := time.NewTimer(delay)
-	defer timer.Stop()
-	select {
-	case <-c.ctx.Done():
-		return c.ctx.Err()
-	case <-timer.C:
-		return nil
-	}
-}
-
-// isIAMPropagationError retries only explicit role visibility or propagation failures.
-// Generic authorization, trust policy and validation failures may be permanent.
-func isIAMPropagationError(err error) bool {
-	var apiErr smithy.APIError
-	if !errors.As(err, &apiErr) || (apiErr.ErrorCode() != "ValidationException" && apiErr.ErrorCode() != "ResourceNotFoundException") {
-		return false
-	}
-	message := strings.ToLower(apiErr.ErrorMessage())
-	return strings.Contains(message, "role") && (strings.Contains(message, "propagat") || strings.Contains(message, "not yet") || strings.Contains(message, "role does not exist") || strings.Contains(message, "role not found"))
-}
-
-// isNotFound recognizes the AWS absence errors used by the helper's services.
-func isNotFound(err error) bool {
-	var apiErr smithy.APIError
-	return errors.As(err, &apiErr) && (apiErr.ErrorCode() == "NoSuchBucket" || apiErr.ErrorCode() == "NoSuchEntity" || apiErr.ErrorCode() == "NotFound" || apiErr.ErrorCode() == "ResourceNotFoundException" || apiErr.ErrorCode() == "InvalidGroup.NotFound")
 }
 
 // lastPathElement returns the resource name after the final slash in an ARN.
