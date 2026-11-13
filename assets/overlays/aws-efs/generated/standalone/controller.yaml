@@ -89,6 +89,9 @@ spec:
         - mountPath: /var/run/aws/auth
           name: aws-auth
           readOnly: true
+        - mountPath: /root/.aws
+          name: aws-auth
+          readOnly: true
         - mountPath: /var/run/secrets/openshift/serviceaccount
           name: bound-sa-token
           readOnly: true

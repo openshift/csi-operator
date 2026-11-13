@@ -98,6 +98,7 @@ func TestOperationFlagsAreLimitedToTheirCommands(t *testing.T) {
 }
 
 type recordingBackend struct {
+	config     *rest.Config
 	ctx        context.Context
 	local      bool
 	singleZone string
@@ -105,9 +106,54 @@ type recordingBackend struct {
 	operation  string
 }
 
-func (b *recordingBackend) run(ctx context.Context, _ *rest.Config, local bool, singleZone string, force bool, operation string) error {
+func (b *recordingBackend) run(ctx context.Context, config *rest.Config, local bool, singleZone string, force bool, operation string) error {
+	b.config = config
 	b.ctx, b.local, b.singleZone, b.force, b.operation = ctx, local, singleZone, force, operation
 	return ctx.Err()
+}
+
+func TestOperationKubeconfigDiscovery(t *testing.T) {
+	writeConfig := func(host string) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "config")
+		data := "apiVersion: v1\nkind: Config\nclusters:\n- name: test\n  cluster:\n    server: " + host + "\ncontexts:\n- name: test\n  context:\n    cluster: test\n    user: test\ncurrent-context: test\nusers:\n- name: test\n"
+		if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	envPath := writeConfig("https://environment.invalid")
+	explicitPath := writeConfig("https://explicit.invalid")
+	t.Setenv("KUBECONFIG", envPath)
+	for _, test := range []struct {
+		name string
+		args []string
+		host string
+	}{
+		{name: "environment", host: "https://environment.invalid"},
+		{name: "explicit overrides environment", args: []string{"--kubeconfig", explicitPath}, host: "https://explicit.invalid"},
+		{name: "missing explicit file does not fall back", args: []string{"--kubeconfig", filepath.Join(t.TempDir(), "missing")}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			backend := &recordingBackend{}
+			local := false
+			cmd := newOperationCommand(operationOptions{operation: "describe", backend: backend}, &local)
+			cmd.SetArgs(test.args)
+			err := cmd.Execute()
+			if test.host == "" {
+				if err == nil || backend.config != nil {
+					t.Fatal("expected missing explicit config to fail without invoking backend")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if backend.config == nil || backend.config.Host != test.host {
+				t.Fatalf("backend config = %v, want host %s", backend.config, test.host)
+			}
+		})
+	}
 }
 
 func TestOperationCommandDispatchesFlagsAndContext(t *testing.T) {

@@ -14,8 +14,8 @@ The command uses credentials from the cluster by default. Use `--local-aws-creds
 normal local AWS credential chain, for example on STS clusters.
 
 Each operation accepts `--kubeconfig`, which overrides `KUBECONFIG` and the default client-go
-configuration discovery. Without it, the command uses in-cluster configuration when available,
-then client-go's normal kubeconfig discovery.
+configuration discovery. Without it, the command loads `KUBECONFIG` (including merged files)
+or `~/.kube/config`, falling back to in-cluster credentials when no configuration is available.
 
 S3 Files requires an installed EFS CSI driver whose `mount.s3files` helper reads
 `/var/run/aws/auth/credentials`. The tool grants client permissions to the CSI controller

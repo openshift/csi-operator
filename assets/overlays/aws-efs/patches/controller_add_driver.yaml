@@ -123,6 +123,10 @@ spec:
             - name: aws-auth
               mountPath: /var/run/aws/auth
               readOnly: true
+            # efs-utils also reads credentials from the root user's default AWS path.
+            - name: aws-auth
+              mountPath: /root/.aws
+              readOnly: true
             - name: bound-sa-token
               mountPath: /var/run/secrets/openshift/serviceaccount
               readOnly: true

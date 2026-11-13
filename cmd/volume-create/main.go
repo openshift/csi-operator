@@ -93,7 +93,12 @@ func newOperationCommand(options operationOptions, useLocalAWSCredentials *bool)
 		Long:  options.description,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+			// Use the standard loading rules: an explicit file overrides KUBECONFIG
+			// (including multiple merged files) and ~/.kube/config. The deferred
+			// loader also supports in-cluster credentials when no config is available.
+			rules := clientcmd.NewDefaultClientConfigLoadingRules()
+			rules.ExplicitPath = kubeconfig
+			config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{}).ClientConfig()
 			if err != nil {
 				return err
 			}
