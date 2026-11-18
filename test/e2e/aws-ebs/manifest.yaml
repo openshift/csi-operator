@@ -26,8 +26,11 @@ DriverInfo:
     controllerExpansion: true
     nodeExpansion: true
     snapshotDataSource: true
+    pvcDataSource: true
     topology: true
     multipods: true
     multiplePVsSameID: true
     readWriteOncePod: true
     seLinuxMount: true
+  VolumeCloneStressTestOptions:
+    NumClones: 2
