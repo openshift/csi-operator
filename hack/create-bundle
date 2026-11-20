@@ -1,0 +1,126 @@
+#!/bin/bash
+
+# A hackish script to build bundle and index images for given driver + operator images.
+# The output is available in opm-bundle directory.
+#
+# This is the common implementation shared by the per-driver wrappers
+# (create-efs-bundle, create-samba-bundle, ...). It is not meant to be called
+# directly - use one of the wrappers instead.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [ "$#" -ne "8" ]; then
+    echo "Usage: $0 <config_dir> <package_name> <catalog_source_name> <driver_image_placeholder> <input_driver_image> <input_operator_image> <output_bundle_image> <output_index_image>" 1>&2
+    exit 1
+fi
+
+# Driver specific values, provided by the wrapper script.
+CONFIG_DIR=$1
+PACKAGE_NAME=$2
+CATALOG_SOURCE_NAME=$3
+DRIVER_IMAGE_PLACEHOLDER=$4
+# Images to build the bundle / index from, provided by the user.
+DRIVER_IMAGE=$5
+OPERATOR_IMAGE=$6
+BUNDLE_IMAGE=$7
+INDEX_IMAGE=$8
+
+# The operator image placeholder and the CSV file name follow from the package name.
+OPERATOR_IMAGE_PLACEHOLDER=quay.io/openshift/origin-${PACKAGE_NAME}:latest
+MANIFEST=manifests/stable/${PACKAGE_NAME}.clusterserviceversion.yaml
+
+REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+
+TOOL_BIN=${TOOL_BIN:-$(which podman 2>/dev/null || which docker 2>/dev/null || true)}
+if [ -z "$TOOL_BIN" ]; then
+	echo "Error: No suitable container manipulation tool (podman, docker) found in \$PATH" 1>&2
+	exit 1
+fi
+
+OPM_BIN=${OPM_BIN:-$(which opm 2>/dev/null || true)}
+if [ -z "$OPM_BIN" ]; then
+	echo "Error: opm is not found in \$PATH" 1>&2
+	exit 1
+fi
+
+# Prepare output dir
+mkdir -p opm-bundle
+pushd opm-bundle
+cp -r -v "$REPO_ROOT/config/$CONFIG_DIR"/* .
+
+# extract the name of the bundle from CSV, such as gcp-filestore-csi-driver-operator.v5.0.0
+BUNDLE_NAME=$(sed -n 's/^[[:space:]]*name:[[:space:]]*\([^[:space:]]*\)[[:space:]]*$/\1/p' $MANIFEST | head -n 1)
+
+# extract the skip range from CSV
+SKIP_RANGE=$(sed -n 's/^[[:space:]]*olm\.skipRange:[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' $MANIFEST)
+
+if [ -z "$BUNDLE_NAME" ]; then
+	echo "Error: Unable to determine bundle name from $MANIFEST" 1>&2
+	exit 1
+fi
+
+# Replace images in the manifest - error prone, needs to be in sync with image-references.
+sed -i.bak -e "s~$OPERATOR_IMAGE_PLACEHOLDER~$OPERATOR_IMAGE~" \
+  -e "s~$DRIVER_IMAGE_PLACEHOLDER~$DRIVER_IMAGE~" \
+  $MANIFEST
+rm $MANIFEST.bak
+
+# Build the bundle and push it
+$TOOL_BIN build -t $BUNDLE_IMAGE -f bundle.Dockerfile .
+$TOOL_BIN push $BUNDLE_IMAGE
+
+# Generate a file-based catalog with the development-only preview channel.
+CATALOG_DIR=catalog
+CATALOG=$CATALOG_DIR/catalog.yaml
+mkdir -p $CATALOG_DIR
+cat > $CATALOG <<EOF
+---
+schema: olm.package
+name: $PACKAGE_NAME
+defaultChannel: preview
+---
+schema: olm.channel
+package: $PACKAGE_NAME
+name: preview
+entries:
+  - name: $BUNDLE_NAME
+EOF
+
+if [ -n "$SKIP_RANGE" ]; then
+	printf '    skipRange: "%s"\n' "$SKIP_RANGE" >> $CATALOG
+fi
+
+$OPM_BIN render $BUNDLE_IMAGE --output yaml >> $CATALOG
+$OPM_BIN validate $CATALOG_DIR
+$OPM_BIN generate dockerfile $CATALOG_DIR
+
+# Build the catalog image and push it
+$TOOL_BIN build -t $INDEX_IMAGE -f $CATALOG_DIR.Dockerfile .
+$TOOL_BIN push $INDEX_IMAGE
+
+
+echo
+echo --------------------
+echo "Index image created"
+echo "Copy following snipped to apply it to your cluster"
+echo
+
+# Show oc apply -f - <<EOF to copy-paste into shell
+cat <<REAL_EOF
+oc apply -f - <<EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: $CATALOG_SOURCE_NAME
+  namespace: openshift-marketplace
+spec:
+  sourceType: grpc
+  image: $INDEX_IMAGE
+EOF
+REAL_EOF
+
+echo
+
+popd

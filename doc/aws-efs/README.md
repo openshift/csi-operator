@@ -59,7 +59,8 @@ TEST_CSI_DRIVER_FILES=manifest.yaml ./openshift-tests run openshift/csi .
 
 # OLM
 
-To build a bundle + index images, use `hack/create-bundle`.
+To build a bundle + index images, use `hack/create-efs-bundle` (a thin wrapper around the
+driver-agnostic `hack/create-bundle`).
 
 ```
 cd hack
