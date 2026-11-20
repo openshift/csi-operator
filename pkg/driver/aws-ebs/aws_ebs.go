@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -400,9 +401,20 @@ func withCustomTags(c *clients.Clients) (dc.DeploymentHookFunc, []factory.Inform
 		}
 
 		tagPairs := make([]string, 0, len(userTags))
+		canSort := true
 		for _, userTag := range userTags {
 			pair := fmt.Sprintf("%s=%s", userTag.Key, userTag.Value)
 			tagPairs = append(tagPairs, pair)
+			if strings.Contains(pair, ",") {
+				canSort = false
+			}
+		}
+		if canSort {
+			sort.SliceStable(tagPairs, func(left, right int) bool {
+				leftKey, _, _ := strings.Cut(tagPairs[left], "=")
+				rightKey, _, _ := strings.Cut(tagPairs[right], "=")
+				return strings.TrimSpace(leftKey) < strings.TrimSpace(rightKey)
+			})
 		}
 		tags := strings.Join(tagPairs, ",")
 		tagsArgument := fmt.Sprintf("--extra-tags=%s", tags)
