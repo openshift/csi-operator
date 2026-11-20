@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -53,6 +54,48 @@ func getTestCredentialsRequest() *unstructured.Unstructured {
 		panic(err)
 	}
 	return resourceread.ReadUnstructuredOrDie(data)
+}
+
+func TestDefaultAWSCredentialsMount(t *testing.T) {
+	for name, spec := range map[string]corev1.PodSpec{
+		"controller": getTestDeployment().Spec.Template.Spec,
+		"node":       getTestDaemonSet().Spec.Template.Spec,
+	} {
+		t.Run(name, func(t *testing.T) {
+			foundVolume := false
+			for _, volume := range spec.Volumes {
+				if volume.Name == "aws-auth" && volume.EmptyDir != nil {
+					foundVolume = true
+				}
+			}
+			if !foundVolume {
+				t.Fatal("aws-auth emptyDir volume not found")
+			}
+
+			for _, container := range spec.Containers {
+				if container.Name != "csi-driver" {
+					continue
+				}
+				mounts := map[string]corev1.VolumeMount{}
+				for _, mount := range container.VolumeMounts {
+					mounts[mount.MountPath] = mount
+				}
+				for _, path := range []string{"/root/.aws", "/var/run/aws/auth"} {
+					mount, ok := mounts[path]
+					if !ok || mount.Name != "aws-auth" || !mount.ReadOnly || mount.SubPath != "" || mount.SubPathExpr != "" {
+						t.Errorf("expected read-only aws-auth directory mount at %s, got %+v", path, mount)
+					}
+				}
+				for _, env := range container.Env {
+					if env.Name == "AWS_CONFIG_FILE" && env.Value == "/var/run/aws/auth/credentials" {
+						return
+					}
+				}
+				t.Fatal("existing AWS_CONFIG_FILE override not found")
+			}
+			t.Fatal("csi-driver container not found")
+		})
+	}
 }
 
 func Test_WithFIPSDeploymentHook(t *testing.T) {
