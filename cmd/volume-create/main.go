@@ -36,8 +36,8 @@ func newCommand() *cobra.Command {
 		},
 	}
 	efs.AddCommand(
-		newOperationCommand(operationOptions{operation: "create", description: "Create EFS volume", singleZoneDescription: "Create a single-zone volume in given zone.", backend: efsBackend{}}, &useLocalAWSCredentials),
-		newOperationCommand(operationOptions{operation: "describe", description: "Describe EFS infrastructure created for this cluster.", backend: efsBackend{}}, &useLocalAWSCredentials),
+		newCreateCommand("Create EFS volume", "Create a single-zone volume in given zone.", efsBackend{}, &useLocalAWSCredentials),
+		newStatusCommand("Show EFS infrastructure status for this cluster.", efsBackend{}, &useLocalAWSCredentials),
 	)
 
 	s3 := &cobra.Command{
@@ -48,9 +48,9 @@ func newCommand() *cobra.Command {
 		},
 	}
 	s3.AddCommand(
-		newOperationCommand(operationOptions{operation: "create", description: "Create S3 Files infrastructure and write CSI test inputs.", singleZoneDescription: "Create mount targets only for workers in the given zone.", backend: s3Backend{}}, &useLocalAWSCredentials),
-		newOperationCommand(operationOptions{operation: "delete", description: "Delete S3 Files infrastructure created for this cluster.", forceDescription: "Allow deletion while EFS CSI volumes or s3files-sc PVCs still exist.", backend: s3Backend{}}, &useLocalAWSCredentials),
-		newOperationCommand(operationOptions{operation: "describe", description: "Describe S3 Files infrastructure created for this cluster.", backend: s3Backend{}}, &useLocalAWSCredentials),
+		newCreateCommand("Create S3 Files infrastructure and write CSI test inputs.", "Create mount targets only for nodes in the given zone.", s3Backend{}, &useLocalAWSCredentials),
+		newDeleteCommand("Delete S3 Files infrastructure created for this cluster.", s3Backend{}, &useLocalAWSCredentials),
+		newStatusCommand("Show S3 Files infrastructure status for this cluster.", s3Backend{}, &useLocalAWSCredentials),
 	)
 
 	cmd.AddCommand(efs, s3)
@@ -59,14 +59,6 @@ func newCommand() *cobra.Command {
 
 type operationBackend interface {
 	run(context.Context, *rest.Config, bool, string, bool, string) error
-}
-
-type operationOptions struct {
-	operation             string
-	description           string
-	singleZoneDescription string
-	forceDescription      string
-	backend               operationBackend
 }
 
 type efsBackend struct{}
@@ -78,39 +70,73 @@ func (efsBackend) run(ctx context.Context, config *rest.Config, localCredentials
 type s3Backend struct{}
 
 func (s3Backend) run(ctx context.Context, config *rest.Config, localCredentials bool, singleZone string, force bool, operation string) error {
-	if operation == "describe" {
-		operation = "status"
-	}
-	return volumecreate.Run(ctx, config, localCredentials, singleZone, force, operation)
+	return volumecreate.RunS3(ctx, config, localCredentials, singleZone, force, operation)
 }
 
-func newOperationCommand(options operationOptions, useLocalAWSCredentials *bool) *cobra.Command {
+func newCreateCommand(description, singleZoneDescription string, backend operationBackend, useLocalAWSCredentials *bool) *cobra.Command {
 	var kubeconfig, singleZone string
-	var force bool
 	cmd := &cobra.Command{
-		Use:   options.operation,
-		Short: options.description,
-		Long:  options.description,
+		Use:   "create",
+		Short: description,
+		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Use the standard loading rules: an explicit file overrides KUBECONFIG
-			// (including multiple merged files) and ~/.kube/config. The deferred
-			// loader also supports in-cluster credentials when no config is available.
-			rules := clientcmd.NewDefaultClientConfigLoadingRules()
-			rules.ExplicitPath = kubeconfig
-			config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{}).ClientConfig()
+			config, err := loadKubeconfig(kubeconfig)
 			if err != nil {
 				return err
 			}
-			return options.backend.run(cmd.Context(), config, *useLocalAWSCredentials, singleZone, force, options.operation)
+			return backend.run(cmd.Context(), config, *useLocalAWSCredentials, singleZone, false, "create")
 		},
 	}
 	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to the kubeconfig file.")
-	if options.singleZoneDescription != "" {
-		cmd.Flags().StringVar(&singleZone, "single-zone", "", options.singleZoneDescription)
-	}
-	if options.forceDescription != "" {
-		cmd.Flags().BoolVar(&force, "force", false, options.forceDescription)
-	}
+	cmd.Flags().StringVar(&singleZone, "single-zone", "", singleZoneDescription)
 	return cmd
+}
+
+func newDeleteCommand(description string, backend operationBackend, useLocalAWSCredentials *bool) *cobra.Command {
+	var kubeconfig string
+	var force bool
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: description,
+		Long:  description,
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			config, err := loadKubeconfig(kubeconfig)
+			if err != nil {
+				return err
+			}
+			return backend.run(cmd.Context(), config, *useLocalAWSCredentials, "", force, "delete")
+		},
+	}
+	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to the kubeconfig file.")
+	cmd.Flags().BoolVar(&force, "force", false, "Allow deletion while EFS CSI volumes or s3files-sc PVCs still exist.")
+	return cmd
+}
+
+func newStatusCommand(description string, backend operationBackend, useLocalAWSCredentials *bool) *cobra.Command {
+	var kubeconfig string
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: description,
+		Long:  description,
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			config, err := loadKubeconfig(kubeconfig)
+			if err != nil {
+				return err
+			}
+			return backend.run(cmd.Context(), config, *useLocalAWSCredentials, "", false, "status")
+		},
+	}
+	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to the kubeconfig file.")
+	return cmd
+}
+
+func loadKubeconfig(kubeconfig string) (*rest.Config, error) {
+	// An explicit file overrides KUBECONFIG (including multiple merged files)
+	// and ~/.kube/config. The deferred loader also supports in-cluster credentials.
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	rules.ExplicitPath = kubeconfig
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{}).ClientConfig()
 }

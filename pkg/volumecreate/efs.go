@@ -12,7 +12,6 @@ import (
 	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
@@ -27,9 +26,7 @@ const (
 )
 
 type efsCreator struct {
-	ctx       context.Context
-	infraName string
-	ec2       *ec2.Client
+	*genericCreator
 	efs       *awsefs.Client
 	vpcID     string
 	cidrBlock string
@@ -38,66 +35,65 @@ type efsCreator struct {
 	fsID      string
 }
 
-// RunEFS creates or describes EFS test infrastructure. It intentionally has no delete operation.
+// RunEFS creates or reports the status of EFS test infrastructure. It intentionally has no delete operation.
 func RunEFS(ctx context.Context, kubeConfig *rest.Config, localCredentials bool, singleZone, operation string) error {
-	if operation != "create" && operation != "describe" {
-		return fmt.Errorf("unsupported EFS operation %q: use create or describe", operation)
+	if operation != "create" && operation != "status" {
+		return fmt.Errorf("unsupported EFS operation %q: use create or status", operation)
 	}
-	if operation == "describe" && singleZone != "" {
-		return fmt.Errorf("--single-zone is only valid with create")
+	base, err := newGenericCreator(ctx, kubeConfig, localCredentials)
+	if err != nil {
+		return err
 	}
-	return withAWSBootstrap(ctx, kubeConfig, localCredentials, func(base bootstrap) error {
-		c := &efsCreator{ctx: ctx, infraName: base.infra.Status.InfrastructureName, ec2: ec2.NewFromConfig(base.aws), efs: awsefs.NewFromConfig(base.aws)}
-		if operation == "describe" {
-			return c.describe()
-		}
-		if err := c.create(base.kube, singleZone); err != nil {
-			return err
-		}
-		return c.writeTestInputs(singleZone)
-	})
+	c := &efsCreator{genericCreator: base, efs: awsefs.NewFromConfig(base.awsConfig)}
+	if operation == "status" {
+		return c.status(ctx)
+	}
+	if err := c.create(ctx, singleZone); err != nil {
+		return err
+	}
+	return c.writeTestInputs(singleZone)
 }
 
-func (c *efsCreator) create(kube *kubeclient.Clientset, singleZone string) error {
-	nodes, err := kube.CoreV1().Nodes().List(c.ctx, metav1.ListOptions{})
+func (c *efsCreator) create(ctx context.Context, singleZone string) error {
+	nodes, err := c.kube.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("list cluster nodes: %w", err)
 	}
-	network, err := discoverNetwork(c.ctx, c.ec2, nodes, singleZone)
+	network, err := discoverNetwork(ctx, c.ec2, nodes, singleZone)
 	if err != nil {
 		return err
 	}
 	c.vpcID, c.cidrBlock, c.subnetIDs = network.vpcID, network.cidrBlock, network.subnetIDs
-	if c.groupID, err = c.createSecurityGroup(); err != nil {
+	if c.groupID, err = c.createSecurityGroup(ctx); err != nil {
 		return err
 	}
-	if err := c.addFirewallRule(); err != nil {
+	if err := c.addFirewallRule(ctx); err != nil {
 		return err
 	}
-	if c.fsID, err = c.createFileSystem(singleZone); err != nil {
+	if c.fsID, err = c.createFileSystem(ctx, singleZone); err != nil {
 		return err
 	}
-	if err := c.createMountTargets(); err != nil {
+	if err := c.createMountTargets(ctx); err != nil {
 		return err
 	}
-	if err := c.waitForMountTargets(); err != nil {
+	if err := c.waitForMountTargets(ctx); err != nil {
 		return fmt.Errorf("waiting for mount targets to be available failed: %w", err)
 	}
 	klog.Infof("successfully created file system %s", c.fsID)
 	return nil
 }
 
-func (c *efsCreator) createSecurityGroup() (string, error) {
+func (c *efsCreator) createSecurityGroup(ctx context.Context) (string, error) {
 	name := fmt.Sprintf(efsSecurityGroupName, c.infraName)
-	groupID, err := createTaggedSecurityGroup(c.ctx, c.ec2, name, "for testing efs driver", c.vpcID, c.clusterTag())
+	groupID, err := createTaggedSecurityGroup(ctx, c.ec2, name, "for testing efs driver", c.vpcID, c.clusterTag())
 	if err != nil {
 		return "", fmt.Errorf("error creating security group: %w", err)
 	}
 	return groupID, nil
 }
 
-func (c *efsCreator) addFirewallRule() error {
-	result, err := c.ec2.AuthorizeSecurityGroupIngress(c.ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+func (c *efsCreator) addFirewallRule(ctx context.Context) error {
+	result, err := c.ec2.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 		CidrIp: aws.String(c.cidrBlock), GroupId: aws.String(c.groupID), IpProtocol: aws.String("tcp"), FromPort: aws.Int32(2049), ToPort: aws.Int32(2049),
 	})
 	if err != nil {
@@ -109,7 +105,7 @@ func (c *efsCreator) addFirewallRule() error {
 	return nil
 }
 
-func (c *efsCreator) createFileSystem(singleZone string) (string, error) {
+func (c *efsCreator) createFileSystem(ctx context.Context, singleZone string) (string, error) {
 	input := &awsefs.CreateFileSystemInput{Encrypted: aws.Bool(true), PerformanceMode: efstypes.PerformanceModeGeneralPurpose, Tags: []efstypes.Tag{
 		{Key: aws.String("Name"), Value: aws.String(fmt.Sprintf(efsVolumeNameFormat, c.infraName))},
 		{Key: aws.String(c.clusterTag()), Value: aws.String("owned")},
@@ -117,28 +113,28 @@ func (c *efsCreator) createFileSystem(singleZone string) (string, error) {
 	if singleZone != "" {
 		input.AvailabilityZoneName = aws.String(singleZone)
 	}
-	result, err := c.efs.CreateFileSystem(c.ctx, input)
+	result, err := c.efs.CreateFileSystem(ctx, input)
 	if err != nil {
 		return "", fmt.Errorf("error creating filesystem: %w", err)
 	}
 	id := aws.ToString(result.FileSystemId)
-	if err := c.waitForFileSystem(id); err != nil {
+	if err := c.waitForFileSystem(ctx, id); err != nil {
 		return id, fmt.Errorf("waiting for EFS filesystem to become available failed: %w", err)
 	}
 	return id, nil
 }
 
-func (c *efsCreator) createMountTargets() error {
+func (c *efsCreator) createMountTargets(ctx context.Context) error {
 	for _, subnet := range c.subnetIDs {
-		if _, err := c.efs.CreateMountTarget(c.ctx, &awsefs.CreateMountTargetInput{FileSystemId: aws.String(c.fsID), SecurityGroups: []string{c.groupID}, SubnetId: aws.String(subnet)}); err != nil {
+		if _, err := c.efs.CreateMountTarget(ctx, &awsefs.CreateMountTargetInput{FileSystemId: aws.String(c.fsID), SecurityGroups: []string{c.groupID}, SubnetId: aws.String(subnet)}); err != nil {
 			return fmt.Errorf("error creating mount target: %w", err)
 		}
 	}
 	return nil
 }
 
-func (c *efsCreator) waitForFileSystem(id string) error {
-	return wait.ExponentialBackoffWithContext(c.ctx, efsBackoff(), func(ctx context.Context) (bool, error) {
+func (c *efsCreator) waitForFileSystem(ctx context.Context, id string) error {
+	return wait.ExponentialBackoffWithContext(ctx, efsBackoff(), func(ctx context.Context) (bool, error) {
 		result, err := c.efs.DescribeFileSystems(ctx, &awsefs.DescribeFileSystemsInput{FileSystemId: aws.String(id)})
 		if err != nil {
 			return false, err
@@ -147,8 +143,8 @@ func (c *efsCreator) waitForFileSystem(id string) error {
 	})
 }
 
-func (c *efsCreator) waitForMountTargets() error {
-	return wait.ExponentialBackoffWithContext(c.ctx, efsBackoff(), func(ctx context.Context) (bool, error) {
+func (c *efsCreator) waitForMountTargets(ctx context.Context) error {
+	return wait.ExponentialBackoffWithContext(ctx, efsBackoff(), func(ctx context.Context) (bool, error) {
 		result, err := c.efs.DescribeMountTargets(ctx, &awsefs.DescribeMountTargetsInput{FileSystemId: aws.String(c.fsID)})
 		if err != nil {
 			return false, err
@@ -169,8 +165,8 @@ func efsBackoff() wait.Backoff {
 	return wait.Backoff{Duration: efsWaitInitialDelay, Factor: efsWaitBackoffFactor, Steps: efsWaitSteps}
 }
 
-func (c *efsCreator) describe() error {
-	fileSystems, err := c.ownedFileSystems()
+func (c *efsCreator) status(ctx context.Context) error {
+	fileSystems, err := c.ownedFileSystems(ctx)
 	if err != nil {
 		return err
 	}
@@ -180,7 +176,7 @@ func (c *efsCreator) describe() error {
 	for _, fs := range fileSystems {
 		id := aws.ToString(fs.FileSystemId)
 		klog.Infof("EFS file system %s: status=%s", id, fs.LifeCycleState)
-		targets, err := c.efs.DescribeMountTargets(c.ctx, &awsefs.DescribeMountTargetsInput{FileSystemId: fs.FileSystemId})
+		targets, err := c.efs.DescribeMountTargets(ctx, &awsefs.DescribeMountTargetsInput{FileSystemId: fs.FileSystemId})
 		if err != nil {
 			return fmt.Errorf("describe mount targets for EFS file system %s: %w", id, err)
 		}
@@ -192,7 +188,7 @@ func (c *efsCreator) describe() error {
 		}
 	}
 	name := fmt.Sprintf(efsSecurityGroupName, c.infraName)
-	groups, err := c.ec2.DescribeSecurityGroups(c.ctx, &ec2.DescribeSecurityGroupsInput{Filters: []ec2types.Filter{{Name: aws.String("group-name"), Values: []string{name}}, {Name: aws.String("tag:" + c.clusterTag()), Values: []string{"owned"}}}})
+	groups, err := c.ec2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{Filters: []ec2types.Filter{{Name: aws.String("group-name"), Values: []string{name}}, {Name: aws.String("tag:" + c.clusterTag()), Values: []string{"owned"}}}})
 	if err != nil {
 		return fmt.Errorf("describe EFS security group %s: %w", name, err)
 	}
@@ -205,11 +201,11 @@ func (c *efsCreator) describe() error {
 	return nil
 }
 
-func (c *efsCreator) ownedFileSystems() ([]efstypes.FileSystemDescription, error) {
+func (c *efsCreator) ownedFileSystems(ctx context.Context) ([]efstypes.FileSystemDescription, error) {
 	var systems []efstypes.FileSystemDescription
 	var marker *string
 	for {
-		result, err := c.efs.DescribeFileSystems(c.ctx, &awsefs.DescribeFileSystemsInput{Marker: marker})
+		result, err := c.efs.DescribeFileSystems(ctx, &awsefs.DescribeFileSystemsInput{Marker: marker})
 		if err != nil {
 			return nil, fmt.Errorf("describe EFS file systems: %w", err)
 		}

@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
-	configv1 "github.com/openshift/api/config/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
 	"github.com/openshift/csi-operator/assets"
 	corev1 "k8s.io/api/core/v1"
@@ -37,29 +36,41 @@ type networkInfo struct {
 	reservations []ec2types.Reservation
 }
 
-type bootstrap struct {
-	kube  *kubeclient.Clientset
-	infra *configv1.Infrastructure
-	aws   aws.Config
+type genericCreator struct {
+	kube      *kubeclient.Clientset
+	awsConfig aws.Config
+	ec2       *ec2.Client
+	infraName string
+	region    string
 }
 
-// withAWSBootstrap obtains the cluster information and AWS credentials common to
-// all volume-create operations before handing control to the service-specific code.
-func withAWSBootstrap(ctx context.Context, kubeConfig *rest.Config, localCredentials bool, run func(bootstrap) error) error {
-	kube := kubeclient.NewForConfigOrDie(rest.AddUserAgent(kubeConfig, operatorName))
-	configClient := configclient.NewForConfigOrDie(rest.AddUserAgent(kubeConfig, operatorName))
+// newGenericCreator collects the cluster information and AWS clients shared by
+// the service-specific creators. Network discovery is deferred until needed.
+func newGenericCreator(ctx context.Context, kubeConfig *rest.Config, localCredentials bool) (*genericCreator, error) {
+	kubeConfig = rest.AddUserAgent(kubeConfig, operatorName)
+	kube, err := kubeclient.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("create Kubernetes client: %w", err)
+	}
+	configClient, err := configclient.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("create infrastructure client: %w", err)
+	}
 	infra, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("get cluster infrastructure: %w", err)
+		return nil, fmt.Errorf("get cluster infrastructure: %w", err)
 	}
 	if infra.Status.PlatformStatus == nil || infra.Status.PlatformStatus.AWS == nil {
-		return fmt.Errorf("cluster is not running on AWS")
+		return nil, fmt.Errorf("cluster is not running on AWS")
 	}
 	awsConfig, err := loadAWSConfig(ctx, kube, infra.Status.PlatformStatus.AWS.Region, localCredentials)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return run(bootstrap{kube: kube, infra: infra, aws: awsConfig})
+	return &genericCreator{
+		kube: kube, awsConfig: awsConfig, ec2: ec2.NewFromConfig(awsConfig),
+		infraName: infra.Status.InfrastructureName, region: infra.Status.PlatformStatus.AWS.Region,
+	}, nil
 }
 
 // loadAWSConfig uses the cluster's CI credentials unless local credentials were requested.

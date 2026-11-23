@@ -88,20 +88,10 @@ func TestInstanceProfileNamesIncludesEveryNodeRole(t *testing.T) {
 	}
 }
 
-func TestValidateOperation(t *testing.T) {
-	for _, operation := range []string{"create", "status", "delete"} {
-		if err := ValidateOperation(operation, "", false); err != nil {
-			t.Fatalf("validate %q: %v", operation, err)
-		}
-	}
-	if err := ValidateOperation("describe", "", false); err == nil {
-		t.Fatal("expected unsupported operation to fail")
-	}
-	if err := ValidateOperation("status", "us-east-1a", false); err == nil {
-		t.Fatal("expected --single-zone with status to fail")
-	}
-	if err := ValidateOperation("create", "", true); err == nil {
-		t.Fatal("expected --force with create to fail")
+func TestRunS3RejectsUnsupportedOperation(t *testing.T) {
+	err := RunS3(context.Background(), nil, false, "", false, "unsupported")
+	if err == nil || !strings.Contains(err.Error(), "unsupported operation") {
+		t.Fatalf("RunS3() = %v, want unsupported operation error", err)
 	}
 }
 
@@ -201,8 +191,8 @@ func TestCreateRoleLookupErrors(t *testing.T) {
 	for _, code := range []string{"AccessDenied", "Throttling"} {
 		t.Run(code, func(t *testing.T) {
 			cfg := reviewConfig(t, reviewResponse{operation: "GetRole", status: 403, body: "<ErrorResponse><Error><Code>" + code + "</Code><Message>lookup failed</Message></Error></ErrorResponse>"})
-			c := &creator{ctx: context.Background(), iam: iam.NewFromConfig(cfg), role: "test-role"}
-			_, err := c.createRole("123456789012")
+			c := &s3FilesCreator{genericCreator: &genericCreator{region: cfg.Region}, iam: iam.NewFromConfig(cfg), role: "test-role"}
+			_, err := c.createRole(context.Background(), "123456789012")
 			if err == nil || !strings.Contains(err.Error(), "get role test-role") {
 				t.Fatalf("expected lookup error, got %v", err)
 			}
@@ -251,8 +241,8 @@ func TestCreateFileSystemRetry(t *testing.T) {
 					reviewResponse{operation: "GET /file-systems/fs-test", status: 200, body: `{"status":"available"}`})
 			}
 			cfg := reviewConfig(t, responses...)
-			c := &creator{ctx: context.Background(), s3files: s3files.NewFromConfig(cfg), bucket: "test-bucket", infraName: "test"}
-			id, err := c.createFileSystem("arn:aws:iam::123456789012:role/test")
+			c := &s3FilesCreator{genericCreator: &genericCreator{infraName: "test"}, s3files: s3files.NewFromConfig(cfg), bucket: "test-bucket"}
+			id, err := c.createFileSystem(context.Background(), "arn:aws:iam::123456789012:role/test")
 			if transient && (err != nil || id != "fs-test") {
 				t.Fatalf("createFileSystem() = %q, %v", id, err)
 			}
@@ -289,8 +279,8 @@ func TestSecurityGroupIngress(t *testing.T) {
 				}
 			}})
 			cfg := reviewConfig(t, responses...)
-			c := &creator{ctx: context.Background(), ec2: ec2.NewFromConfig(cfg), group: "test-sg", infraName: "test"}
-			if id, err := c.createSecurityGroup("vpc-test", "10.0.0.0/16"); err != nil || id != "sg-test" {
+			c := &s3FilesCreator{genericCreator: &genericCreator{ec2: ec2.NewFromConfig(cfg), infraName: "test"}, group: "test-sg"}
+			if id, err := c.createSecurityGroup(context.Background(), "vpc-test", "10.0.0.0/16"); err != nil || id != "sg-test" {
 				t.Fatalf("createSecurityGroup() = %q, %v", id, err)
 			}
 		})
@@ -303,8 +293,8 @@ func TestDeleteBucketObjectErrors(t *testing.T) {
 		reviewResponse{operation: "GET /", status: 200, body: `<ListVersionsResult><Version><Key>locked</Key><VersionId>v1</VersionId></Version></ListVersionsResult>`},
 		reviewResponse{operation: "POST /", status: 200, body: `<DeleteResult><Error><Key>locked</Key><VersionId>v1</VersionId><Code>AccessDenied</Code><Message>Object is locked</Message></Error></DeleteResult>`},
 	)
-	c := &creator{ctx: context.Background(), s3: s3.NewFromConfig(cfg), bucket: "test-bucket"}
-	err := c.deleteBucket()
+	c := &s3FilesCreator{s3: s3.NewFromConfig(cfg), bucket: "test-bucket"}
+	err := c.deleteBucket(context.Background())
 	for _, want := range []string{"test-bucket", "locked", "v1", "AccessDenied", "Object is locked"} {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("expected error containing %q, got %v", want, err)

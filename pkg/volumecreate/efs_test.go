@@ -1,13 +1,75 @@
 package volumecreate
 
 import (
+	"context"
+	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	awsefs "github.com/aws/aws-sdk-go-v2/service/efs"
 	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3files"
 )
+
+func TestRunEFSValidatesOperation(t *testing.T) {
+	err := RunEFS(context.Background(), nil, false, "", "unsupported")
+	if err == nil || !strings.Contains(err.Error(), "unsupported EFS operation") {
+		t.Fatalf("RunEFS() = %v, want unsupported operation error", err)
+	}
+}
+
+func TestCreatorRequestsPropagateContext(t *testing.T) {
+	for _, backend := range []string{"efs", "s3"} {
+		t.Run(backend, func(t *testing.T) {
+			type contextKey struct{}
+			ctx, cancel := context.WithCancel(context.WithValue(context.Background(), contextKey{}, "test"))
+			defer cancel()
+			cfg := reviewConfig(t)
+			requests := 0
+			cfg.HTTPClient = reviewHTTPClient(func(req *http.Request) (*http.Response, error) {
+				requests++
+				if req.Context().Value(contextKey{}) != "test" {
+					t.Error("AWS request did not receive the caller's context")
+				}
+				cancel()
+				return nil, req.Context().Err()
+			})
+			var err error
+			if backend == "efs" {
+				c := &efsCreator{efs: awsefs.NewFromConfig(cfg)}
+				_, err = c.ownedFileSystems(ctx)
+			} else {
+				c := &s3FilesCreator{s3files: s3files.NewFromConfig(cfg)}
+				_, err = c.ownedFileSystems(ctx)
+			}
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("ownedFileSystems() = %v, want context.Canceled", err)
+			}
+			if requests != 1 {
+				t.Fatalf("received %d requests, want 1", requests)
+			}
+		})
+	}
+}
+
+func TestEFSStatusWithoutResources(t *testing.T) {
+	cfg := reviewConfig(t,
+		reviewResponse{operation: "GET /2015-02-01/file-systems", status: 200, body: `{"FileSystems":[]}`},
+		reviewResponse{operation: "DescribeSecurityGroups", status: 200, body: `<DescribeSecurityGroupsResponse><securityGroupInfo/></DescribeSecurityGroupsResponse>`},
+	)
+	c := &efsCreator{
+		genericCreator: &genericCreator{infraName: "test", ec2: ec2.NewFromConfig(cfg)},
+		efs:            awsefs.NewFromConfig(cfg),
+	}
+	if err := c.status(context.Background()); err != nil {
+		t.Fatalf("status() = %v", err)
+	}
+}
 
 func TestWriteEFSTestInputsMatchesAssets(t *testing.T) {
 	dir := t.TempDir()

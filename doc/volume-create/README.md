@@ -11,7 +11,10 @@ podman build -f Dockerfile.volume_create -t volume-create:latest .
 ```
 
 The command uses credentials from the cluster by default. Use `--local-aws-creds` to use the
-normal local AWS credential chain, for example on STS clusters.
+normal local AWS credential chain. This changes only the credentials used by the tool.
+S3 Files create and delete operations currently require IAM-user access keys in the EFS CSI
+driver credential secrets; STS-based driver identities are not supported. EFS operations
+can use `--local-aws-creds` on STS clusters.
 
 Each operation accepts `--kubeconfig`, which overrides `KUBECONFIG` and the default client-go
 configuration discovery. Without it, the command loads `KUBECONFIG` (including merged files)
@@ -29,11 +32,11 @@ export KUBECONFIG=/path/to/kubeconfig
 # Create an EFS volume.
 STORAGECLASS_LOCATION=sc.yaml MANIFEST_LOCATION=manifest.yaml \
   ./bin/volume-create --local-aws-creds efs create --kubeconfig "$KUBECONFIG"
-./bin/volume-create --local-aws-creds efs describe --kubeconfig "$KUBECONFIG"
+./bin/volume-create --local-aws-creds efs status --kubeconfig "$KUBECONFIG"
 
 # Create, inspect, or remove S3 Files infrastructure.
 ./bin/volume-create --local-aws-creds s3 create --kubeconfig "$KUBECONFIG"
-./bin/volume-create --local-aws-creds s3 describe --kubeconfig "$KUBECONFIG"
+./bin/volume-create --local-aws-creds s3 status --kubeconfig "$KUBECONFIG"
 ./bin/volume-create --local-aws-creds s3 delete --kubeconfig "$KUBECONFIG" --force
 ```
 

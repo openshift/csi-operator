@@ -1,6 +1,10 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.26-openshift-5.0 AS builder
 WORKDIR /go/src/github.com/openshift/csi-operator
-COPY . .
+COPY Makefile go.mod go.sum ./
+COPY vendor/ ./vendor/
+COPY cmd/volume-create/ ./cmd/volume-create/
+COPY pkg/volumecreate/ ./pkg/volumecreate/
+COPY assets/ ./assets/
 RUN make GO_BUILD_PACKAGES=./cmd/volume-create
 
 FROM registry.ci.openshift.org/ocp/5.0:base-rhel9

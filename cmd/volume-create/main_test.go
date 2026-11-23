@@ -29,8 +29,8 @@ func TestCommandHelp(t *testing.T) {
 			want: []string{"--kubeconfig", "--single-zone", "--local-aws-creds"},
 		},
 		{
-			name: "efs describe",
-			args: []string{"efs", "describe", "--help"},
+			name: "efs status",
+			args: []string{"efs", "status", "--help"},
 			want: []string{"--kubeconfig", "--local-aws-creds"},
 		},
 		{
@@ -44,8 +44,8 @@ func TestCommandHelp(t *testing.T) {
 			want: []string{"--kubeconfig", "--force", "--local-aws-creds"},
 		},
 		{
-			name: "s3 describe",
-			args: []string{"s3", "describe", "--help"},
+			name: "s3 status",
+			args: []string{"s3", "status", "--help"},
 			want: []string{"--kubeconfig", "--local-aws-creds"},
 		},
 	}
@@ -79,21 +79,30 @@ func TestOperationFlagsAreLimitedToTheirCommands(t *testing.T) {
 		args []string
 	}{
 		{args: []string{"s3", "delete", "--single-zone", "us-east-1a"}},
-		{args: []string{"s3", "describe", "--single-zone", "us-east-1a"}},
-		{args: []string{"s3", "describe", "--force"}},
+		{args: []string{"s3", "status", "--single-zone", "us-east-1a"}},
+		{args: []string{"s3", "status", "--force"}},
+		{args: []string{"s3", "create", "--force=false"}},
+		{args: []string{"efs", "create", "--force"}},
+		{args: []string{"efs", "status", "--force"}},
 		{args: []string{"efs", "create", "--config", "config.yaml"}},
 		{args: []string{"efs", "create", "--listen", "127.0.0.1:8080"}},
 		{args: []string{"efs", "create", "--namespace", "default"}},
 		{args: []string{"efs", "create", "--terminate-on-files", "file"}},
-		{args: []string{"efs", "describe", "--single-zone", "us-east-1a"}},
+		{args: []string{"efs", "status", "--single-zone", "us-east-1a"}},
 	}
 
 	for _, test := range tests {
-		cmd := newCommand()
-		cmd.SetArgs(test.args)
-		if err := cmd.Execute(); err == nil {
-			t.Errorf("%q succeeded with an unsupported flag", test.args)
-		}
+		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
+			cmd := newCommand()
+			cmd.SetArgs(test.args)
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatalf("%q succeeded with an unsupported flag", test.args)
+			}
+			if !strings.Contains(err.Error(), "unknown flag") {
+				t.Fatalf("%q returned %v, want unknown flag error", test.args, err)
+			}
+		})
 	}
 }
 
@@ -137,7 +146,7 @@ func TestOperationKubeconfigDiscovery(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			backend := &recordingBackend{}
 			local := false
-			cmd := newOperationCommand(operationOptions{operation: "describe", backend: backend}, &local)
+			cmd := newStatusCommand("test", backend, &local)
 			cmd.SetArgs(test.args)
 			err := cmd.Execute()
 			if test.host == "" {
@@ -152,32 +161,67 @@ func TestOperationKubeconfigDiscovery(t *testing.T) {
 			if backend.config == nil || backend.config.Host != test.host {
 				t.Fatalf("backend config = %v, want host %s", backend.config, test.host)
 			}
+			if backend.operation != "status" {
+				t.Fatalf("backend operation = %q, want status", backend.operation)
+			}
 		})
 	}
 }
 
-func TestOperationCommandDispatchesFlagsAndContext(t *testing.T) {
+func TestCreateCommandDispatchesSingleZone(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "kubeconfig")
 	if err := os.WriteFile(configPath, []byte("apiVersion: v1\nclusters:\n- cluster:\n    server: https://example.invalid\n  name: test\ncontexts:\n- context:\n    cluster: test\n    user: test\n  name: test\ncurrent-context: test\nkind: Config\nusers:\n- name: test\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	backend := &recordingBackend{}
 	localCredentials := false
-	cmd := newOperationCommand(operationOptions{
-		operation:             "delete",
-		description:           "test",
-		singleZoneDescription: "zone",
-		forceDescription:      "force",
-		backend:               backend,
-	}, &localCredentials)
+	cmd := newCreateCommand("test", "zone", backend, &localCredentials)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	cmd.SetContext(ctx)
-	cmd.SetArgs([]string{"--kubeconfig", configPath, "--single-zone", "us-east-1a", "--force"})
+	cmd.SetArgs([]string{"--kubeconfig", configPath, "--single-zone", "us-east-1a"})
 	if err := cmd.Execute(); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Execute() = %v, want context.Canceled", err)
 	}
-	if backend.ctx != ctx || backend.operation != "delete" || backend.singleZone != "us-east-1a" || !backend.force || backend.local {
+	if backend.ctx != ctx || backend.operation != "create" || backend.singleZone != "us-east-1a" || backend.force || backend.local {
 		t.Fatalf("backend received ctx=%v operation=%q zone=%q force=%v local=%v", backend.ctx, backend.operation, backend.singleZone, backend.force, backend.local)
 	}
+}
+
+func TestDeleteCommandDispatchesForce(t *testing.T) {
+	configPath := writeKubeconfig(t, "https://example.invalid")
+	backend := &recordingBackend{}
+	localCredentials := false
+	cmd := newDeleteCommand("test", backend, &localCredentials)
+	cmd.SetArgs([]string{"--kubeconfig", configPath, "--force"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if backend.operation != "delete" || backend.singleZone != "" || !backend.force || backend.local {
+		t.Fatalf("backend received operation=%q zone=%q force=%v local=%v", backend.operation, backend.singleZone, backend.force, backend.local)
+	}
+}
+
+func TestStatusCommandForwardsLocalCredentials(t *testing.T) {
+	configPath := writeKubeconfig(t, "https://example.invalid")
+	backend := &recordingBackend{}
+	localCredentials := true
+	cmd := newStatusCommand("test", backend, &localCredentials)
+	cmd.SetArgs([]string{"--kubeconfig", configPath})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if backend.operation != "status" || backend.singleZone != "" || backend.force || !backend.local {
+		t.Fatalf("backend received operation=%q zone=%q force=%v local=%v", backend.operation, backend.singleZone, backend.force, backend.local)
+	}
+}
+
+func writeKubeconfig(t *testing.T, host string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "config")
+	data := "apiVersion: v1\nkind: Config\nclusters:\n- name: test\n  cluster:\n    server: " + host + "\ncontexts:\n- name: test\n  context:\n    cluster: test\n    user: test\ncurrent-context: test\nusers:\n- name: test\n"
+	if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
