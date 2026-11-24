@@ -22,6 +22,7 @@ import (
 	"github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
@@ -341,7 +342,7 @@ func (c *s3FilesCreator) network(ctx context.Context, nodes *corev1.NodeList, si
 	if err != nil {
 		return "", "", nil, nil, err
 	}
-	roleSet := map[string]struct{}{}
+	roleSet := sets.New[string]()
 	for _, profileName := range profileNames {
 		profile, err := c.iam.GetInstanceProfile(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: aws.String(profileName)})
 		if err != nil {
@@ -350,25 +351,25 @@ func (c *s3FilesCreator) network(ctx context.Context, nodes *corev1.NodeList, si
 		if len(profile.InstanceProfile.Roles) != 1 {
 			return "", "", nil, nil, fmt.Errorf("instance profile %s has no role", profileName)
 		}
-		roleSet[aws.ToString(profile.InstanceProfile.Roles[0].RoleName)] = struct{}{}
+		roleSet.Insert(aws.ToString(profile.InstanceProfile.Roles[0].RoleName))
 	}
-	return network.vpcID, network.cidrBlock, network.subnetIDs, sortedKeys(roleSet), nil
+	return network.vpcID, network.cidrBlock, network.subnetIDs, sets.List(roleSet), nil
 }
 
 // instanceProfileNames returns the sorted, distinct instance profile names of
 // the given instances. Every instance must have an instance profile so that
 // its role can be granted S3 Files mount permissions.
 func instanceProfileNames(reservations []ec2types.Reservation) ([]string, error) {
-	profiles := map[string]struct{}{}
+	profiles := sets.New[string]()
 	for _, reservation := range reservations {
 		for _, instance := range reservation.Instances {
 			if instance.IamInstanceProfile == nil {
 				return nil, fmt.Errorf("instance %s has no IAM instance profile", aws.ToString(instance.InstanceId))
 			}
-			profiles[lastPathElement(aws.ToString(instance.IamInstanceProfile.Arn))] = struct{}{}
+			profiles.Insert(lastPathElement(aws.ToString(instance.IamInstanceProfile.Arn)))
 		}
 	}
-	return sortedKeys(profiles), nil
+	return sets.List(profiles), nil
 }
 
 // createBucket ensures the test bucket exists with versioning enabled.
@@ -533,10 +534,7 @@ func hasTag(tags []s3filestypes.Tag, key, value string) bool {
 
 // cleanupWorkloads returns sorted references to PVs and PVCs using the test infrastructure.
 func cleanupWorkloads(pvs []corev1.PersistentVolume, pvcs []corev1.PersistentVolumeClaim, fsIDs []string) []string {
-	fsIDSet := make(map[string]struct{}, len(fsIDs))
-	for _, fsID := range fsIDs {
-		fsIDSet[fsID] = struct{}{}
-	}
+	fsIDSet := sets.New(fsIDs...)
 	var workloads []string
 	for _, pv := range pvs {
 		if persistentVolumeUsesFileSystem(&pv, fsIDSet) {
@@ -553,7 +551,7 @@ func cleanupWorkloads(pvs []corev1.PersistentVolume, pvcs []corev1.PersistentVol
 }
 
 // persistentVolumeUsesFileSystem matches EFS CSI volume handles against the owned file systems.
-func persistentVolumeUsesFileSystem(pv *corev1.PersistentVolume, fsIDs map[string]struct{}) bool {
+func persistentVolumeUsesFileSystem(pv *corev1.PersistentVolume, fsIDs sets.Set[string]) bool {
 	if pv.Spec.CSI == nil || pv.Spec.CSI.Driver != efsCSIDriverName {
 		return false
 	}
@@ -616,12 +614,12 @@ func (c *s3FilesCreator) createMountTargets(ctx context.Context, fsID, groupID s
 	if err != nil {
 		return err
 	}
-	seen := map[string]bool{}
+	seen := sets.New[string]()
 	for _, target := range existing {
-		seen[aws.ToString(target.SubnetId)] = true
+		seen.Insert(aws.ToString(target.SubnetId))
 	}
 	for _, subnet := range subnets {
-		if seen[subnet] {
+		if seen.Has(subnet) {
 			continue
 		}
 		if _, err := c.s3files.CreateMountTarget(ctx, &s3files.CreateMountTargetInput{FileSystemId: aws.String(fsID), SubnetId: aws.String(subnet), SecurityGroups: []string{groupID}}); err != nil {

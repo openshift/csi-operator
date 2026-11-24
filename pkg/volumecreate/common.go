@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/openshift/csi-operator/assets"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kubeclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -136,15 +136,15 @@ func discoverNetwork(ctx context.Context, client *ec2.Client, nodes *corev1.Node
 		return nil, fmt.Errorf("no instances found for cluster nodes")
 	}
 	first := reservations[0].Instances[0]
-	subnetSet := map[string]struct{}{}
+	subnetSet := sets.New[string]()
 	for _, reservation := range reservations {
 		for _, instance := range reservation.Instances {
 			if singleZone == "" || aws.ToString(instance.Placement.AvailabilityZone) == singleZone {
-				subnetSet[aws.ToString(instance.SubnetId)] = struct{}{}
+				subnetSet.Insert(aws.ToString(instance.SubnetId))
 			}
 		}
 	}
-	if len(subnetSet) == 0 {
+	if subnetSet.Len() == 0 {
 		return nil, fmt.Errorf("no node subnets found in requested zone %q", singleZone)
 	}
 	vpcs, err := client.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{VpcIds: []string{aws.ToString(first.VpcId)}})
@@ -154,17 +154,7 @@ func discoverNetwork(ctx context.Context, client *ec2.Client, nodes *corev1.Node
 	if len(vpcs.Vpcs) != 1 {
 		return nil, fmt.Errorf("VPC %s not found", aws.ToString(first.VpcId))
 	}
-	return &networkInfo{vpcID: aws.ToString(first.VpcId), cidrBlock: aws.ToString(vpcs.Vpcs[0].CidrBlock), subnetIDs: sortedKeys(subnetSet), reservations: reservations}, nil
-}
-
-// sortedKeys returns the keys of a string set in deterministic order.
-func sortedKeys(set map[string]struct{}) []string {
-	keys := make([]string, 0, len(set))
-	for key := range set {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
+	return &networkInfo{vpcID: aws.ToString(first.VpcId), cidrBlock: aws.ToString(vpcs.Vpcs[0].CidrBlock), subnetIDs: sets.List(subnetSet), reservations: reservations}, nil
 }
 
 // clusterTag returns the ownership tag key for cluster-created resources.
