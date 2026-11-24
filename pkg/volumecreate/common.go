@@ -44,6 +44,13 @@ type genericCreator struct {
 	region    string
 }
 
+type Creator interface {
+	Init(ctx context.Context, kubeConfig *rest.Config, localCredentials bool) error
+	Create(ctx context.Context, singleZone string) error
+	Delete(ctx context.Context, force bool) error
+	Status(ctx context.Context) error
+}
+
 // newGenericCreator collects the cluster information and AWS clients shared by
 // the service-specific creators. Network discovery is deferred until needed.
 func newGenericCreator(ctx context.Context, kubeConfig *rest.Config, localCredentials bool) (*genericCreator, error) {
@@ -67,9 +74,11 @@ func newGenericCreator(ctx context.Context, kubeConfig *rest.Config, localCreden
 	if err != nil {
 		return nil, err
 	}
+
+	infraName := strings.ToLower(infra.Status.InfrastructureName)
 	return &genericCreator{
 		kube: kube, awsConfig: awsConfig, ec2: ec2.NewFromConfig(awsConfig),
-		infraName: infra.Status.InfrastructureName, region: infra.Status.PlatformStatus.AWS.Region,
+		infraName: infraName, region: infra.Status.PlatformStatus.AWS.Region,
 	}, nil
 }
 

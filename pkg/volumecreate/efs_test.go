@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,13 +14,6 @@ import (
 	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3files"
 )
-
-func TestRunEFSValidatesOperation(t *testing.T) {
-	err := RunEFS(context.Background(), nil, false, "", "unsupported")
-	if err == nil || !strings.Contains(err.Error(), "unsupported EFS operation") {
-		t.Fatalf("RunEFS() = %v, want unsupported operation error", err)
-	}
-}
 
 func TestCreatorRequestsPropagateContext(t *testing.T) {
 	for _, backend := range []string{"efs", "s3"} {
@@ -66,7 +58,7 @@ func TestEFSStatusWithoutResources(t *testing.T) {
 		genericCreator: &genericCreator{infraName: "test", ec2: ec2.NewFromConfig(cfg)},
 		efs:            awsefs.NewFromConfig(cfg),
 	}
-	if err := c.status(context.Background()); err != nil {
+	if err := c.Status(context.Background()); err != nil {
 		t.Fatalf("status() = %v", err)
 	}
 }

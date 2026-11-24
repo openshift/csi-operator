@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -18,6 +17,9 @@ func main() {
 
 func newCommand() *cobra.Command {
 	var useLocalAWSCredentials bool
+
+	efsCreator := volumecreate.NewEFSCreator()
+	s3Creator := volumecreate.NewS3FilesCreator()
 
 	cmd := &cobra.Command{
 		Use:   "volume-create",
@@ -36,8 +38,8 @@ func newCommand() *cobra.Command {
 		},
 	}
 	efs.AddCommand(
-		newCreateCommand("Create EFS volume", "Create a single-zone volume in given zone.", efsBackend{}, &useLocalAWSCredentials),
-		newStatusCommand("Show EFS infrastructure status for this cluster.", efsBackend{}, &useLocalAWSCredentials),
+		newCreateCommand("Create EFS volume", "Create a single-zone volume in given zone.", efsCreator, &useLocalAWSCredentials),
+		newStatusCommand("Show EFS infrastructure status for this cluster.", efsCreator, &useLocalAWSCredentials),
 	)
 
 	s3 := &cobra.Command{
@@ -48,32 +50,16 @@ func newCommand() *cobra.Command {
 		},
 	}
 	s3.AddCommand(
-		newCreateCommand("Create S3 Files infrastructure and write CSI test inputs.", "Create mount targets only for nodes in the given zone.", s3Backend{}, &useLocalAWSCredentials),
-		newDeleteCommand("Delete S3 Files infrastructure created for this cluster.", s3Backend{}, &useLocalAWSCredentials),
-		newStatusCommand("Show S3 Files infrastructure status for this cluster.", s3Backend{}, &useLocalAWSCredentials),
+		newCreateCommand("Create S3 Files infrastructure and write CSI test inputs.", "Create mount targets only for nodes in the given zone.", s3Creator, &useLocalAWSCredentials),
+		newDeleteCommand("Delete S3 Files infrastructure created for this cluster.", s3Creator, &useLocalAWSCredentials),
+		newStatusCommand("Show S3 Files infrastructure status for this cluster.", s3Creator, &useLocalAWSCredentials),
 	)
 
 	cmd.AddCommand(efs, s3)
 	return cmd
 }
 
-type operationBackend interface {
-	run(context.Context, *rest.Config, bool, string, bool, string) error
-}
-
-type efsBackend struct{}
-
-func (efsBackend) run(ctx context.Context, config *rest.Config, localCredentials bool, singleZone string, _ bool, operation string) error {
-	return volumecreate.RunEFS(ctx, config, localCredentials, singleZone, operation)
-}
-
-type s3Backend struct{}
-
-func (s3Backend) run(ctx context.Context, config *rest.Config, localCredentials bool, singleZone string, force bool, operation string) error {
-	return volumecreate.RunS3(ctx, config, localCredentials, singleZone, force, operation)
-}
-
-func newCreateCommand(description, singleZoneDescription string, backend operationBackend, useLocalAWSCredentials *bool) *cobra.Command {
+func newCreateCommand(description, singleZoneDescription string, creator volumecreate.Creator, useLocalAWSCredentials *bool) *cobra.Command {
 	var kubeconfig, singleZone string
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -85,7 +71,10 @@ func newCreateCommand(description, singleZoneDescription string, backend operati
 			if err != nil {
 				return err
 			}
-			return backend.run(cmd.Context(), config, *useLocalAWSCredentials, singleZone, false, "create")
+			if err := creator.Init(cmd.Context(), config, *useLocalAWSCredentials); err != nil {
+				return err
+			}
+			return creator.Create(cmd.Context(), singleZone)
 		},
 	}
 	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to the kubeconfig file.")
@@ -93,7 +82,7 @@ func newCreateCommand(description, singleZoneDescription string, backend operati
 	return cmd
 }
 
-func newDeleteCommand(description string, backend operationBackend, useLocalAWSCredentials *bool) *cobra.Command {
+func newDeleteCommand(description string, creator volumecreate.Creator, useLocalAWSCredentials *bool) *cobra.Command {
 	var kubeconfig string
 	var force bool
 	cmd := &cobra.Command{
@@ -106,7 +95,10 @@ func newDeleteCommand(description string, backend operationBackend, useLocalAWSC
 			if err != nil {
 				return err
 			}
-			return backend.run(cmd.Context(), config, *useLocalAWSCredentials, "", force, "delete")
+			if err := creator.Init(cmd.Context(), config, *useLocalAWSCredentials); err != nil {
+				return err
+			}
+			return creator.Delete(cmd.Context(), force)
 		},
 	}
 	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to the kubeconfig file.")
@@ -114,7 +106,7 @@ func newDeleteCommand(description string, backend operationBackend, useLocalAWSC
 	return cmd
 }
 
-func newStatusCommand(description string, backend operationBackend, useLocalAWSCredentials *bool) *cobra.Command {
+func newStatusCommand(description string, creator volumecreate.Creator, useLocalAWSCredentials *bool) *cobra.Command {
 	var kubeconfig string
 	cmd := &cobra.Command{
 		Use:   "status",
@@ -126,7 +118,10 @@ func newStatusCommand(description string, backend operationBackend, useLocalAWSC
 			if err != nil {
 				return err
 			}
-			return backend.run(cmd.Context(), config, *useLocalAWSCredentials, "", false, "status")
+			if err := creator.Init(cmd.Context(), config, *useLocalAWSCredentials); err != nil {
+				return err
+			}
+			return creator.Status(cmd.Context())
 		},
 	}
 	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to the kubeconfig file.")

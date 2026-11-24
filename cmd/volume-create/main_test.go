@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/openshift/csi-operator/pkg/volumecreate"
 	"k8s.io/client-go/rest"
 )
 
@@ -106,7 +107,7 @@ func TestOperationFlagsAreLimitedToTheirCommands(t *testing.T) {
 	}
 }
 
-type recordingBackend struct {
+type recordingCreator struct {
 	config     *rest.Config
 	ctx        context.Context
 	local      bool
@@ -115,9 +116,29 @@ type recordingBackend struct {
 	operation  string
 }
 
-func (b *recordingBackend) run(ctx context.Context, config *rest.Config, local bool, singleZone string, force bool, operation string) error {
+var _ volumecreate.Creator = &recordingCreator{}
+
+func (b *recordingCreator) Init(ctx context.Context, config *rest.Config, local bool) error {
 	b.config = config
-	b.ctx, b.local, b.singleZone, b.force, b.operation = ctx, local, singleZone, force, operation
+	b.ctx = ctx
+	b.local = local
+	return nil
+}
+
+func (b *recordingCreator) Create(ctx context.Context, singleZone string) error {
+	b.singleZone = singleZone
+	b.operation = "create"
+	return ctx.Err()
+}
+
+func (b *recordingCreator) Delete(ctx context.Context, force bool) error {
+	b.force = force
+	b.operation = "delete"
+	return ctx.Err()
+}
+
+func (b *recordingCreator) Status(ctx context.Context) error {
+	b.operation = "status"
 	return ctx.Err()
 }
 
@@ -144,7 +165,7 @@ func TestOperationKubeconfigDiscovery(t *testing.T) {
 		{name: "missing explicit file does not fall back", args: []string{"--kubeconfig", filepath.Join(t.TempDir(), "missing")}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			backend := &recordingBackend{}
+			backend := &recordingCreator{}
 			local := false
 			cmd := newStatusCommand("test", backend, &local)
 			cmd.SetArgs(test.args)
@@ -173,7 +194,7 @@ func TestCreateCommandDispatchesSingleZone(t *testing.T) {
 	if err := os.WriteFile(configPath, []byte("apiVersion: v1\nclusters:\n- cluster:\n    server: https://example.invalid\n  name: test\ncontexts:\n- context:\n    cluster: test\n    user: test\n  name: test\ncurrent-context: test\nkind: Config\nusers:\n- name: test\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	backend := &recordingBackend{}
+	backend := &recordingCreator{}
 	localCredentials := false
 	cmd := newCreateCommand("test", "zone", backend, &localCredentials)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -190,7 +211,7 @@ func TestCreateCommandDispatchesSingleZone(t *testing.T) {
 
 func TestDeleteCommandDispatchesForce(t *testing.T) {
 	configPath := writeKubeconfig(t, "https://example.invalid")
-	backend := &recordingBackend{}
+	backend := &recordingCreator{}
 	localCredentials := false
 	cmd := newDeleteCommand("test", backend, &localCredentials)
 	cmd.SetArgs([]string{"--kubeconfig", configPath, "--force"})
@@ -204,7 +225,7 @@ func TestDeleteCommandDispatchesForce(t *testing.T) {
 
 func TestStatusCommandForwardsLocalCredentials(t *testing.T) {
 	configPath := writeKubeconfig(t, "https://example.invalid")
-	backend := &recordingBackend{}
+	backend := &recordingCreator{}
 	localCredentials := true
 	cmd := newStatusCommand("test", backend, &localCredentials)
 	cmd.SetArgs([]string{"--kubeconfig", configPath})

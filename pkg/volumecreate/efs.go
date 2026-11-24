@@ -2,6 +2,7 @@ package volumecreate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -35,26 +36,21 @@ type efsCreator struct {
 	fsID      string
 }
 
-// RunEFS creates or reports the status of EFS test infrastructure. It intentionally has no delete operation.
-func RunEFS(ctx context.Context, kubeConfig *rest.Config, localCredentials bool, singleZone, operation string) error {
-	if operation != "create" && operation != "status" {
-		return fmt.Errorf("unsupported EFS operation %q: use create or status", operation)
-	}
-	base, err := newGenericCreator(ctx, kubeConfig, localCredentials)
+func NewEFSCreator() Creator {
+	return &efsCreator{}
+}
+
+func (c *efsCreator) Init(ctx context.Context, kubeConfig *rest.Config, localCredentials bool) error {
+	var err error
+	c.genericCreator, err = newGenericCreator(ctx, kubeConfig, localCredentials)
 	if err != nil {
 		return err
 	}
-	c := &efsCreator{genericCreator: base, efs: awsefs.NewFromConfig(base.awsConfig)}
-	if operation == "status" {
-		return c.status(ctx)
-	}
-	if err := c.create(ctx, singleZone); err != nil {
-		return err
-	}
-	return c.writeTestInputs(singleZone)
+	c.efs = awsefs.NewFromConfig(c.genericCreator.awsConfig)
+	return nil
 }
 
-func (c *efsCreator) create(ctx context.Context, singleZone string) error {
+func (c *efsCreator) Create(ctx context.Context, singleZone string) error {
 	nodes, err := c.kube.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("list cluster nodes: %w", err)
@@ -80,6 +76,8 @@ func (c *efsCreator) create(ctx context.Context, singleZone string) error {
 		return fmt.Errorf("waiting for mount targets to be available failed: %w", err)
 	}
 	klog.Infof("successfully created file system %s", c.fsID)
+
+	c.writeTestInputs(singleZone)
 	return nil
 }
 
@@ -165,7 +163,7 @@ func efsBackoff() wait.Backoff {
 	return wait.Backoff{Duration: efsWaitInitialDelay, Factor: efsWaitBackoffFactor, Steps: efsWaitSteps}
 }
 
-func (c *efsCreator) status(ctx context.Context) error {
+func (c *efsCreator) Status(ctx context.Context) error {
 	fileSystems, err := c.ownedFileSystems(ctx)
 	if err != nil {
 		return err
@@ -243,4 +241,8 @@ func (c *efsCreator) writeTestInputs(singleZone string) error {
 		return err
 	}
 	return writeAsset("overlays/aws-efs/testing/manifest.yaml", manifestLocation, map[string]string{"${storageclassname}": efsStorageClassName})
+}
+
+func (c *efsCreator) Delete(ctx context.Context, force bool) error {
+	return errors.New("delete operation not implemented for EFS")
 }

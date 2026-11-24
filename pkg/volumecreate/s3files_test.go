@@ -88,13 +88,6 @@ func TestInstanceProfileNamesIncludesEveryNodeRole(t *testing.T) {
 	}
 }
 
-func TestRunS3RejectsUnsupportedOperation(t *testing.T) {
-	err := RunS3(context.Background(), nil, false, "", false, "unsupported")
-	if err == nil || !strings.Contains(err.Error(), "unsupported operation") {
-		t.Fatalf("RunS3() = %v, want unsupported operation error", err)
-	}
-}
-
 func TestCleanupWorkloads(t *testing.T) {
 	className := storageClassName
 	workloads := cleanupWorkloads(

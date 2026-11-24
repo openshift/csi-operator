@@ -72,37 +72,28 @@ type s3FilesCreator struct {
 	policy  string
 }
 
-// RunS3 performs the requested operation on the S3 Files test infrastructure.
-func RunS3(ctx context.Context, kubeConfig *rest.Config, localCredentials bool, singleZone string, force bool, operation string) error {
-	if operation != "create" && operation != "status" && operation != "delete" {
-		return fmt.Errorf("unsupported operation %q: use create, status, or delete", operation)
-	}
+func NewS3FilesCreator() Creator {
+	return &s3FilesCreator{}
+}
+
+func (c *s3FilesCreator) Init(ctx context.Context, kubeConfig *rest.Config, localCredentials bool) error {
 	base, err := newGenericCreator(ctx, kubeConfig, localCredentials)
 	if err != nil {
 		return err
 	}
-	// Names are derived from the infrastructure ID so cleanup can identify
-	// only resources belonging to this cluster's S3 Files test environment.
-	base.infraName = strings.ToLower(base.infraName)
-	name := base.infraName
-	c := &s3FilesCreator{
-		genericCreator: base,
-		iam:            iam.NewFromConfig(base.awsConfig), s3: s3.NewFromConfig(base.awsConfig), s3files: s3files.NewFromConfig(base.awsConfig), sts: sts.NewFromConfig(base.awsConfig),
-		bucket: boundedName(name+"-s3files", 63), role: boundedName(name+"-s3files-role", 64),
-		group: boundedName(name+"-s3files-sg", 255), policy: boundedName(name+directReadPolicySuffix, 128),
-	}
-	switch operation {
-	case "delete":
-		return c.cleanup(ctx, force)
-	case "status":
-		return c.status(ctx)
-	default:
-		return c.create(ctx, singleZone)
-	}
+	c.genericCreator = base
+	c.iam = iam.NewFromConfig(base.awsConfig)
+	c.s3 = s3.NewFromConfig(base.awsConfig)
+	c.s3files = s3files.NewFromConfig(base.awsConfig)
+	c.sts = sts.NewFromConfig(base.awsConfig)
+	c.bucket = boundedName(c.infraName+"-s3files", 63)
+	c.role = boundedName(c.infraName+"-s3files-role", 64)
+	c.group = boundedName(c.infraName+"-s3files-sg", 255)
+	c.policy = boundedName(c.infraName+directReadPolicySuffix, 128)
+	return nil
 }
 
-// create creates or reuses the test infrastructure before writing the CSI test inputs.
-func (c *s3FilesCreator) create(ctx context.Context, singleZone string) error {
+func (c *s3FilesCreator) Create(ctx context.Context, singleZone string) error {
 	account, err := c.accountID(ctx)
 	if err != nil {
 		return err
@@ -158,7 +149,7 @@ func (c *s3FilesCreator) create(ctx context.Context, singleZone string) error {
 }
 
 // cleanup removes the test infrastructure after checking for workloads unless forced.
-func (c *s3FilesCreator) cleanup(ctx context.Context, force bool) error {
+func (c *s3FilesCreator) Delete(ctx context.Context, force bool) error {
 	fsIDs, err := c.fileSystems(ctx)
 	if err != nil {
 		return err
@@ -190,7 +181,7 @@ func (c *s3FilesCreator) cleanup(ctx context.Context, force bool) error {
 
 // status reports only resources whose deterministic name and ownership tag
 // identify them as belonging to this cluster's test environment.
-func (c *s3FilesCreator) status(ctx context.Context) error {
+func (c *s3FilesCreator) Status(ctx context.Context) error {
 	klog.Infof("S3 Files status for cluster infrastructure %q", c.infraName)
 
 	if err := c.statusBucket(ctx); err != nil {
