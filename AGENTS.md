@@ -2,7 +2,7 @@ This file provides guidance to AI agents when working with code in this reposito
 
 This is the OpenShift CSI Operator monorepo - a consolidated repository containing multiple CSI (Container Storage Interface) driver operators for OpenShift. It contains:
 
-- Multiple CSI driver operators (AWS EBS/EFS, Azure Disk/File, OpenStack Cinder/Manila, Samba)
+- Multiple CSI driver operators (AWS EBS/EFS, Azure Disk/File, GCP PD, OpenStack Cinder/Manila, Samba)
 - Asset generation system for Kubernetes manifests
 - Shared operator controller infrastructure
 - Support for both Standalone and HyperShift cluster deployments
