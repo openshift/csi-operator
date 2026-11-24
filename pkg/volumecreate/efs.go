@@ -73,7 +73,9 @@ func (c *efsCreator) Create(ctx context.Context, singleZone string) error {
 	}
 	klog.Infof("successfully created file system %s", c.fsID)
 
-	c.writeTestInputs(singleZone)
+	if err := c.writeTestInputs(singleZone); err != nil {
+		return err
+	}
 	return nil
 }
 
