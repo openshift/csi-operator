@@ -3,14 +3,12 @@ package volumecreate
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -292,21 +290,5 @@ func TestDeleteBucketObjectErrors(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("expected error containing %q, got %v", want, err)
 		}
-	}
-}
-
-// TestWaitCancellation ensures cancellation interrupts even a long polling delay.
-func TestWaitCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- waitForContext(ctx, time.Hour) }()
-	cancel()
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("wait() = %v, want context.Canceled", err)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("wait did not stop on cancellation")
 	}
 }

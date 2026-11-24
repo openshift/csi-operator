@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -27,7 +28,15 @@ import (
 const (
 	awsCredentialsNamespace = "kube-system"
 	awsCredentialsName      = "aws-creds"
+	// ~10 minutes in total, longest gap 1m51s
+	backoffWaitInitialDelay  = 5 * time.Second
+	backoffWaitBackoffFactor = 1.2
+	backoffWaitSteps         = 19
 )
+
+func defaultBackoff() wait.Backoff {
+	return wait.Backoff{Duration: backoffWaitInitialDelay, Factor: backoffWaitBackoffFactor, Steps: backoffWaitSteps}
+}
 
 type networkInfo struct {
 	vpcID        string
@@ -201,18 +210,6 @@ func boundedName(name string, limit int) string {
 		return name[:limit]
 	}
 	return name
-}
-
-// waitForContext preserves a polling interval while allowing cancellation to stop it immediately.
-func waitForContext(ctx context.Context, delay time.Duration) error {
-	timer := time.NewTimer(delay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
 }
 
 // isIAMPropagationError retries only explicit role visibility or propagation failures.

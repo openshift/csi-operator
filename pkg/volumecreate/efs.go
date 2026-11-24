@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -21,9 +20,6 @@ const (
 	efsStorageClassName  = "efs-sc"
 	efsVolumeNameFormat  = "%s-efs"
 	efsSecurityGroupName = "%s-sg"
-	efsWaitInitialDelay  = 5 * time.Second
-	efsWaitBackoffFactor = 1.2
-	efsWaitSteps         = 10
 )
 
 type efsCreator struct {
@@ -132,7 +128,7 @@ func (c *efsCreator) createMountTargets(ctx context.Context) error {
 }
 
 func (c *efsCreator) waitForFileSystem(ctx context.Context, id string) error {
-	return wait.ExponentialBackoffWithContext(ctx, efsBackoff(), func(ctx context.Context) (bool, error) {
+	return wait.ExponentialBackoffWithContext(ctx, defaultBackoff(), func(ctx context.Context) (bool, error) {
 		result, err := c.efs.DescribeFileSystems(ctx, &awsefs.DescribeFileSystemsInput{FileSystemId: aws.String(id)})
 		if err != nil {
 			return false, err
@@ -142,7 +138,7 @@ func (c *efsCreator) waitForFileSystem(ctx context.Context, id string) error {
 }
 
 func (c *efsCreator) waitForMountTargets(ctx context.Context) error {
-	return wait.ExponentialBackoffWithContext(ctx, efsBackoff(), func(ctx context.Context) (bool, error) {
+	return wait.ExponentialBackoffWithContext(ctx, defaultBackoff(), func(ctx context.Context) (bool, error) {
 		result, err := c.efs.DescribeMountTargets(ctx, &awsefs.DescribeMountTargetsInput{FileSystemId: aws.String(c.fsID)})
 		if err != nil {
 			return false, err
@@ -157,10 +153,6 @@ func (c *efsCreator) waitForMountTargets(ctx context.Context) error {
 		}
 		return true, nil
 	})
-}
-
-func efsBackoff() wait.Backoff {
-	return wait.Backoff{Duration: efsWaitInitialDelay, Factor: efsWaitBackoffFactor, Steps: efsWaitSteps}
 }
 
 func (c *efsCreator) Status(ctx context.Context) error {

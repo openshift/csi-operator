@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
@@ -37,8 +38,6 @@ const (
 	directReadPolicySuffix  = "-s3files-direct-read"
 	serviceBucketPolicyName = "S3FilesBucketAccess"
 	clusterTagFormat        = "kubernetes.io/cluster/%s"
-	resourceWaitInterval    = 10 * time.Second
-	resourceWaitTimeout     = 10 * time.Minute
 )
 
 var managedPolicies = map[string][]string{
@@ -434,18 +433,25 @@ func (c *s3FilesCreator) createFileSystem(ctx context.Context, roleARN string) (
 		Tags: []s3filestypes.Tag{{Key: aws.String("Name"), Value: aws.String(boundedName(c.infraName+"-s3files", 256))}, {Key: aws.String(fmt.Sprintf(clusterTagFormat, c.infraName)), Value: aws.String("owned")}},
 	}
 	var result *s3files.CreateFileSystemOutput
-	for attempt, delay := 0, 2*time.Second; ; attempt++ {
-		result, err = c.s3files.CreateFileSystem(ctx, input)
-		if err == nil {
-			break
+	var createErr error
+	// IAM policy propagation can lag role creation, so retry with exponential
+	// backoff before giving up on the file system.
+	backoff := wait.Backoff{Duration: 2 * time.Second, Factor: 2, Cap: 30 * time.Second, Steps: 6}
+	err = wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
+		result, createErr = c.s3files.CreateFileSystem(ctx, input)
+		if createErr == nil {
+			return true, nil
 		}
-		if attempt == 5 || !isIAMPropagationError(err) {
-			return "", fmt.Errorf("create S3 Files file system: %w", err)
+		if !isIAMPropagationError(createErr) {
+			return false, fmt.Errorf("create S3 Files file system: %w", createErr)
 		}
-		if err := waitForContext(ctx, delay); err != nil {
-			return "", err
-		}
-		delay = min(delay*2, 30*time.Second)
+		return false, nil
+	})
+	if errors.Is(err, wait.ErrWaitTimeout) {
+		return "", fmt.Errorf("create S3 Files file system: %w", createErr)
+	}
+	if err != nil {
+		return "", err
 	}
 	return aws.ToString(result.FileSystemId), c.waitForFileSystem(ctx, aws.ToString(result.FileSystemId), s3filestypes.LifeCycleStateAvailable)
 }
@@ -565,23 +571,23 @@ func persistentVolumeUsesFileSystem(pv *corev1.PersistentVolume, fsIDs sets.Set[
 
 // waitForFileSystem waits for the requested state, stopping on failure, cancellation or timeout.
 func (c *s3FilesCreator) waitForFileSystem(ctx context.Context, id string, want s3filestypes.LifeCycleState) error {
-	deadline := time.Now().Add(resourceWaitTimeout)
-	for time.Now().Before(deadline) {
+	err := wait.ExponentialBackoffWithContext(ctx, defaultBackoff(), func(ctx context.Context) (bool, error) {
 		result, err := c.s3files.GetFileSystem(ctx, &s3files.GetFileSystemInput{FileSystemId: aws.String(id)})
 		if err != nil {
-			return fmt.Errorf("get S3 Files file system %s: %w", id, err)
+			return false, fmt.Errorf("get S3 Files file system %s: %w", id, err)
 		}
 		if result.Status == want {
-			return nil
+			return true, nil
 		}
 		if result.Status == s3filestypes.LifeCycleStateError {
-			return fmt.Errorf("S3 Files file system %s failed: %s", id, aws.ToString(result.StatusMessage))
+			return false, fmt.Errorf("S3 Files file system %s failed: %s", id, aws.ToString(result.StatusMessage))
 		}
-		if err := waitForContext(ctx, resourceWaitInterval); err != nil {
-			return err
-		}
+		return false, nil
+	})
+	if errors.Is(err, wait.ErrWaitTimeout) {
+		return fmt.Errorf("timed out waiting for S3 Files file system %s to become %s", id, want)
 	}
-	return fmt.Errorf("timed out waiting for S3 Files file system %s to become %s", id, want)
+	return err
 }
 
 // createSecurityGroup ensures a tagged security group exists and repairs missing NFS ingress.
@@ -633,35 +639,28 @@ func (c *s3FilesCreator) createMountTargets(ctx context.Context, fsID, groupID s
 
 // waitForMountTargets waits for the expected number of available endpoints.
 func (c *s3FilesCreator) waitForMountTargets(ctx context.Context, fsID string, count int) error {
-	deadline := time.Now().Add(resourceWaitTimeout)
-	for time.Now().Before(deadline) {
+	err := wait.ExponentialBackoffWithContext(ctx, defaultBackoff(), func(ctx context.Context) (bool, error) {
 		result, err := c.mountTargets(ctx, fsID)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if len(result) < count {
-			if err := waitForContext(ctx, resourceWaitInterval); err != nil {
-				return err
-			}
-			continue
+			return false, nil
 		}
-		available := true
 		for _, target := range result {
 			if target.Status == s3filestypes.LifeCycleStateError {
-				return fmt.Errorf("S3 Files mount target failed: %s", aws.ToString(target.StatusMessage))
+				return false, fmt.Errorf("S3 Files mount target failed: %s", aws.ToString(target.StatusMessage))
 			}
 			if target.Status != s3filestypes.LifeCycleStateAvailable {
-				available = false
+				return false, nil
 			}
 		}
-		if available {
-			return nil
-		}
-		if err := waitForContext(ctx, resourceWaitInterval); err != nil {
-			return err
-		}
+		return true, nil
+	})
+	if errors.Is(err, wait.ErrWaitTimeout) {
+		return fmt.Errorf("timed out waiting for mount targets of S3 Files file system %s", fsID)
 	}
-	return fmt.Errorf("timed out waiting for mount targets of S3 Files file system %s", fsID)
+	return err
 }
 
 // userForSecret resolves the IAM user owning the access key in a driver credential secret.
@@ -754,38 +753,35 @@ func (c *s3FilesCreator) deleteFileSystem(ctx context.Context, fsID string) erro
 	if _, err := c.s3files.DeleteFileSystem(ctx, &s3files.DeleteFileSystemInput{FileSystemId: aws.String(fsID), ForceDelete: aws.Bool(true)}); err != nil {
 		return err
 	}
-	deadline := time.Now().Add(resourceWaitTimeout)
-	for time.Now().Before(deadline) {
+	err = wait.ExponentialBackoffWithContext(ctx, defaultBackoff(), func(ctx context.Context) (bool, error) {
 		result, err := c.s3files.GetFileSystem(ctx, &s3files.GetFileSystemInput{FileSystemId: aws.String(fsID)})
 		if isNotFound(err) || result != nil && result.Status == s3filestypes.LifeCycleStateDeleted {
-			return nil
+			return true, nil
 		}
 		if err != nil {
-			return fmt.Errorf("get S3 Files file system %s during deletion: %w", fsID, err)
+			return false, fmt.Errorf("get S3 Files file system %s during deletion: %w", fsID, err)
 		}
-		if err := waitForContext(ctx, resourceWaitInterval); err != nil {
-			return err
-		}
+		return false, nil
+	})
+	if errors.Is(err, wait.ErrWaitTimeout) {
+		return fmt.Errorf("timed out waiting for S3 Files file system %s to be deleted", fsID)
 	}
-	return fmt.Errorf("timed out waiting for S3 Files file system %s to be deleted", fsID)
+	return err
 }
 
 // waitForMountTargetsDeleted waits until no endpoints remain for the file system.
 func (c *s3FilesCreator) waitForMountTargetsDeleted(ctx context.Context, fsID string) error {
-	deadline := time.Now().Add(resourceWaitTimeout)
-	for time.Now().Before(deadline) {
+	err := wait.ExponentialBackoffWithContext(ctx, defaultBackoff(), func(ctx context.Context) (bool, error) {
 		targets, err := c.mountTargets(ctx, fsID)
 		if err != nil {
-			return err
+			return false, err
 		}
-		if len(targets) == 0 {
-			return nil
-		}
-		if err := waitForContext(ctx, resourceWaitInterval); err != nil {
-			return err
-		}
+		return len(targets) == 0, nil
+	})
+	if errors.Is(err, wait.ErrWaitTimeout) {
+		return fmt.Errorf("timed out waiting for mount targets of S3 Files file system %s to be deleted", fsID)
 	}
-	return fmt.Errorf("timed out waiting for mount targets of S3 Files file system %s to be deleted", fsID)
+	return err
 }
 
 // deleteSecurityGroup removes the helper security group if it exists.
