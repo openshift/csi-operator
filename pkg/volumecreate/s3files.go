@@ -310,7 +310,7 @@ func (c *s3FilesCreator) statusWorkloads(ctx context.Context, fsIDs []string) er
 	if err != nil {
 		return fmt.Errorf("list persistent volume claims for status: %w", err)
 	}
-	workloads := cleanupWorkloads(pvs.Items, pvcs.Items, fsIDs)
+	workloads := checkWorkloads(pvs.Items, pvcs.Items, fsIDs)
 	if len(workloads) == 0 {
 		klog.Infof("S3 Files Kubernetes PV/PVC workloads: absent")
 		return nil
@@ -515,7 +515,7 @@ func (c *s3FilesCreator) ensureNoWorkloads(ctx context.Context, fsIDs []string) 
 	if err != nil {
 		return fmt.Errorf("list persistent volume claims before cleanup: %w", err)
 	}
-	workloads := cleanupWorkloads(pvs.Items, pvcs.Items, fsIDs)
+	workloads := checkWorkloads(pvs.Items, pvcs.Items, fsIDs)
 	if len(workloads) == 0 {
 		return nil
 	}
@@ -532,8 +532,8 @@ func hasTag(tags []s3filestypes.Tag, key, value string) bool {
 	return false
 }
 
-// cleanupWorkloads returns sorted references to PVs and PVCs using the test infrastructure.
-func cleanupWorkloads(pvs []corev1.PersistentVolume, pvcs []corev1.PersistentVolumeClaim, fsIDs []string) []string {
+// checkWorkloads returns sorted references to PVs and PVCs using the test infrastructure.
+func checkWorkloads(pvs []corev1.PersistentVolume, pvcs []corev1.PersistentVolumeClaim, fsIDs []string) []string {
 	fsIDSet := sets.New(fsIDs...)
 	var workloads []string
 	for _, pv := range pvs {

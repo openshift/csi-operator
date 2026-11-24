@@ -90,7 +90,7 @@ func TestInstanceProfileNamesIncludesEveryNodeRole(t *testing.T) {
 
 func TestCleanupWorkloads(t *testing.T) {
 	className := storageClassName
-	workloads := cleanupWorkloads(
+	workloads := checkWorkloads(
 		[]corev1.PersistentVolume{
 			{ObjectMeta: metav1.ObjectMeta{Name: "s3files-pv"}, Spec: corev1.PersistentVolumeSpec{PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: efsCSIDriverName, VolumeHandle: "s3files:fs-target:/access-point"}}}},
 			{ObjectMeta: metav1.ObjectMeta{Name: "other-driver"}, Spec: corev1.PersistentVolumeSpec{PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: "other.csi.example", VolumeHandle: "s3files:fs-target"}}}},
