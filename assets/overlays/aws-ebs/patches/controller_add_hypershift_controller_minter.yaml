@@ -1,10 +1,7 @@
 spec:
   template:
     spec:
-      containers:
-        # Explicitly mention csi-driver container so the minter is appended after it
-        - name: csi-driver
-
+      initContainers:
         - name: token-minter
           securityContext:
             readOnlyRootFilesystem: true
@@ -23,6 +20,15 @@ spec:
             requests:
               cpu: 10m
               memory: 10Mi
+          restartPolicy: Always
+          startupProbe:
+            exec:
+              command:
+              - test
+              - -f
+              - /var/run/secrets/openshift/serviceaccount/token
+            failureThreshold: 60
+            periodSeconds: 1
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
           - mountPath: /var/run/secrets/openshift/serviceaccount
