@@ -10,6 +10,7 @@ Lifecycle Manager (OLM).
 * aws-efs-csi-driver-operator
 * azure-disk-csi-driver-operator
 * azure-file-csi-driver-operator
+* gcp-pd-csi-driver-operator
 * openstack-cinder-csi-driver-operator
 * openstack-manila-csi-driver-operator
 * smb-csi-driver-operator
