@@ -432,31 +432,6 @@ spec:
         volumeMounts:
         - mountPath: /csi
           name: socket-dir
-      - args:
-        - --service-account-namespace=openshift-cluster-csi-drivers
-        - --service-account-name=aws-ebs-csi-driver-controller-sa
-        - --token-audience=openshift
-        - --token-file=/var/run/secrets/openshift/serviceaccount/token
-        - --kubeconfig=/etc/hosted-kubernetes/kubeconfig
-        command:
-        - /usr/bin/control-plane-operator
-        - token-minter
-        image: ${HYPERSHIFT_IMAGE}
-        imagePullPolicy: IfNotPresent
-        name: token-minter
-        resources:
-          requests:
-            cpu: 10m
-            memory: 10Mi
-        securityContext:
-          readOnlyRootFilesystem: true
-        terminationMessagePolicy: FallbackToLogsOnError
-        volumeMounts:
-        - mountPath: /var/run/secrets/openshift/serviceaccount
-          name: bound-sa-token
-        - mountPath: /etc/hosted-kubernetes
-          name: hosted-kubeconfig
-          readOnly: true
       initContainers:
       - command:
         - sh
@@ -499,6 +474,40 @@ spec:
           readOnly: true
         - mountPath: /var/run/aws/auth
           name: aws-auth
+      - args:
+        - --service-account-namespace=openshift-cluster-csi-drivers
+        - --service-account-name=aws-ebs-csi-driver-controller-sa
+        - --token-audience=openshift
+        - --token-file=/var/run/secrets/openshift/serviceaccount/token
+        - --kubeconfig=/etc/hosted-kubernetes/kubeconfig
+        command:
+        - /usr/bin/control-plane-operator
+        - token-minter
+        image: ${HYPERSHIFT_IMAGE}
+        imagePullPolicy: IfNotPresent
+        name: token-minter
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        restartPolicy: Always
+        securityContext:
+          readOnlyRootFilesystem: true
+        startupProbe:
+          exec:
+            command:
+            - test
+            - -f
+            - /var/run/secrets/openshift/serviceaccount/token
+          failureThreshold: 60
+          periodSeconds: 1
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /var/run/secrets/openshift/serviceaccount
+          name: bound-sa-token
+        - mountPath: /etc/hosted-kubernetes
+          name: hosted-kubeconfig
+          readOnly: true
       priorityClassName: hypershift-control-plane
       serviceAccountName: aws-ebs-csi-driver-controller-sa
       tolerations:
